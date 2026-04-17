@@ -1,121 +1,94 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useState } from 'react';
+import Sidebar from './components/layout/Sidebar';
+import TopBar from './components/layout/TopBar';
+import MetricCard from './components/dashboard/MetricCard';
+import PriceChart from './components/dashboard/PriceChart';
+import TrendingPanel from './components/dashboard/TrendingPanel.jsx';
+import MarketTable from './components/dashboard/MarketTable';
+import { useMarketData } from './hooks/useMarketData';
+import { navItems, user } from './data/mockData';
+import { colors, themes } from './styles/tokens.jsx';
 
-function App() {
-  const [count, setCount] = useState(0)
+const MEDIA_QUERY = '(prefers-color-scheme: dark)';
 
-  return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+function getSystemTheme() {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return 'dark';
+  }
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+  return window.matchMedia(MEDIA_QUERY).matches ? 'dark' : 'light';
 }
 
-export default App
+export default function App() {
+  const { metrics, chartData, featuredCoin, trendingCoins, assets } = useMarketData();
+  const [themeMode, setThemeMode] = useState(getSystemTheme);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia(MEDIA_QUERY);
+    const handleChange = (event) => {
+      setThemeMode(event.matches ? 'dark' : 'light');
+    };
+
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
+
+  useEffect(() => {
+    const palette = themes[themeMode];
+    const root = document.documentElement;
+
+    Object.entries(palette).forEach(([token, value]) => {
+      const cssToken = token.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+      root.style.setProperty(`--color-${cssToken}`, value);
+    });
+
+    root.style.colorScheme = themeMode;
+    document.body.style.backgroundColor = palette.bgBase;
+    document.body.style.color = palette.textPrimary;
+  }, [themeMode]);
+
+  const handleToggleTheme = () => {
+    setThemeMode((currentMode) => (currentMode === 'dark' ? 'light' : 'dark'));
+  };
+
+  return (
+    <div style={{ display: 'flex', background: colors.bgBase, minHeight: '100vh', fontFamily: 'system-ui, sans-serif' }}>
+      {/* Sidebar */}
+      <Sidebar items={navItems} />
+
+      {/* Main */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <TopBar user={user} themeMode={themeMode} onToggleTheme={handleToggleTheme} />
+
+        <main style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Page title */}
+          <div>
+            <h1 style={{ fontSize: '22px', fontWeight: 700, color: colors.textPrimary, margin: 0 }}>
+              Market Dashboard
+            </h1>
+            <p style={{ fontSize: '12px', color: colors.textMuted, margin: '4px 0 0' }}>
+              Live market feed · Last updated 2 mins ago
+            </p>
+          </div>
+
+          {/* Metric cards row */}
+          <div style={{ display: 'flex', gap: 12 }}>
+            {metrics.map((m) => (
+              <MetricCard key={m.id} icon={m.icon} label={m.label} value={m.value} change={m.change} badge={m.badge} />
+            ))}
+          </div>
+
+          {/* Chart + Trending row */}
+          <div style={{ display: 'flex', gap: 12 }}>
+            <PriceChart coin={featuredCoin} data={chartData} />
+            <TrendingPanel coins={trendingCoins} />
+          </div>
+
+          {/* Market table */}
+          <MarketTable assets={assets} />
+        </main>
+      </div>
+    </div>
+  );
+}
