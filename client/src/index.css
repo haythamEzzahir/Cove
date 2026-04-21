@@ -1,16 +1,66 @@
+/* ══════════════════════════════════════════════
+   BASE RESET
+   ══════════════════════════════════════════════ */
 html,
 body,
 #root {
   margin: 0;
   padding: 0;
   width: 100%;
-  min-height: 100%;
-}
-
-body {
-  transition: background-color 0.2s ease, color 0.2s ease;
+  height: 100%;
 }
 
 * {
   box-sizing: border-box;
 }
+
+/* ══════════════════════════════════════════════
+   THÈME — valeurs par défaut (dark)
+   Écrasées immédiatement par applyTheme() dans
+   SettingsContext au montage. Ces fallbacks évitent
+   un flash blanc avant le premier render.
+   ══════════════════════════════════════════════ */
+:root {
+  --color-bg-base:        #0d1117;
+  --color-bg-surface:     #161b22;
+  --color-bg-overlay:     #1c2128;
+  --color-border-subtle:  #21262d;
+  --color-border-default: #30363d;
+  --color-border-strong:  #484f58;
+  --color-text-primary:   #e6edf3;
+  --color-text-secondary: #c9d1d9;
+  --color-text-muted:     #7d8590;
+  --color-blue:           #3b82f6;
+  --color-blue-dim:       #1f6feb;
+  --color-green:          #3fb950;
+  --color-green-bg:       rgba(35, 134, 54, 0.2);
+  --color-red:            #f85149;
+  --color-red-bg:         rgba(248, 81, 73, 0.2);
+  --color-yellow:         #d29922;
+  --color-yellow-bg:      rgba(187, 128, 9, 0.2);
+
+  color-scheme: dark;
+}
+
+/* ══════════════════════════════════════════════
+   LAYOUT GLOBAL
+   ══════════════════════════════════════════════ */
+body {
+  background-color: var(--color-bg-base);
+  color: var(--color-text-primary);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  /* PAS de transition sur body : c'est elle qui cause le décalage
+     entre sidebar (JS immédiat) et body (CSS delayed) */
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ══════════════════════════════════════════════
+   COMPACT VIEW
+   ══════════════════════════════════════════════ */
+body.compact-mode .setting-item  { padding: 10px 16px; }
+body.compact-mode .profile-card  { padding: 12px 16px; }
+body.compact-mode main           { gap: 8px !important; padding: 16px !important; }
