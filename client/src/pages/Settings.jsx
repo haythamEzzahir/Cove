@@ -18,12 +18,7 @@ function Settings() {
 
   return (
     <div className="settings-wrapper">
-      <div className="settings-topbar">
-        <div className="settings-title-block">
-          <h1>Settings</h1>
-          <p>Preferences</p>
-        </div>
-      </div>
+      <p>Manage your preferences and account settings.</p>
 
       <SettingsSection title="Profile">
         <ProfileCard

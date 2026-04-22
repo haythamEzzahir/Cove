@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import Watchlist from './pages/Watchlist';
+import Portfolio from './pages/Portfolio';
 import './index.css';
 
 const router = createBrowserRouter([
@@ -17,7 +18,7 @@ const router = createBrowserRouter([
       { index: true, element: <Dashboard /> },
       { path: 'markets', element: <Dashboard /> },
       { path: 'watchlist', element: <Watchlist /> },
-      { path: 'portfolio', element: <Dashboard /> },
+      { path: 'portfolio', element: <Portfolio /> },
       { path: 'alerts', element: <Dashboard /> },
       { path: 'news', element: <Dashboard /> },
       { path: 'settings', element: <Settings /> },

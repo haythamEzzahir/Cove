@@ -6,13 +6,14 @@ import { colors, radius, fontSize } from '../../styles/tokens';
  * Summary stat card shown in the top metrics row.
  *
  * Props:
- *   icon    {string}          emoji or react element
+ *   icon    {string|node}     optional icon or emoji
  *   label   {string}          e.g. "Market Cap"
- *   value   {string}          formatted value e.g. "$2.64T"
- *   change  {number|null}     percent change — positive = green, negative = red, null = hide
- *   badge   {string|null}     override badge text (e.g. "Greed")
+ *   value   {string|node}     formatted value e.g. "$2.64T" or react node
+ *   change  {number|null}    percent change — positive = green, negative = red, null = hide
+ *   badge   {string|null}    override badge text (e.g. "Greed")
+ *   sub     {string|null}     optional subtext below value
  */
-export default function MetricCard({ icon, label, value, change, badge }) {
+export default function MetricCard({ icon, label, value, change, badge, sub }) {
   const variant = change == null ? 'neutral' : change >= 0 ? 'green' : 'red';
   const badgeText = badge ?? (change != null ? `${change >= 0 ? '+' : ''}${change}%` : null);
 
@@ -27,7 +28,6 @@ export default function MetricCard({ icon, label, value, change, badge }) {
         minWidth: 0,
       }}
     >
-      {/* Label row */}
       <div
         style={{
           display: 'flex',
@@ -38,17 +38,20 @@ export default function MetricCard({ icon, label, value, change, badge }) {
           color: colors.textMuted,
         }}
       >
-        <span style={{ fontSize: 15 }}>{icon}</span>
+        {icon && <span style={{ fontSize: 15 }}>{icon}</span>}
         {label}
       </div>
-
-      {/* Value + badge */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
         <span style={{ fontSize: fontSize.xl, fontWeight: 600, color: colors.textPrimary }}>
           {value}
         </span>
         {badgeText && <Badge variant={variant}>{badgeText}</Badge>}
       </div>
+      {sub && (
+        <div style={{ fontSize: fontSize.xs, color: colors.textMuted, marginTop: 4 }}>
+          {sub}
+        </div>
+      )}
     </div>
   );
 }
