@@ -33,7 +33,9 @@ export function SettingsProvider({ children }) {
   useEffect(() => {
     try {
       localStorage.setItem('fintracker_settings', JSON.stringify(settings));
-    } catch {}
+    } catch {
+      // ignore localStorage errors (e.g. private browsing)
+    }
   }, [settings]);
 
   function updateSetting(key, value) {
@@ -47,6 +49,7 @@ export function SettingsProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSettings() {
   const ctx = useContext(SettingsContext);
   if (!ctx) throw new Error('useSettings must be used inside <SettingsProvider>');

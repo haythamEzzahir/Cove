@@ -1,7 +1,26 @@
-import { LogoutIcon, SettingsIcon } from '../icons/SidebarIcons';
+import { NavLink } from 'react-router-dom';
+import {
+  LogoutIcon,
+  SettingsIcon,
+  DashboardIcon,
+  MarketsIcon,
+  WatchlistIcon,
+  PortfolioIcon,
+  AlertsIcon,
+  NewsIcon,
+} from '../icons/SidebarIcons';
 import { colors, radius, fontSize } from '../../styles/tokens';
 
-export default function Sidebar({ items = [], onNav, activePage = 'dashboard' }) {
+const navItems = [
+  { path: '/',         label: 'Dashboard', Icon: DashboardIcon },
+  { path: '/markets',  label: 'Markets',  Icon: MarketsIcon },
+  { path: '/watchlist',label: 'Watchlist', Icon: WatchlistIcon },
+  { path: '/portfolio',label: 'Portfolio',Icon: PortfolioIcon },
+  { path: '/alerts',   label: 'Alerts',   Icon: AlertsIcon },
+  { path: '/news',     label: 'News',     Icon: NewsIcon },
+];
+
+export default function Sidebar() {
   return (
     <nav
       style={{
@@ -17,7 +36,6 @@ export default function Sidebar({ items = [], onNav, activePage = 'dashboard' })
         gap: 2,
       }}
     >
-      {/* Logo */}
       <div
         style={{
           display: 'flex',
@@ -50,7 +68,6 @@ export default function Sidebar({ items = [], onNav, activePage = 'dashboard' })
         </span>
       </div>
 
-      {/* Label */}
       <span
         style={{
           fontSize: '10px',
@@ -64,17 +81,10 @@ export default function Sidebar({ items = [], onNav, activePage = 'dashboard' })
         Main Menu
       </span>
 
-      {/* Nav items */}
-      {items.map((item) => (
-        <NavItem
-          key={item.label}
-          item={item}
-          onNav={onNav}
-          isActive={item.label.toLowerCase() === activePage}
-        />
+      {navItems.map(({ path, label, Icon }) => (
+        <NavItem key={path} path={path} label={label} Icon={Icon} />
       ))}
 
-      {/* Zone bas */}
       <div
         style={{
           marginTop: 'auto',
@@ -83,16 +93,8 @@ export default function Sidebar({ items = [], onNav, activePage = 'dashboard' })
           flexShrink: 0,
         }}
       >
-        <NavItem
-          item={{ icon: <SettingsIcon />, label: 'Settings', href: '#' }}
-          onNav={onNav}
-          isActive={activePage === 'settings'}
-        />
-        <NavItem
-          item={{ icon: <LogoutIcon />, label: 'Logout', href: '#' }}
-          onNav={onNav}
-          isActive={false}
-        />
+        <NavItem path="/settings" label="Settings" />
+        <NavItem path="/logout" label="Logout" />
 
         <div
           style={{
@@ -113,47 +115,59 @@ export default function Sidebar({ items = [], onNav, activePage = 'dashboard' })
   );
 }
 
-function NavItem({ item, onNav, isActive }) {
-  const { icon, label } = item;
+const baseStyle = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 9,
+  padding: '7px 10px',
+  borderRadius: '6px',
+  fontSize: '13px',
+  cursor: 'pointer',
+  border: 'none',
+  width: '100%',
+  textAlign: 'left',
+  transition: 'background 0.15s, color 0.15s',
+};
+
+function NavItem({ path, label, Icon }) {
+  const IconComponent = Icon
+    || (label === 'Settings' ? SettingsIcon : label === 'Logout' ? LogoutIcon : null);
 
   return (
-    <button
-      onClick={() => onNav?.(item)}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 9,
-        padding: '7px 10px',
-        borderRadius: '6px',
-        fontSize: '13px',
-        cursor: 'pointer',
-        color: isActive ? colors.blue : colors.textMuted,
+    <NavLink
+      to={path}
+      style={({ isActive }) => ({
+        ...baseStyle,
         background: isActive ? colors.bgOverlay : 'transparent',
-        border: 'none',
-        width: '100%',
-        textAlign: 'left',
-        transition: 'background 0.15s, color 0.15s',
-      }}
+        color: isActive ? colors.blue : colors.textMuted,
+        textDecoration: 'none',
+      })}
       onMouseEnter={(e) => {
-        if (!isActive) {
+        if (!e.currentTarget.classList.contains('active')) {
           e.currentTarget.style.background = colors.bgOverlay;
           e.currentTarget.style.color = colors.textSecondary;
         }
       }}
       onMouseLeave={(e) => {
-        if (!isActive) {
+        if (!e.currentTarget.classList.contains('active')) {
           e.currentTarget.style.background = 'transparent';
           e.currentTarget.style.color = colors.textMuted;
         }
       }}
     >
-      <span style={{ width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        {icon}
+      <span
+        style={{
+          width: 18,
+          height: 18,
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {IconComponent && <IconComponent />}
       </span>
       <span>{label}</span>
-      {isActive && (
-        <span style={{ marginLeft: 'auto', width: 5, height: 5, borderRadius: '50%', background: 'currentColor' }} />
-      )}
-    </button>
+    </NavLink>
   );
 }

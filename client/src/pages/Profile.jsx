@@ -25,8 +25,8 @@ const INITIAL_NOTIFS = {
   productUpdates: true,
 };
 
-export default function Profile({ onBack }) {
-  const { settings, updateSetting } = useSettings();
+export default function Profile() {
+  useSettings();
   const [profile, setProfile] = useState(INITIAL_PROFILE);
   const [notifs, setNotifs]   = useState(INITIAL_NOTIFS);
   const [lastSaved, setLastSaved] = useState('10:42 AM');

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import ProfileCard from '../components/settings/ProfileCard';
 import SettingsSection from '../components/settings/SettingsSection';
@@ -12,9 +12,9 @@ const USER = {
   email: 'ali@cryptowatch.io',
 };
 
-function Settings({ onNavigate }) {
+function Settings() {
+  const navigate = useNavigate();
   const { settings, updateSetting } = useSettings();
-  const [search, setSearch] = useState('');
 
   return (
     <div className="settings-wrapper">
@@ -29,7 +29,7 @@ function Settings({ onNavigate }) {
         <ProfileCard
           name={USER.name}
           email={USER.email}
-          onViewProfile={() => onNavigate('profile')}
+          onViewProfile={() => navigate('/settings/profile')}
         />
       </SettingsSection>
 

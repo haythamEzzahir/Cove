@@ -8,7 +8,7 @@ import { metrics, chartData, featuredCoin, trendingCoins, assets } from '../data
  * (e.g. CoinGecko, Binance WS) without touching any component.
  */
 export function useMarketData() {
-  const [data, setData] = useState({
+  const [data] = useState({
     metrics,
     chartData,
     featuredCoin,
