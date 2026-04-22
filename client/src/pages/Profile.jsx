@@ -56,12 +56,6 @@ export default function Profile() {
       {/* ── SCROLLABLE CONTENT ── */}
       <div className="profile-scroll">
 
-        {/* Header */}
-        <div className="profile-page-header">
-          <h1 className="profile-page-title">Account Settings</h1>
-          <p className="profile-page-sub">Manage your profile, security, and application preferences.</p>
-        </div>
-
         {/* ── Personal Profile ── */}
         <section className="profile-section">
           <div className="profile-section-heading">

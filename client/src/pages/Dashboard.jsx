@@ -1,4 +1,5 @@
 import { useMarketData } from '../hooks/useMarketData';
+import { colors } from '../styles/tokens';
 import MetricCard from '../components/dashboard/MetricCard';
 import PriceChart from '../components/dashboard/PriceChart';
 import TrendingPanel from '../components/dashboard/TrendingPanel';
@@ -10,9 +11,14 @@ export default function Dashboard() {
 
   return (
     <main className="dashboard">
-      <div className="dashboard-header">
-        <h1 className="dashboard-title">Market Dashboard</h1>
-        <p className="dashboard-subtitle">Live market feed · Last updated 2 mins ago</p>
+      <div className="dashboard-search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input
+          type="text"
+          placeholder="Search cryptocurrency (e.g. BTC, ETH)..."
+        />
       </div>
 
       <div className="dashboard-metrics">

@@ -2,7 +2,9 @@ import { useState } from "react";
 import CoinLogo from "../components/shared/CoinLogo";
 import Badge from "../components/shared/Badge";
 import TabBar from "../components/shared/TabBar";
+import MetricCard from "../components/dashboard/MetricCard";
 import { radius, fontSize } from "../styles/tokens";
+import "../styles/watchlist.css";
 
 // Mock watchlist data
 const mockWatchlist = [
@@ -571,33 +573,14 @@ export default function Watchlist() {
         </span>
       </div>
 
-      <h1 style={s.heading}>My Watchlist</h1>
       <p style={s.subheading}>Monitor your selected assets with real-time price feeds and trend analysis.</p>
 
       {/* Stats Row */}
-      <div style={s.statsRow}>
-        <div style={s.statCard}>
-          <div style={s.statLabel}>Tracked Assets</div>
-          <div style={s.statValue}>{watchlist.length}</div>
-        </div>
-        <div style={s.statCard}>
-          <div style={s.statLabel}>Total Value (est.)</div>
-          <div style={{ ...s.statValue, fontSize: fontSize.lg }}>{formatMarketCap(totalValue * 1e6)}</div>
-        </div>
-        <div style={s.statCard}>
-          <div style={s.statLabel}>Top Gainer (24h)</div>
-          <div style={{ ...s.statValue, color: "#22c55e", fontSize: fontSize.lg }}>
-            {watchlist.reduce((best, c) => (c.change24h > (best?.change24h ?? -Infinity) ? c : best), null)?.name ?? "—"}
-          </div>
-        </div>
-        <div style={s.statCard}>
-          <div style={s.statLabel}>Gainers / Losers</div>
-          <div style={{ ...s.statValue, fontSize: fontSize.lg }}>
-            <span style={{ color: "#22c55e" }}>{gainers}</span>
-            {" / "}
-            <span style={{ color: "#ef4444" }}>{losers}</span>
-          </div>
-        </div>
+      <div className="dashboard-metrics">
+        <MetricCard label="Tracked Assets" value={watchlist.length} change={null} />
+        <MetricCard label="Total Value (est.)" value={formatMarketCap(totalValue * 1e6)} change={null} />
+        <MetricCard label="Top Gainer (24h)" value={watchlist.reduce((best, c) => (c.change24h > (best?.change24h ?? -Infinity) ? c : best), null)?.name ?? "—"} change={null} />
+        <MetricCard label="Gainers / Losers" value={`${gainers} / ${losers}`} change={null} />
       </div>
 
       {/* Toolbar */}
