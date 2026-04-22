@@ -4,42 +4,24 @@ import MetricCard from '../components/dashboard/MetricCard';
 import PriceChart from '../components/dashboard/PriceChart';
 import TrendingPanel from '../components/dashboard/TrendingPanel';
 import MarketTable from '../components/dashboard/MarketTable';
+import '../styles/dashboard.css';
 
 export default function Dashboard() {
   const { metrics, chartData, featuredCoin, trendingCoins, assets } = useMarketData();
 
   return (
-    <main
-      style={{
-        padding: '24px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 16,
-      }}
-    >
-      <div>
-        <h1
-          style={{
-            fontSize: '22px',
-            fontWeight: 700,
-            color: colors.textPrimary,
-            margin: 0,
-          }}
-        >
-          Market Dashboard
-        </h1>
-        <p
-          style={{
-            fontSize: '12px',
-            color: colors.textMuted,
-            margin: '4px 0 0',
-          }}
-        >
-          Live market feed · Last updated 2 mins ago
-        </p>
+    <main className="dashboard">
+      <div className="dashboard-search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input
+          type="text"
+          placeholder="Search cryptocurrency (e.g. BTC, ETH)..."
+        />
       </div>
 
-      <div style={{ display: 'flex', gap: 12 }}>
+      <div className="dashboard-metrics">
         {metrics.map((m) => (
           <MetricCard
             key={m.id}
@@ -52,7 +34,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 12 }}>
+      <div className="dashboard-charts">
         <PriceChart coin={featuredCoin} data={chartData} />
         <TrendingPanel coins={trendingCoins} />
       </div>

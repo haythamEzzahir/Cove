@@ -1,6 +1,6 @@
 /* ══════════════════════════════════════════════
-   BASE RESET
-   ══════════════════════════════════════════════ */
+    BASE RESET
+    ══════════════════════════════════════════════ */
 html,
 body,
 #root {
@@ -15,11 +15,8 @@ body,
 }
 
 /* ══════════════════════════════════════════════
-   THÈME — valeurs par défaut (dark)
-   Écrasées immédiatement par applyTheme() dans
-   SettingsContext au montage. Ces fallbacks évitent
-   un flash blanc avant le premier render.
-   ══════════════════════════════════════════════ */
+    THÈME — valeurs par défaut (dark)
+    ══════════════════════════════════════════════ */
 :root {
   --color-bg-base:        #0d1117;
   --color-bg-surface:     #161b22;
@@ -43,14 +40,12 @@ body,
 }
 
 /* ══════════════════════════════════════════════
-   LAYOUT GLOBAL
-   ══════════════════════════════════════════════ */
+    LAYOUT GLOBAL
+    ══════════════════════════════════════════════ */
 body {
   background-color: var(--color-bg-base);
   color: var(--color-text-primary);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  /* PAS de transition sur body : c'est elle qui cause le décalage
-     entre sidebar (JS immédiat) et body (CSS delayed) */
 }
 
 #root {
@@ -59,8 +54,69 @@ body {
 }
 
 /* ══════════════════════════════════════════════
-   COMPACT VIEW
-   ══════════════════════════════════════════════ */
+    RESPONSIVE LAYOUT
+    ══════════════════════════════════════════════ */
+
+/* Sidebar - hide on very small screens */
+@media (max-width: 640px) {
+  nav {
+    display: none;
+  }
+}
+
+/* Flex containers - stack on small screens */
+.dashboard-metrics,
+.dashboard-charts,
+.portfolio-charts,
+.portfolio-insights {
+  flex-wrap: wrap;
+}
+
+/* Cards - stack on mobile */
+.metric-card,
+.allocation-card {
+  min-width: calc(50% - 6px);
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .metric-card,
+  .allocation-card {
+    min-width: 100%;
+  }
+}
+
+/* Tables scroll horizontally */
+.portfolio-table {
+  display: block;
+  overflow-x: auto;
+}
+
+/* Page padding - adjust for mobile */
+main {
+  padding: 16px;
+}
+
+@media (min-width: 769px) {
+  main {
+    padding: 24px;
+  }
+}
+
+/* Search bar full width on mobile */
+.dashboard-search {
+  max-width: 100%;
+}
+
+@media (min-width: 769px) {
+  .dashboard-search {
+    max-width: 380px;
+  }
+}
+
+/* ══════════════════════════════════════════════
+    COMPACT VIEW
+    ══════════════════════════════════════════════ */
 body.compact-mode .setting-item  { padding: 10px 16px; }
 body.compact-mode .profile-card  { padding: 12px 16px; }
 body.compact-mode main           { gap: 8px !important; padding: 16px !important; }

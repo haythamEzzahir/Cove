@@ -1,54 +1,73 @@
 import Badge from '../shared/Badge';
 import { colors, radius, fontSize } from '../../styles/tokens';
+import CoinLogo from '../shared/CoinLogo';
 
-/**
- * MetricCard
- * Summary stat card shown in the top metrics row.
- *
- * Props:
- *   icon    {string}          emoji or react element
- *   label   {string}          e.g. "Market Cap"
- *   value   {string}          formatted value e.g. "$2.64T"
- *   change  {number|null}     percent change — positive = green, negative = red, null = hide
- *   badge   {string|null}     override badge text (e.g. "Greed")
- */
-export default function MetricCard({ icon, label, value, change, badge }) {
-  const variant = change == null ? 'neutral' : change >= 0 ? 'green' : 'red';
-  const badgeText = badge ?? (change != null ? `${change >= 0 ? '+' : ''}${change}%` : null);
-
+export default function MarketTable({ assets }) {
   return (
     <div
       style={{
         background: colors.bgSurface,
         border: `0.5px solid ${colors.borderDefault}`,
         borderRadius: radius.lg,
-        padding: '14px 16px',
-        flex: 1,
-        minWidth: 0,
+        overflow: 'hidden',
       }}
     >
-      {/* Label row */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          marginBottom: 6,
-          fontSize: fontSize.xs,
-          color: colors.textMuted,
-        }}
-      >
-        <span style={{ fontSize: 15 }}>{icon}</span>
-        {label}
-      </div>
-
-      {/* Value + badge */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontSize: fontSize.xl, fontWeight: 600, color: colors.textPrimary }}>
-          {value}
-        </span>
-        {badgeText && <Badge variant={variant}>{badgeText}</Badge>}
-      </div>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            {['#', 'Coin', 'Price', '24h %', 'Market Cap', 'Volume (24h)'].map((h, i) => (
+              <th
+                key={h}
+                style={{
+                  padding: '10px 16px',
+                  textAlign: i === 0 || i > 2 ? 'left' : 'right',
+                  fontSize: fontSize.xs,
+                  fontWeight: 600,
+                  color: colors.textMuted,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  borderBottom: `0.5px solid ${colors.borderDefault}`,
+                  background: colors.bgOverlay,
+                }}
+              >
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {assets.map((asset) => (
+            <tr
+              key={asset.ticker}
+              style={{ borderBottom: `0.5px solid ${colors.borderSubtle}` }}
+            >
+              <td style={{ padding: '12px 16px', color: colors.textMuted, fontSize: fontSize.sm }}>
+                {asset.rank}
+              </td>
+              <td style={{ padding: '12px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <CoinLogo ticker={asset.ticker} size={24} />
+                  <span style={{ fontWeight: 600, fontSize: fontSize.sm }}>{asset.name}</span>
+                </div>
+              </td>
+              <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, fontSize: fontSize.sm }}>
+                {asset.price}
+              </td>
+              <td style={{ padding: '12px 16px', textAlign: 'right' }}>
+                <Badge variant={asset.change >= 0 ? 'green' : 'red'}>
+                  {asset.change >= 0 ? '+' : ''}{asset.change}%
+                </Badge>
+              </td>
+              <td style={{ padding: '12px 16px', textAlign: 'right', color: colors.textSecondary, fontSize: fontSize.sm }}>
+                {asset.marketCap}
+              </td>
+              <td style={{ padding: '12px 16px', textAlign: 'right', color: colors.textSecondary, fontSize: fontSize.sm }}>
+                {asset.volume}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

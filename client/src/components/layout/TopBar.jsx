@@ -26,19 +26,19 @@ function ThemeIcon({ mode }) {
 
 /**
  * TopBar
- * Search bar + notification bell + user info.
+ * Page title + notification + user info.
  *
  * Props:
- *   placeholder  {string}
- *   user         {{ name, role, initials }}
- *   onSearch     {(query: string) => void}
- *   themeMode    {'dark'|'light'}
+ *   pageTitle    {string}     - Title to display
+ *   pageSubtitle {string}     - Optional subtitle
+ *   user        {{ name, role, initials }}
+ *   themeMode   {'dark'|'light'}
  *   onToggleTheme {() => void}
  */
 export default function TopBar({
-  placeholder = 'Search cryptocurrency (e.g. BTC, ETH)...',
+  pageTitle = 'Dashboard',
+  pageSubtitle,
   user,
-  onSearch,
   themeMode = 'dark',
   onToggleTheme,
 }) {
@@ -48,7 +48,7 @@ export default function TopBar({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '10px 24px',
+        padding: '14px 24px',
         background: colors.bgSurface,
         borderBottom: `0.5px solid ${colors.borderDefault}`,
         gap: 16,
@@ -57,36 +57,31 @@ export default function TopBar({
         zIndex: 10,
       }}
     >
-      {/* Search */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          background: colors.bgBase,
-          border: `0.5px solid ${colors.borderDefault}`,
-          borderRadius: radius.md,
-          padding: '7px 14px',
-          flex: 1,
-          maxWidth: 380,
-        }}
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2">
-          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-        </svg>
-        <input
-          type="text"
-          placeholder={placeholder}
-          onChange={(e) => onSearch?.(e.target.value)}
+      {/* Page Title */}
+      <div>
+        <h1
           style={{
-            background: 'transparent',
-            border: 'none',
-            outline: 'none',
+            fontSize: '22px',
+            fontWeight: 700,
             color: colors.textPrimary,
-            fontSize: fontSize.base,
-            width: '100%',
+            margin: 0,
+            lineHeight: 1.2,
           }}
-        />
+        >
+          {pageTitle}
+        </h1>
+        {pageSubtitle && (
+          <p
+            style={{
+              fontSize: '12px',
+              color: colors.textMuted,
+              margin: '4px 0 0',
+              lineHeight: 1.2,
+            }}
+          >
+            {pageSubtitle}
+          </p>
+        )}
       </div>
 
       {/* Right side */}
