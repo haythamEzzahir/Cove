@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   LogoutIcon,
   SettingsIcon,
@@ -10,6 +11,7 @@ import {
   NewsIcon,
 } from '../icons/SidebarIcons';
 import { colors, radius, fontSize } from '../../styles/tokens';
+import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
   { path: '/',         label: 'Dashboard', Icon: DashboardIcon },
@@ -21,6 +23,14 @@ const navItems = [
 ];
 
 export default function Sidebar() {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
   return (
     <nav
       style={{
@@ -94,7 +104,30 @@ export default function Sidebar() {
         }}
       >
         <NavItem path="/settings" label="Settings" />
-        <NavItem path="/logout" label="Logout" />
+        {user && (
+          <button
+            onClick={handleLogout}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 9,
+              padding: '7px 10px',
+              borderRadius: '6px',
+              fontSize: '13px',
+              cursor: 'pointer',
+              border: 'none',
+              width: '100%',
+              textAlign: 'left',
+              background: 'transparent',
+              color: colors.textMuted,
+            }}
+          >
+            <span style={{ width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <LogoutIcon />
+            </span>
+            <span>Logout</span>
+          </button>
+        )}
 
         <div
           style={{

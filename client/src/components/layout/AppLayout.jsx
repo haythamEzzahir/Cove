@@ -1,5 +1,6 @@
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, Navigate } from 'react-router-dom';
 import { useSettings } from '../../context/SettingsContext';
+import { useAuth } from '../../context/AuthContext';
 import { colors } from '../../styles/tokens';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
@@ -15,15 +16,31 @@ const PAGE_DATA = {
   '/settings/profile': { title: 'Profile', subtitle: 'Account settings' },
 };
 
+// Routes that require authentication
+const PROTECTED_ROUTES = ['/watchlist', '/portfolio', '/alerts', '/news', '/settings', '/settings/profile'];
+
 export default function AppLayout() {
   const location = useLocation();
   const { settings, updateSetting } = useSettings();
+  const { user, loading } = useAuth();
 
   const { title, subtitle } = PAGE_DATA[location.pathname] || { title: 'Dashboard', subtitle: '' };
 
   const handleToggleTheme = () => {
     updateSetting('darkMode', !settings.darkMode);
   };
+
+  if (loading) {
+    return null;
+  }
+
+  // Check if current route requires authentication
+  const requiresAuth = PROTECTED_ROUTES.some(route => location.pathname.startsWith(route));
+  
+  // If route requires auth and user is not logged in, redirect to login
+  if (requiresAuth && !user) {
+    return <Navigate to="/login" replace />;
+  }
 
   return (
     <div
@@ -48,7 +65,7 @@ export default function AppLayout() {
         <TopBar
           pageTitle={title}
           pageSubtitle={subtitle}
-          user={{ name: 'Alex Sivera', role: 'Pro Trader', initials: 'AS' }}
+          user={user}
           themeMode={settings.darkMode ? 'dark' : 'light'}
           onToggleTheme={handleToggleTheme}
         />

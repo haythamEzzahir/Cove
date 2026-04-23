@@ -1,4 +1,6 @@
+import { Link } from 'react-router-dom';
 import { colors, fontSize, radius } from '../../styles/tokens';
+import { useAuth } from '../../context/AuthContext';
 
 function ThemeIcon({ mode }) {
   if (mode === 'dark') {
@@ -31,17 +33,17 @@ function ThemeIcon({ mode }) {
  * Props:
  *   pageTitle    {string}     - Title to display
  *   pageSubtitle {string}     - Optional subtitle
- *   user        {{ name, role, initials }}
  *   themeMode   {'dark'|'light'}
  *   onToggleTheme {() => void}
  */
 export default function TopBar({
   pageTitle = 'Dashboard',
   pageSubtitle,
-  user,
   themeMode = 'dark',
   onToggleTheme,
 }) {
+  const { user } = useAuth();
+
   return (
     <header
       style={{
@@ -117,8 +119,8 @@ export default function TopBar({
           </svg>
         </button>
 
-        {/* User */}
-        {user && (
+        {/* User or Login */}
+        {user ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div
               style={{
@@ -138,8 +140,37 @@ export default function TopBar({
             </div>
             <div>
               <p style={{ fontSize: fontSize.sm, fontWeight: 500, color: colors.textPrimary, lineHeight: 1.2 }}>{user.name}</p>
-              <p style={{ fontSize: '10px', color: colors.textMuted, lineHeight: 1.2 }}>{user.role}</p>
+              <p style={{ fontSize: '10px', color: colors.textMuted, lineHeight: 1.2 }}>Pro Trader</p>
             </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Link
+              to="/login"
+              style={{
+                textDecoration: 'none',
+                color: colors.textSecondary,
+                fontSize: fontSize.sm,
+                fontWeight: 500,
+                padding: '8px 12px',
+              }}
+            >
+              Sign In
+            </Link>
+            <Link
+              to="/signup"
+              style={{
+                textDecoration: 'none',
+                background: colors.blue,
+                color: '#fff',
+                fontSize: fontSize.sm,
+                fontWeight: 600,
+                padding: '8px 16px',
+                borderRadius: radius.md,
+              }}
+            >
+              Sign Up
+            </Link>
           </div>
         )}
       </div>
