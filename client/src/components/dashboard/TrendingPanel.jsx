@@ -59,7 +59,7 @@ export default function TrendingPanel({ coins = [], onViewAll, onCoinClick }) {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-              <CoinLogo ticker={coin.ticker} size={30} />
+              <CoinLogo ticker={coin.ticker} size={30} image={coin.image} />
               <div>
                 <p style={{ fontSize: fontSize.sm, fontWeight: 500, color: colors.textPrimary, margin: 0 }}>{coin.name}</p>
                 <p style={{ fontSize: '10px', color: colors.textMuted, margin: 0 }}>{coin.ticker}</p>

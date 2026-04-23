@@ -46,7 +46,7 @@ export default function MarketTable({ assets }) {
               </td>
               <td style={{ padding: '12px 16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <CoinLogo ticker={asset.ticker} size={24} />
+                  <CoinLogo ticker={asset.ticker} size={24} image={asset.image} />
                   <span style={{ fontWeight: 600, fontSize: fontSize.sm }}>{asset.name}</span>
                 </div>
               </td>
