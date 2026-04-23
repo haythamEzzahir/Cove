@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { colors, fontSize, radius } from '../../styles/tokens';
 import { useAuth } from '../../context/AuthContext';
+import { useCurrency } from '../../context/CurrencyContext';
 
 function ThemeIcon({ mode }) {
   if (mode === 'dark') {
@@ -41,11 +43,16 @@ export default function TopBar({
   pageSubtitle,
   themeMode = 'dark',
   onToggleTheme,
+  onToggleSidebar,
 }) {
   const { user } = useAuth();
+  const { currency, setCurrency, currencies, currencyData } = useCurrency();
+  const [showCurrencyMenu, setShowCurrencyMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   return (
     <header
+      className="topbar"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -86,8 +93,102 @@ export default function TopBar({
         )}
       </div>
 
+      {/* Burger menu for mobile */}
+      <button
+        onClick={onToggleSidebar}
+        className="sidebar-toggle"
+        style={{
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          color: colors.textMuted,
+          padding: 8,
+          display: 'none',
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+
       {/* Right side */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        {/* Currency Selector */}
+        <div className="currency-selector" style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowCurrencyMenu(!showCurrencyMenu)}
+            style={{
+              background: colors.bgBase,
+              border: `0.5px solid ${colors.borderDefault}`,
+              borderRadius: radius.md,
+              cursor: 'pointer',
+              color: colors.textPrimary,
+              fontSize: fontSize.sm,
+              fontWeight: 500,
+              padding: '6px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span>{currencyData.symbol}</span>
+            <span style={{ textTransform: 'uppercase' }}>{currency}</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M6 9l6 6 6-6"/>
+            </svg>
+          </button>
+
+          {showCurrencyMenu && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: 4,
+                background: colors.bgSurface,
+                border: `0.5px solid ${colors.borderDefault}`,
+                borderRadius: radius.md,
+                padding: 4,
+                minWidth: 160,
+                zIndex: 100,
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              }}
+            >
+              {currencies.map((c) => (
+                <button
+                  key={c.code}
+                  onClick={() => {
+                    setCurrency(c.code);
+                    setShowCurrencyMenu(false);
+                  }}
+                  style={{
+                    width: '100%',
+                    background: currency === c.code ? colors.blue : 'transparent',
+                    border: 'none',
+                    borderRadius: radius.sm,
+                    cursor: 'pointer',
+                    color: currency === c.code ? '#fff' : colors.textPrimary,
+                    fontSize: fontSize.sm,
+                    padding: '8px 12px',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <span>{c.symbol}</span>
+                  <span>{c.name}</span>
+                  <span style={{ marginLeft: 'auto', textTransform: 'uppercase', fontSize: '11px', opacity: 0.7 }}>
+                    {c.code}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <button
           onClick={onToggleTheme}
           aria-label={`Switch to ${themeMode === 'dark' ? 'light' : 'dark'} mode`}

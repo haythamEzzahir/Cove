@@ -22,17 +22,19 @@ const navItems = [
   { path: '/news',     label: 'News',     Icon: NewsIcon },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen = false, onClose }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
   const handleLogout = () => {
     logout();
+    onClose?.();
     navigate('/');
   };
 
   return (
     <nav
+      className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}
       style={{
         width: 192,
         flexShrink: 0,
@@ -44,6 +46,12 @@ export default function Sidebar() {
         height: '100%',
         overflowY: 'auto',
         gap: 2,
+        position: 'fixed',
+        left: 0,
+        top: 0,
+        zIndex: 40,
+        transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+        transition: 'transform 0.3s ease',
       }}
     >
       <div

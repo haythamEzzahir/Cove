@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useMarketData } from '../hooks/useMarketData';
 import { colors } from '../styles/tokens';
 import MetricCard from '../components/dashboard/MetricCard';
@@ -7,7 +8,13 @@ import MarketTable from '../components/dashboard/MarketTable';
 import '../styles/dashboard.css';
 
 export default function Dashboard() {
-  const { metrics, chartData, featuredCoin, trendingCoins, assets } = useMarketData();
+  const { metrics, chartData, featuredCoin, trendingCoins, assets, fetchChartData, selectCoin } = useMarketData();
+
+  useEffect(() => {
+    if (featuredCoin?.coinId) {
+      fetchChartData('7D');
+    }
+  }, [featuredCoin?.coinId]);
 
   return (
     <main className="dashboard">
@@ -35,11 +42,11 @@ export default function Dashboard() {
       </div>
 
       <div className="dashboard-charts">
-        <PriceChart coin={featuredCoin} data={chartData} />
-        <TrendingPanel coins={trendingCoins} />
+        <PriceChart coin={featuredCoin} data={chartData} onTabChange={fetchChartData} />
+        <TrendingPanel coins={trendingCoins} onCoinClick={selectCoin} />
       </div>
 
-      <MarketTable assets={assets} />
+      <MarketTable assets={assets} onCoinSelect={selectCoin} />
     </main>
   );
 }

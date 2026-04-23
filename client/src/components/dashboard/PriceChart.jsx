@@ -4,20 +4,13 @@ import CoinLogo from '../shared/CoinLogo';
 import TabBar from '../shared/TabBar';
 import Badge from '../shared/Badge';
 import { colors, radius, fontSize } from '../../styles/tokens';
+import { useCurrency } from '../../context/CurrencyContext';
 
 const TIME_TABS = ['1D', '7D', '1M', '1Y', 'All'];
 
-/**
- * PriceChart
- * Large featured coin chart with time range controls.
- *
- * Props:
- *   coin      {{ name, ticker, status, price, change, changeAbs }}
- *   data      {Array<{ t: string, price: number }>}
- *   onTabChange {(tab: string) => void}  fetch new data on tab change
- */
 export default function PriceChart({ coin, data = [], onTabChange }) {
   const [activeTab, setActiveTab] = useState('7D');
+  const { currencyData } = useCurrency();
 
   const handleTab = (tab) => {
     setActiveTab(tab);
@@ -42,7 +35,7 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
         <div>
           {/* Coin identity */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <CoinLogo ticker={coin?.ticker} size={22} />
+            <CoinLogo ticker={coin?.ticker} size={22} image={coin?.image} />
             <span style={{ fontSize: fontSize.base, color: colors.textMuted }}>
               {coin?.name} / USD
             </span>
@@ -54,10 +47,10 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
           {/* Price */}
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
             <span style={{ fontSize: '28px', fontWeight: 700, color: colors.textPrimary }}>
-              ${coin?.price?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {currencyData.symbol}{coin?.price?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
             <span style={{ fontSize: fontSize.base, color: isPositive ? colors.green : colors.red }}>
-              {isPositive ? '+' : ''}{coin?.change}% ({isPositive ? '+' : ''}${coin?.changeAbs?.toLocaleString()})
+              {isPositive ? '+' : ''}{coin?.change}% ({isPositive ? '+' : ''}{currencyData.symbol}{coin?.changeAbs?.toLocaleString()})
             </span>
           </div>
         </div>
@@ -67,8 +60,8 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
       </div>
 
       {/* Chart */}
-      <ResponsiveContainer width="100%" height={120}>
-        <AreaChart data={data} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
+      <ResponsiveContainer width="100%" height={140}>
+        <AreaChart data={data} margin={{ top: 4, right: 40, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%"   stopColor={colors.blue} stopOpacity={0.25} />
@@ -81,7 +74,18 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
             axisLine={false}
             tickLine={false}
           />
-          <YAxis hide domain={['auto', 'auto']} />
+          <YAxis
+            orientation="right"
+            tick={{ fill: colors.textMuted, fontSize: 10 }}
+            axisLine={false}
+            tickLine={false}
+            domain={['auto', 'auto']}
+            tickFormatter={(value) => {
+              if (value >= 1000) return `${currencyData.symbol}${(value / 1000).toFixed(1)}k`;
+              if (value >= 1) return `${currencyData.symbol}${value.toFixed(0)}`;
+              return `${currencyData.symbol}${value.toFixed(2)}`;
+            }}
+          />
           <Tooltip
             contentStyle={{
               background: colors.bgOverlay,
@@ -90,7 +94,7 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
               fontSize: 12,
               color: colors.textPrimary,
             }}
-            formatter={(v) => [`$${v.toLocaleString()}`, 'Price']}
+            formatter={(v) => [`${currencyData.symbol}${v.toLocaleString()}`, 'Price']}
             labelStyle={{ color: colors.textMuted }}
           />
           <Area

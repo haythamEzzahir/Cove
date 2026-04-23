@@ -1,16 +1,24 @@
 import { colors } from '../../styles/tokens';
 
-/**
- * CoinLogo
- * Circular coin avatar. Uses brand color from tokens or falls back to blue.
- *
- * Props:
- *   ticker  {string}  e.g. "BTC"
- *   size    {number}  diameter in px (default 28)
- */
-export default function CoinLogo({ ticker = '?', size = 28 }) {
+export default function CoinLogo({ ticker = '?', size = 28, image }) {
   const bg = colors.coin[ticker] ?? colors.blue;
   const letter = ticker.charAt(0);
+
+  if (image) {
+    return (
+      <img
+        src={image}
+        alt={ticker}
+        style={{
+          width: size,
+          height: size,
+          borderRadius: '50%',
+          objectFit: 'cover',
+          flexShrink: 0,
+        }}
+      />
+    );
+  }
 
   return (
     <div

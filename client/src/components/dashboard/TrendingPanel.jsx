@@ -41,7 +41,14 @@ export default function TrendingPanel({ coins = [], onViewAll, onCoinClick }) {
         return (
           <button
             key={coin.ticker}
-            onClick={() => onCoinClick?.(coin)}
+            onClick={() => onCoinClick?.({
+              name: coin.name,
+              ticker: coin.ticker,
+              coinId: coin.coinId,
+              current_price: parseFloat(coin.price.replace(/[^0-9.-]/g, '')),
+              change: coin.change,
+              image: coin.image,
+            })}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -59,7 +66,7 @@ export default function TrendingPanel({ coins = [], onViewAll, onCoinClick }) {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-              <CoinLogo ticker={coin.ticker} size={30} />
+              <CoinLogo ticker={coin.ticker} size={30} image={coin.image} />
               <div>
                 <p style={{ fontSize: fontSize.sm, fontWeight: 500, color: colors.textPrimary, margin: 0 }}>{coin.name}</p>
                 <p style={{ fontSize: '10px', color: colors.textMuted, margin: 0 }}>{coin.ticker}</p>
