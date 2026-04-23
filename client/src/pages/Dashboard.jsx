@@ -8,7 +8,7 @@ import MarketTable from '../components/dashboard/MarketTable';
 import '../styles/dashboard.css';
 
 export default function Dashboard() {
-  const { metrics, chartData, featuredCoin, trendingCoins, assets, fetchChartData } = useMarketData();
+  const { metrics, chartData, featuredCoin, trendingCoins, assets, fetchChartData, selectCoin } = useMarketData();
 
   useEffect(() => {
     if (featuredCoin?.coinId) {
@@ -43,10 +43,10 @@ export default function Dashboard() {
 
       <div className="dashboard-charts">
         <PriceChart coin={featuredCoin} data={chartData} onTabChange={fetchChartData} />
-        <TrendingPanel coins={trendingCoins} />
+        <TrendingPanel coins={trendingCoins} onCoinClick={selectCoin} />
       </div>
 
-      <MarketTable assets={assets} />
+      <MarketTable assets={assets} onCoinSelect={selectCoin} />
     </main>
   );
 }

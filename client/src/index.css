@@ -57,10 +57,44 @@ body {
     RESPONSIVE LAYOUT
     ══════════════════════════════════════════════ */
 
-/* Sidebar - hide on very small screens */
-@media (max-width: 640px) {
-  nav {
-    display: none;
+/* Sidebar - hide on very small screens, show burger */
+@media (max-width: 768px) {
+  nav.sidebar {
+    transform: translateX(-100%);
+  }
+
+  nav.sidebar.sidebar-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-toggle {
+    display: block !important;
+  }
+
+  .sidebar-overlay {
+    display: block !important;
+  }
+
+  header.topbar {
+    padding: 12px 16px !important;
+  }
+
+  .currency-selector {
+    display: none !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .topbar-right {
+    gap: 8px !important;
+  }
+}
+
+/* Show sidebar on larger screens */
+@media (min-width: 769px) {
+  nav.sidebar {
+    position: relative !important;
+    transform: none !important;
   }
 }
 

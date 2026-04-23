@@ -58,9 +58,11 @@ export function useMarketData() {
             price: formatPrice(c.current_price),
             change: c.price_change_percentage_24h,
             image: c.image,
+            coinId: c.id,
+            current_price: c.current_price,
           }));
 
-          const assets = coins.slice(0, 10).map((c, i) => ({
+          const assets = coins.map((c, i) => ({
             rank: i + 1,
             name: c.name,
             ticker: c.symbol.toUpperCase(),
@@ -69,6 +71,7 @@ export function useMarketData() {
             marketCap: formatMarketCap(c.market_cap || 0),
             volume: formatMarketCap(c.total_volume || 0),
             image: c.image,
+            coinId: c.id,
           }));
 
           const metrics = [
@@ -127,12 +130,12 @@ export function useMarketData() {
     fetchData();
   }, [currency, currencyData.symbol]);
 
-  const fetchChartData = async (period = '7D') => {
-    if (!data.featuredCoin?.coinId) return;
+  const fetchChartData = async (period = '7D', coinId = data.featuredCoin?.coinId) => {
+    if (!coinId) return;
     
     try {
       const days = TIME_PERIOD_MAP[period] || '7';
-      const res = await fetch(`${CHART_API_URL}/${data.featuredCoin.coinId}?currency=${currency}&days=${days}`);
+      const res = await fetch(`${CHART_API_URL}/${coinId}?currency=${currency}&days=${days}`);
       if (!res.ok) throw new Error('Failed to fetch chart data');
       
       const chartData = await res.json();
@@ -152,5 +155,26 @@ export function useMarketData() {
     }
   };
 
-  return { ...data, fetchChartData };
+  const selectCoin = (coin) => {
+    if (!coin) return;
+    
+    setData(prev => ({
+      ...prev,
+      featuredCoin: {
+        name: coin.name,
+        ticker: coin.ticker,
+        coinId: coin.coinId,
+        status: 'Market Open',
+        price: coin.current_price,
+        change: coin.change,
+        changeAbs: coin.current_price * (coin.change / 100),
+        image: coin.image,
+      },
+      chartData: [],
+    }));
+    
+    fetchChartData('7D', coin.coinId);
+  };
+
+  return { ...data, fetchChartData, selectCoin };
 }

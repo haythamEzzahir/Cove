@@ -43,13 +43,16 @@ export default function TopBar({
   pageSubtitle,
   themeMode = 'dark',
   onToggleTheme,
+  onToggleSidebar,
 }) {
   const { user } = useAuth();
   const { currency, setCurrency, currencies, currencyData } = useCurrency();
   const [showCurrencyMenu, setShowCurrencyMenu] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   return (
     <header
+      className="topbar"
       style={{
         display: 'flex',
         alignItems: 'center',
@@ -90,10 +93,30 @@ export default function TopBar({
         )}
       </div>
 
+      {/* Burger menu for mobile */}
+      <button
+        onClick={onToggleSidebar}
+        className="sidebar-toggle"
+        style={{
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          color: colors.textMuted,
+          padding: 8,
+          display: 'none',
+        }}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
+
       {/* Right side */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
         {/* Currency Selector */}
-        <div style={{ position: 'relative' }}>
+        <div className="currency-selector" style={{ position: 'relative' }}>
           <button
             onClick={() => setShowCurrencyMenu(!showCurrencyMenu)}
             style={{

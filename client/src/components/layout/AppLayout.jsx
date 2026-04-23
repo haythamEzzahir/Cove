@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet, useLocation, Navigate } from 'react-router-dom';
 import { useSettings } from '../../context/SettingsContext';
 import { useAuth } from '../../context/AuthContext';
@@ -23,6 +24,7 @@ export default function AppLayout() {
   const location = useLocation();
   const { settings, updateSetting } = useSettings();
   const { user, loading } = useAuth();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { title, subtitle } = PAGE_DATA[location.pathname] || { title: 'Dashboard', subtitle: '' };
 
@@ -34,10 +36,8 @@ export default function AppLayout() {
     return null;
   }
 
-  // Check if current route requires authentication
   const requiresAuth = PROTECTED_ROUTES.some(route => location.pathname.startsWith(route));
   
-  // If route requires auth and user is not logged in, redirect to login
   if (requiresAuth && !user) {
     return <Navigate to="/login" replace />;
   }
@@ -52,7 +52,22 @@ export default function AppLayout() {
         fontFamily: 'system-ui, sans-serif',
       }}
     >
-      <Sidebar />
+      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 30,
+            display: 'none',
+          }}
+          className="sidebar-overlay"
+        />
+      )}
+
       <div
         style={{
           flex: 1,
@@ -68,6 +83,7 @@ export default function AppLayout() {
           user={user}
           themeMode={settings.darkMode ? 'dark' : 'light'}
           onToggleTheme={handleToggleTheme}
+          onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
         />
         <div style={{ flex: 1, overflowY: 'auto' }}>
           <Outlet />
