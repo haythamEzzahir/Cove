@@ -17,12 +17,12 @@ app.get("/", (req, res) => {
   res.send("Backend API is running");
 });
 
-// ✅ ADD THIS ROUTE
+
 app.get("/coins", async (req, res) => {
   try {
     const currency = req.query.currency || "usd";
     const response = await fetch(
-      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}&order=market_cap_desc&per_page=20&page=1`,
+      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}&order=market_cap_desc&per_page=100&page=1`,
       {
         method: "GET",
         headers: {
@@ -79,5 +79,26 @@ app.get("/chart/:coinId", async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: "Failed to fetch chart data" });
+  }
+});
+
+app.get("/search", async (req, res) => {
+  try {
+    const query = req.query.q || "";
+    const response = await fetch(
+      `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`,
+      {
+        method: "GET",
+        headers: {
+          "x-cg-demo-api-key": process.env.CG_API_KEY,
+        },
+      }
+    );
+
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to search coins" });
   }
 });

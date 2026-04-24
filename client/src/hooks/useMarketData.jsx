@@ -67,11 +67,19 @@ export function useMarketData() {
             name: c.name,
             ticker: c.symbol.toUpperCase(),
             price: formatPrice(c.current_price),
+            current_price: c.current_price,
             change: c.price_change_percentage_24h || 0,
             marketCap: formatMarketCap(c.market_cap || 0),
             volume: formatMarketCap(c.total_volume || 0),
             image: c.image,
             coinId: c.id,
+            high24h: c.high_24h ? formatPrice(c.high_24h) : null,
+            low24h: c.low_24h ? formatPrice(c.low_24h) : null,
+            ath: c.ath ? formatPrice(c.ath) : null,
+            ath_change: c.ath_change_percentage || 0,
+            atl: c.atl ? formatPrice(c.atl) : null,
+            marketCapRank: c.market_cap_rank,
+            fullyDilutedValuation: c.fully_diluted_valuation ? formatMarketCap(c.fully_diluted_valuation) : null,
           }));
 
           const metrics = [
