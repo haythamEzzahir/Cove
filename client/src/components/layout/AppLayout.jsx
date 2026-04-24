@@ -17,14 +17,13 @@ const PAGE_DATA = {
   '/settings/profile': { title: 'Profile', subtitle: 'Account settings' },
 };
 
-// Routes that require authentication
 const PROTECTED_ROUTES = ['/watchlist', '/portfolio', '/alerts', '/news', '/settings', '/settings/profile'];
 
 export default function AppLayout() {
   const location = useLocation();
   const { settings, updateSetting } = useSettings();
   const { user, loading } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const { title, subtitle } = PAGE_DATA[location.pathname] || { title: 'Dashboard', subtitle: '' };
 
@@ -54,20 +53,6 @@ export default function AppLayout() {
     >
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       
-      {sidebarOpen && (
-        <div
-          onClick={() => setSidebarOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            zIndex: 30,
-            display: 'none',
-          }}
-          className="sidebar-overlay"
-        />
-      )}
-
       <div
         style={{
           flex: 1,

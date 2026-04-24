@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useMarketData } from '../hooks/useMarketData';
 import { useAuth } from '../context/AuthContext';
-import { colors } from '../styles/tokens';
 import MetricCard from '../components/dashboard/MetricCard';
 import PriceChart from '../components/dashboard/PriceChart';
 import TrendingPanel from '../components/dashboard/TrendingPanel';
 import MarketTable from '../components/dashboard/MarketTable';
-import '../styles/dashboard.css';
 
 export default function Dashboard() {
   const { metrics, chartData, featuredCoin, trendingCoins, assets, fetchChartData, selectCoin } = useMarketData();
@@ -45,8 +43,8 @@ export default function Dashboard() {
   };
 
   return (
-    <main className="dashboard">
-      <div className="dashboard-metrics">
+    <main className="p-6 flex flex-col gap-4">
+      <div className="flex flex-wrap gap-3">
         {metrics.map((m) => (
           <MetricCard
             key={m.id}
@@ -59,13 +57,13 @@ export default function Dashboard() {
         ))}
       </div>
 
-      <div className="dashboard-charts">
+      <div className="flex flex-wrap gap-3">
         <PriceChart coin={featuredCoin} data={chartData} onTabChange={fetchChartData} />
         <TrendingPanel coins={trendingCoins} onCoinClick={selectCoin} />
       </div>
 
-      <div className="dashboard-search" style={{ marginBottom: 8 }}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2">
+      <div className="flex items-center gap-2 bg-[#161b22] border border-[#30363d] rounded-lg p-2 max-w-[380px]" style={{ marginBottom: 8 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7d8590" strokeWidth="2">
           <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
         </svg>
         <input
@@ -73,6 +71,7 @@ export default function Dashboard() {
           placeholder="Search cryptocurrency (e.g. BTC, ETH)..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          className="flex-1 bg-transparent border-none outline-none text-[#e6edf3] text-sm"
         />
       </div>
 
@@ -82,6 +81,15 @@ export default function Dashboard() {
         watchlist={watchlist}
         onAddToWatchlist={handleWatchlistToggle}
       />
+
+      <footer className="text-center text-xs text-[#7d8590] pt-4 border-t border-[#21262d] flex justify-center gap-5">
+        <span>© 2024 FinTracker Inc. All rights reserved.</span>
+        <div className="flex gap-3.5">
+          <a href="#" className="text-inherit no-underline">Terms</a>
+          <a href="#" className="text-inherit no-underline">Privacy</a>
+          <a href="#" className="text-inherit no-underline">Support</a>
+        </div>
+      </footer>
     </main>
   );
 }

@@ -5,7 +5,6 @@ import SettingsSection from '../components/settings/SettingsSection';
 import SettingItem from '../components/settings/SettingItem';
 import ToggleSwitch from '../components/settings/ToggleSwitch';
 import CurrencySelect from '../components/settings/CurrencySelect';
-import '../styles/settings.css';
 
 const USER = {
   name: 'Ali Karim',
@@ -17,8 +16,8 @@ function Settings() {
   const { settings, updateSetting } = useSettings();
 
   return (
-    <div className="settings-wrapper">
-      <p>Manage your preferences and account settings.</p>
+    <div className="p-8 bg-[#0d1117] text-[#e6edf3]">
+      <p className="text-sm text-[#c9d1d9] mb-6">Manage your preferences and account settings.</p>
 
       <SettingsSection title="Profile">
         <ProfileCard
@@ -96,6 +95,15 @@ function Settings() {
           }
         />
       </SettingsSection>
+
+      <footer className="text-center text-xs text-[#7d8590] pt-4 border-t border-[#21262d] flex justify-center gap-5 mt-6">
+        <span>© 2024 FinTracker Inc. All rights reserved.</span>
+        <div className="flex gap-3.5">
+          <a href="#" className="text-inherit no-underline">Terms</a>
+          <a href="#" className="text-inherit no-underline">Privacy</a>
+          <a href="#" className="text-inherit no-underline">Support</a>
+        </div>
+      </footer>
     </div>
   );
 }

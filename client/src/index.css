@@ -1,6 +1,27 @@
-/* ══════════════════════════════════════════════
-    BASE RESET
-    ══════════════════════════════════════════════ */
+@import "tailwindcss";
+
+@theme {
+  --color-bg-base: #0d1117;
+  --color-bg-surface: #161b22;
+  --color-bg-overlay: #1c2128;
+  --color-border-subtle: #21262d;
+  --color-border-default: #30363d;
+  --color-border-strong: #484f58;
+  --color-text-primary: #e6edf3;
+  --color-text-secondary: #c9d1d9;
+  --color-text-muted: #7d8590;
+  --color-blue: #3b82f6;
+  --color-blue-dim: #1f6feb;
+  --color-green: #3fb950;
+  --color-green-bg: rgba(35, 134, 54, 0.2);
+  --color-red: #f85149;
+  --color-red-bg: rgba(248, 81, 73, 0.2);
+  --color-yellow: #d29922;
+  --color-yellow-bg: rgba(187, 128, 9, 0.2);
+  
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
 html,
 body,
 #root {
@@ -14,38 +35,10 @@ body,
   box-sizing: border-box;
 }
 
-/* ══════════════════════════════════════════════
-    THÈME — valeurs par défaut (dark)
-    ══════════════════════════════════════════════ */
-:root {
-  --color-bg-base:        #0d1117;
-  --color-bg-surface:     #161b22;
-  --color-bg-overlay:     #1c2128;
-  --color-border-subtle:  #21262d;
-  --color-border-default: #30363d;
-  --color-border-strong:  #484f58;
-  --color-text-primary:   #e6edf3;
-  --color-text-secondary: #c9d1d9;
-  --color-text-muted:     #7d8590;
-  --color-blue:           #3b82f6;
-  --color-blue-dim:       #1f6feb;
-  --color-green:          #3fb950;
-  --color-green-bg:       rgba(35, 134, 54, 0.2);
-  --color-red:            #f85149;
-  --color-red-bg:         rgba(248, 81, 73, 0.2);
-  --color-yellow:         #d29922;
-  --color-yellow-bg:      rgba(187, 128, 9, 0.2);
-
-  color-scheme: dark;
-}
-
-/* ══════════════════════════════════════════════
-    LAYOUT GLOBAL
-    ══════════════════════════════════════════════ */
 body {
   background-color: var(--color-bg-base);
   color: var(--color-text-primary);
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-sans);
 }
 
 #root {
@@ -53,80 +46,6 @@ body {
   flex-direction: column;
 }
 
-/* ══════════════════════════════════════════════
-    RESPONSIVE LAYOUT
-    ══════════════════════════════════════════════ */
-
-/* Sidebar - hide on very small screens, show burger */
-@media (max-width: 768px) {
-  nav.sidebar {
-    transform: translateX(-100%);
-  }
-
-  nav.sidebar.sidebar-open {
-    transform: translateX(0);
-  }
-
-  .sidebar-toggle {
-    display: block !important;
-  }
-
-  .sidebar-overlay {
-    display: block !important;
-  }
-
-  header.topbar {
-    padding: 12px 16px !important;
-  }
-
-  .currency-selector {
-    display: none !important;
-  }
-}
-
-@media (max-width: 480px) {
-  .topbar-right {
-    gap: 8px !important;
-  }
-}
-
-/* Show sidebar on larger screens */
-@media (min-width: 769px) {
-  nav.sidebar {
-    position: relative !important;
-    transform: none !important;
-  }
-}
-
-/* Flex containers - stack on small screens */
-.dashboard-metrics,
-.dashboard-charts,
-.portfolio-charts,
-.portfolio-insights {
-  flex-wrap: wrap;
-}
-
-/* Cards - stack on mobile */
-.metric-card,
-.allocation-card {
-  min-width: calc(50% - 6px);
-  flex: 1;
-}
-
-@media (max-width: 640px) {
-  .metric-card,
-  .allocation-card {
-    min-width: 100%;
-  }
-}
-
-/* Tables scroll horizontally */
-.portfolio-table {
-  display: block;
-  overflow-x: auto;
-}
-
-/* Page padding - adjust for mobile */
 main {
   padding: 16px;
 }
@@ -137,20 +56,9 @@ main {
   }
 }
 
-/* Search bar full width on mobile */
-.dashboard-search {
-  max-width: 100%;
+.dashboard-metrics,
+.dashboard-charts,
+.portfolio-charts,
+.portfolio-insights {
+  flex-wrap: wrap;
 }
-
-@media (min-width: 769px) {
-  .dashboard-search {
-    max-width: 380px;
-  }
-}
-
-/* ══════════════════════════════════════════════
-    COMPACT VIEW
-    ══════════════════════════════════════════════ */
-body.compact-mode .setting-item  { padding: 10px 16px; }
-body.compact-mode .profile-card  { padding: 12px 16px; }
-body.compact-mode main           { gap: 8px !important; padding: 16px !important; }
