@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useMarketData } from '../hooks/useMarketData';
+import { useAuth } from '../context/AuthContext';
 import { colors } from '../styles/tokens';
 import MetricCard from '../components/dashboard/MetricCard';
 import PriceChart from '../components/dashboard/PriceChart';
@@ -9,6 +10,9 @@ import '../styles/dashboard.css';
 
 export default function Dashboard() {
   const { metrics, chartData, featuredCoin, trendingCoins, assets, fetchChartData, selectCoin } = useMarketData();
+  const { user, watchlist, addToWatchlist, removeFromWatchlist, isInWatchlist } = useAuth();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredAssets, setFilteredAssets] = useState([]);
 
   useEffect(() => {
     if (featuredCoin?.coinId) {
@@ -16,18 +20,32 @@ export default function Dashboard() {
     }
   }, [featuredCoin?.coinId]);
 
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredAssets(assets);
+    } else {
+      const query = searchQuery.toLowerCase();
+      setFilteredAssets(assets.filter(asset => 
+        asset.name.toLowerCase().includes(query) || 
+        asset.ticker.toLowerCase().includes(query)
+      ));
+    }
+  }, [searchQuery, assets]);
+
+  const handleWatchlistToggle = (asset) => {
+    if (!user) {
+      alert('Please login to add coins to your watchlist');
+      return;
+    }
+    if (isInWatchlist(asset.coinId)) {
+      removeFromWatchlist(asset.coinId);
+    } else {
+      addToWatchlist(asset);
+    }
+  };
+
   return (
     <main className="dashboard">
-      <div className="dashboard-search">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2">
-          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-        </svg>
-        <input
-          type="text"
-          placeholder="Search cryptocurrency (e.g. BTC, ETH)..."
-        />
-      </div>
-
       <div className="dashboard-metrics">
         {metrics.map((m) => (
           <MetricCard
@@ -46,7 +64,24 @@ export default function Dashboard() {
         <TrendingPanel coins={trendingCoins} onCoinClick={selectCoin} />
       </div>
 
-      <MarketTable assets={assets} onCoinSelect={selectCoin} />
+      <div className="dashboard-search" style={{ marginBottom: 8 }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={colors.textMuted} strokeWidth="2">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        <input
+          type="text"
+          placeholder="Search cryptocurrency (e.g. BTC, ETH)..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      <MarketTable 
+        assets={filteredAssets} 
+        onCoinSelect={selectCoin} 
+        watchlist={watchlist}
+        onAddToWatchlist={handleWatchlistToggle}
+      />
     </main>
   );
 }

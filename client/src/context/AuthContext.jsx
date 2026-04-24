@@ -12,11 +12,16 @@ const USER_DATA = {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [watchlist, setWatchlist] = useState([]);
 
   useEffect(() => {
     const savedUser = localStorage.getItem('fintracker_user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
+    }
+    const savedWatchlist = localStorage.getItem('fintracker_watchlist');
+    if (savedWatchlist) {
+      setWatchlist(JSON.parse(savedWatchlist));
     }
     setLoading(false);
   }, []);
@@ -47,8 +52,28 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('fintracker_user');
   };
 
+  const addToWatchlist = (coin) => {
+    if (!user) return { success: false, error: 'Please login to add to watchlist' };
+    if (!watchlist.includes(coin.coinId)) {
+      const newWatchlist = [...watchlist, coin.coinId];
+      setWatchlist(newWatchlist);
+      localStorage.setItem('fintracker_watchlist', JSON.stringify(newWatchlist));
+    }
+    return { success: true };
+  };
+
+  const removeFromWatchlist = (coinId) => {
+    if (!user) return { success: false, error: 'Please login to remove from watchlist' };
+    const newWatchlist = watchlist.filter(id => id !== coinId);
+    setWatchlist(newWatchlist);
+    localStorage.setItem('fintracker_watchlist', JSON.stringify(newWatchlist));
+    return { success: true };
+  };
+
+  const isInWatchlist = (coinId) => watchlist.includes(coinId);
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, watchlist, addToWatchlist, removeFromWatchlist, isInWatchlist }}>
       {children}
     </AuthContext.Provider>
   );
