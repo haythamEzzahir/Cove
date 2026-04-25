@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import { useMarketData } from '../hooks/useMarketData';
 import { useAuth } from '../context/AuthContext';
 import MetricCard from '../components/dashboard/MetricCard';
@@ -6,12 +6,12 @@ import PriceChart from '../components/dashboard/PriceChart';
 
 const AVAILABLE_COLUMNS = [
   { key: 'rank', label: '#', default: true },
-  { key: 'watchlist', label: '', default: true },
+  { key: 'watchlist', label: 'Watchlist', default: true },
   { key: 'name', label: 'Coin', default: true },
   { key: 'price', label: 'Price', default: true },
   { key: 'change', label: '24h %', default: true },
   { key: 'marketCap', label: 'Market Cap', default: true },
-  { key: 'volume', label: 'Volume', default: false },
+  { key: 'volume', label: 'Volume', default: true },
   { key: 'high24h', label: '24h High', default: false },
   { key: 'low24h', label: '24h Low', default: false },
   { key: 'ath', label: 'ATH', default: false },
@@ -172,7 +172,8 @@ export default function Dashboard() {
         </div>
         <div className="lg:w-[35%]">
           <div className="flex overflow-x-auto gap-2 pb-2 sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-2 lg:h-full">
-            <MetricCard
+            {statsMetrics.map((m) => (
+              <MetricCard
                 key={m.id}
                 label={m.label}
                 value={m.value}
@@ -270,20 +271,32 @@ export default function Dashboard() {
         </div>
         
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <thead className="sticky top-0 z-10 bg-surface">
-              <tr className="border-b border-default">
-                {AVAILABLE_COLUMNS.filter(c => visibleColumns.includes(c.key)).map((col) => (
-                  <th key={col.key} className={`text-left px-2 py-2 text-xs font-semibold text-muted uppercase bg-overlay whitespace-nowrap ${['price', 'change', 'marketCap', 'volume', 'high24h', 'low24h', 'ath', 'ath_change', 'atl', 'mCapRank'].includes(col.key) ? 'text-right' : ''}`}>
-                    {col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedAssets.map((asset) => (
-                <tr
-                  key={asset.coinId}
+          <div className="w-full border-collapse" style={{ display: 'grid', gridTemplateColumns: '40px 36px 180px 1fr 1fr 1fr 1fr', gap: '0' }}>
+            <div className="sticky top-0 z-10 bg-surface border-b border-default px-1 py-2 text-xs font-semibold text-muted uppercase">
+              #
+            </div>
+            <div className="sticky top-0 z-10 bg-surface border-b border-default px-0 py-2 text-xs font-semibold text-muted uppercase text-center">
+              ★
+            </div>
+            <div className="sticky top-0 z-10 bg-surface border-b border-default px-2 py-2 text-xs font-semibold text-muted uppercase">
+              Coin
+            </div>
+            <div className="sticky top-0 z-10 bg-surface border-b border-default px-3 py-2 text-xs font-semibold text-muted uppercase text-right">
+              Price
+            </div>
+            <div className="sticky top-0 z-10 bg-surface border-b border-default px-3 py-2 text-xs font-semibold text-muted uppercase text-right">
+              24h %
+            </div>
+            <div className="sticky top-0 z-10 bg-surface border-b border-default px-3 py-2 text-xs font-semibold text-muted uppercase text-right">
+              Market Cap
+            </div>
+            <div className="sticky top-0 z-10 bg-surface border-b border-default px-3 py-2 text-xs font-semibold text-muted uppercase text-right">
+              Volume
+            </div>
+            
+            {paginatedAssets.map((asset) => (
+              <Fragment key={asset.coinId}>
+                <div 
                   onClick={() => selectCoin({
                     name: asset.name,
                     ticker: asset.ticker,
@@ -292,17 +305,86 @@ export default function Dashboard() {
                     change: asset.change,
                     image: asset.image,
                   })}
-                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors"
+                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-1 py-2 text-xs text-muted"
                 >
-                  {AVAILABLE_COLUMNS.filter(c => visibleColumns.includes(c.key)).map((col) => (
-                    <td key={col.key} className={`px-2 py-2 ${['price', 'change', 'marketCap', 'volume', 'high24h', 'low24h', 'ath', 'ath_change', 'atl', 'mCapRank'].includes(col.key) ? 'text-right' : ''}`}>
-                      {renderCell(asset, col.key)}
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  {asset.rank}
+                </div>
+                <div 
+                  onClick={(e) => handleWatchlistToggle(e, asset)}
+                  onMouseEnter={(e) => e.currentTarget.title = 'Add to watchlist'}
+                  onMouseLeave={(e) => e.currentTarget.title = ''}
+                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors text-center flex items-center justify-center h-full"
+                >
+                  {renderCell(asset, 'watchlist')}
+                </div>
+                <div 
+                  onClick={() => selectCoin({
+                    name: asset.name,
+                    ticker: asset.ticker,
+                    coinId: asset.coinId,
+                    current_price: asset.current_price,
+                    change: asset.change,
+                    image: asset.image,
+                  })}
+                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-2 py-2 min-w-0"
+                >
+                  {renderCell(asset, 'name')}
+                </div>
+                <div 
+                  onClick={() => selectCoin({
+                    name: asset.name,
+                    ticker: asset.ticker,
+                    coinId: asset.coinId,
+                    current_price: asset.current_price,
+                    change: asset.change,
+                    image: asset.image,
+                  })}
+                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-3 py-2 text-right"
+                >
+                  {renderCell(asset, 'price')}
+                </div>
+                <div 
+                  onClick={() => selectCoin({
+                    name: asset.name,
+                    ticker: asset.ticker,
+                    coinId: asset.coinId,
+                    current_price: asset.current_price,
+                    change: asset.change,
+                    image: asset.image,
+                  })}
+                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-3 py-2 text-right"
+                >
+                  {renderCell(asset, 'change')}
+                </div>
+                <div 
+                  onClick={() => selectCoin({
+                    name: asset.name,
+                    ticker: asset.ticker,
+                    coinId: asset.coinId,
+                    current_price: asset.current_price,
+                    change: asset.change,
+                    image: asset.image,
+                  })}
+                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-3 py-2 text-right"
+                >
+                  {renderCell(asset, 'marketCap')}
+                </div>
+                <div 
+                  onClick={() => selectCoin({
+                    name: asset.name,
+                    ticker: asset.ticker,
+                    coinId: asset.coinId,
+                    current_price: asset.current_price,
+                    change: asset.change,
+                    image: asset.image,
+                  })}
+                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-3 py-2 text-right"
+                >
+                  {renderCell(asset, 'volume')}
+                </div>
+              </Fragment>
+            ))}
+          </div>
         </div>
 
         {/* Pagination */}
