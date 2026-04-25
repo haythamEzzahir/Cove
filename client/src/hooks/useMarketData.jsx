@@ -160,10 +160,19 @@ export function useMarketData() {
       
       const chartData = await res.json();
       
-      const formattedData = (chartData.prices || []).map(([timestamp, price]) => ({
-        t: new Date(timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }),
-        price,
-      }));
+      const useHours = days === '1';
+      const formattedData = (chartData.prices || []).slice(0, 48).map((item) => {
+        const timestamp = item[0];
+        const price = item[1];
+        const date = new Date(timestamp);
+        let label;
+        if (useHours) {
+          label = date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
+        } else {
+          label = date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+        }
+        return { t: label, price };
+      });
       
       setData(prev => ({
         ...prev,

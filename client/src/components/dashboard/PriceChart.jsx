@@ -1,15 +1,22 @@
 import { useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import CoinLogo from '../shared/CoinLogo';
-import TabBar from '../shared/TabBar';
 import Badge from '../shared/Badge';
 import { useCurrency } from '../../context/CurrencyContext';
+import { useTheme } from '../../context/ThemeContext';
 
 const TIME_TABS = ['1D', '7D', '1M', '1Y', 'All'];
 
 export default function PriceChart({ coin, data = [], onTabChange }) {
   const [activeTab, setActiveTab] = useState('7D');
   const { currencyData } = useCurrency();
+  const { isDark } = useTheme();
+  
+  const primaryColor = isDark ? '255,255,255' : '0,0,0';
+  const mutedColor = isDark ? '255,255,255' : '100,116,139';
+  const bgOverlay = isDark ? '24,24,27' : '255,255,255';
+  const borderColor = isDark ? '63,63,70' : '228,231,235';
+  const chartBlue = '#3b82f6';
 
   const handleTab = (tab) => {
     setActiveTab(tab);
@@ -19,8 +26,8 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
   const isPositive = coin?.change >= 0;
 
   return (
-    <div className="bg-surface border border-default rounded-xl p-5 min-h-[200px] lg:min-h-[300px]">
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
+    <div className="bg-surface border border-default rounded-xl p-4 lg:p-5">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
             <CoinLogo ticker={coin?.ticker} size={24} image={coin?.image} />
@@ -36,26 +43,41 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
             </span>
           </div>
         </div>
-        <TabBar tabs={TIME_TABS} active={activeTab} onChange={handleTab} />
+        
+        <div className="flex gap-1">
+          {TIME_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => handleTab(tab)}
+              className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                activeTab === tab
+                  ? 'bg-accent text-white'
+                  : 'bg-white/5 text-muted hover:bg-white/10 hover:text-primary'
+              }`}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
       </div>
 
       <ResponsiveContainer width="100%" height={180}>
-        <AreaChart data={data} margin={{ top: 4, right: 40, bottom: 0, left: 0 }}>
+        <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgb(var(--color-primary))" stopOpacity={0.25} />
-              <stop offset="100%" stopColor="rgb(var(--color-primary))" stopOpacity={0} />
+              <stop offset="0%" stopColor={chartBlue} stopOpacity={0.25} />
+              <stop offset="100%" stopColor={chartBlue} stopOpacity={0} />
             </linearGradient>
           </defs>
           <XAxis
             dataKey="t"
-            tick={{ fill: 'rgb(var(--text-muted))', fontSize: 10 }}
+            tick={{ fill: `rgb(${mutedColor})`, fontSize: 10 }}
             axisLine={false}
             tickLine={false}
           />
           <YAxis
             orientation="right"
-            tick={{ fill: 'rgb(var(--text-muted))', fontSize: 10 }}
+            tick={{ fill: `rgb(${mutedColor})`, fontSize: 10 }}
             axisLine={false}
             tickLine={false}
             domain={['auto', 'auto']}
@@ -67,23 +89,23 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
           />
           <Tooltip
             contentStyle={{
-              background: 'rgb(var(--bg-overlay))',
-              border: '1px solid rgb(var(--border-default))',
+              background: `rgb(${bgOverlay})`,
+              border: `1px solid rgb(${borderColor})`,
               borderRadius: '8px',
               fontSize: 12,
-              color: 'rgb(var(--text-primary))',
+              color: `rgb(${primaryColor})`,
             }}
             formatter={(v) => [`${currencyData.symbol}${v.toLocaleString()}`, 'Price']}
-            labelStyle={{ color: 'rgb(var(--text-muted))' }}
+            labelStyle={{ color: `rgb(${mutedColor})` }}
           />
           <Area
             type="monotone"
             dataKey="price"
-            stroke="rgb(var(--color-primary))"
+            stroke={chartBlue}
             strokeWidth={2}
             fill="url(#priceGrad)"
             dot={false}
-            activeDot={{ r: 4, fill: 'rgb(var(--color-primary))' }}
+            activeDot={{ r: 4, fill: chartBlue }}
           />
         </AreaChart>
       </ResponsiveContainer>
