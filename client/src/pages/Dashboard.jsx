@@ -20,6 +20,24 @@ const AVAILABLE_COLUMNS = [
   { key: 'mCapRank', label: 'Rank', default: false },
 ];
 
+const COLUMN_WIDTHS = {
+    rank: '50px',
+    watchlist: '40px',
+    name: '180px',
+    price: '1fr',
+    change: '1fr',
+    marketCap: '1fr',
+    volume: '1fr',
+    high24h: '1fr',
+    low24h: '1fr',
+    ath: '1fr',
+    ath_change: '1fr',
+    atl: '1fr',
+    mCapRank: '1fr',
+  };
+
+  const getColumnWidth = (key) => COLUMN_WIDTHS[key] || '1fr';
+
 const ITEMS_PER_PAGE = 30;
 
 const FILTER_OPTIONS = [
@@ -268,33 +286,28 @@ export default function Dashboard() {
         </div>
         
         <div className="overflow-x-auto">
-          <div className="w-full border-collapse" style={{ display: 'grid', gridTemplateColumns: '40px 36px 180px 1fr 1fr 1fr 1fr', gap: '0' }}>
-            <div className="sticky top-0 z-10 bg-surface border-b border-default px-1 py-2 text-xs font-semibold text-muted uppercase">
-              #
-            </div>
-            <div className="sticky top-0 z-10 bg-surface border-b border-default px-0 py-2 text-xs font-semibold text-muted uppercase text-center">
-              ★
-            </div>
-            <div className="sticky top-0 z-10 bg-surface border-b border-default px-2 py-2 text-xs font-semibold text-muted uppercase">
-              Coin
-            </div>
-            <div className="sticky top-0 z-10 bg-surface border-b border-default px-3 py-2 text-xs font-semibold text-muted uppercase text-right">
-              Price
-            </div>
-            <div className="sticky top-0 z-10 bg-surface border-b border-default px-3 py-2 text-xs font-semibold text-muted uppercase text-right">
-              24h %
-            </div>
-            <div className="sticky top-0 z-10 bg-surface border-b border-default px-3 py-2 text-xs font-semibold text-muted uppercase text-right">
-              Market Cap
-            </div>
-            <div className="sticky top-0 z-10 bg-surface border-b border-default px-3 py-2 text-xs font-semibold text-muted uppercase text-right">
-              Volume
-            </div>
+          <div 
+            className="w-full border-collapse" 
+            style={{ display: 'grid', gridTemplateColumns: visibleColumns.map(getColumnWidth).join(' '), gap: '0' }}
+          >
+            {visibleColumns.map((colKey) => {
+              const col = AVAILABLE_COLUMNS.find(c => c.key === colKey);
+              return (
+                <div 
+                  key={colKey} 
+                  className="sticky top-0 z-10 bg-surface border-b border-default px-2 py-2 text-xs font-semibold text-muted uppercase"
+                  style={{ textAlign: colKey === 'name' ? 'left' : 'right' }}
+                >
+                  {colKey === 'watchlist' ? '★' : col?.label}
+                </div>
+              );
+            })}
             
-            {paginatedAssets.map((asset) => (
-              <Fragment key={asset.coinId}>
+            {paginatedAssets.map((asset) => 
+              visibleColumns.map((colKey) => (
                 <div 
-                  onClick={() => selectCoin({
+                  key={`${asset.coinId}-${colKey}`}
+                  onClick={() => colKey !== 'watchlist' && selectCoin({
                     name: asset.name,
                     ticker: asset.ticker,
                     coinId: asset.coinId,
@@ -302,85 +315,22 @@ export default function Dashboard() {
                     change: asset.change,
                     image: asset.image,
                   })}
-                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-1 py-2 text-xs text-muted"
+                  className={`border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-2 py-2 ${colKey === 'watchlist' ? 'flex items-center justify-center' : ''}`}
+                  style={{ textAlign: colKey === 'name' ? 'left' : 'right' }}
                 >
-                  {asset.rank}
+                  {colKey === 'watchlist' ? (
+                    <div 
+                      onClick={(e) => handleWatchlistToggle(e, asset)}
+                      onMouseEnter={(e) => e.currentTarget.title = 'Add to watchlist'}
+                      onMouseLeave={(e) => e.currentTarget.title = ''}
+                      className="cursor-pointer"
+                    >
+                      {renderCell(asset, 'watchlist')}
+                    </div>
+                  ) : renderCell(asset, colKey)}
                 </div>
-                <div 
-                  onClick={(e) => handleWatchlistToggle(e, asset)}
-                  onMouseEnter={(e) => e.currentTarget.title = 'Add to watchlist'}
-                  onMouseLeave={(e) => e.currentTarget.title = ''}
-                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors text-center flex items-center justify-center h-full"
-                >
-                  {renderCell(asset, 'watchlist')}
-                </div>
-                <div 
-                  onClick={() => selectCoin({
-                    name: asset.name,
-                    ticker: asset.ticker,
-                    coinId: asset.coinId,
-                    current_price: asset.current_price,
-                    change: asset.change,
-                    image: asset.image,
-                  })}
-                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-2 py-2 min-w-0"
-                >
-                  {renderCell(asset, 'name')}
-                </div>
-                <div 
-                  onClick={() => selectCoin({
-                    name: asset.name,
-                    ticker: asset.ticker,
-                    coinId: asset.coinId,
-                    current_price: asset.current_price,
-                    change: asset.change,
-                    image: asset.image,
-                  })}
-                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-3 py-2 text-right"
-                >
-                  {renderCell(asset, 'price')}
-                </div>
-                <div 
-                  onClick={() => selectCoin({
-                    name: asset.name,
-                    ticker: asset.ticker,
-                    coinId: asset.coinId,
-                    current_price: asset.current_price,
-                    change: asset.change,
-                    image: asset.image,
-                  })}
-                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-3 py-2 text-right"
-                >
-                  {renderCell(asset, 'change')}
-                </div>
-                <div 
-                  onClick={() => selectCoin({
-                    name: asset.name,
-                    ticker: asset.ticker,
-                    coinId: asset.coinId,
-                    current_price: asset.current_price,
-                    change: asset.change,
-                    image: asset.image,
-                  })}
-                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-3 py-2 text-right"
-                >
-                  {renderCell(asset, 'marketCap')}
-                </div>
-                <div 
-                  onClick={() => selectCoin({
-                    name: asset.name,
-                    ticker: asset.ticker,
-                    coinId: asset.coinId,
-                    current_price: asset.current_price,
-                    change: asset.change,
-                    image: asset.image,
-                  })}
-                  className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-3 py-2 text-right"
-                >
-                  {renderCell(asset, 'volume')}
-                </div>
-              </Fragment>
-            ))}
+              ))
+            )}
           </div>
         </div>
 
