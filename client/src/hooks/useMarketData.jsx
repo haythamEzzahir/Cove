@@ -12,6 +12,14 @@ const TIME_PERIOD_MAP = {
   'All': 'max',
 };
 
+const MAX_POINTS = {
+  '1': 48,
+  '7': 56,
+  '30': 60,
+  '365': 72,
+  'max': 80,
+};
+
 export function useMarketData() {
   const { currency, currencyData } = useCurrency();
   const [data, setData] = useState({
@@ -155,19 +163,29 @@ export function useMarketData() {
     
     try {
       const days = TIME_PERIOD_MAP[period] || '7';
+      const maxPoints = MAX_POINTS[days] || 60;
       const res = await fetch(`${CHART_API_URL}/${coinId}?currency=${currency}&days=${days}`);
       if (!res.ok) throw new Error('Failed to fetch chart data');
       
       const chartData = await res.json();
       
       const useHours = days === '1';
-      const formattedData = (chartData.prices || []).slice(0, 48).map((item) => {
+      const useMonths = days === '30' || days === '365' || days === 'max';
+      
+      const allPrices = chartData.prices || [];
+      const step = Math.max(1, Math.floor(allPrices.length / maxPoints));
+      const sampledPrices = allPrices.filter((_, i) => i % step === 0);
+      
+      const formattedData = sampledPrices.map((item) => {
         const timestamp = item[0];
         const price = item[1];
         const date = new Date(timestamp);
         let label;
+        
         if (useHours) {
           label = date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
+        } else if (useMonths) {
+          label = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
         } else {
           label = date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
         }
