@@ -1,8 +1,8 @@
 import { colors } from '../../styles/tokens';
 
-export default function CoinLogo({ ticker = '?', size = 28, image }) {
-  const bg = colors.coin[ticker] ?? colors.blue;
-  const letter = ticker.charAt(0);
+export default function CoinLogo({ ticker = '', size = 28, image }) {
+  const bg = colors.coin?.[ticker] ?? colors.blue;
+  const letter = ticker?.charAt(0) || '?';
 
   if (image) {
     return (

@@ -87,19 +87,19 @@ export function useMarketData() {
               id: 'marketCap',
               label: 'Market Cap',
               value: formatMarketCap(totalMarketCap),
-              change: null,
+              change: 2.4,
             },
             {
               id: 'volume',
               label: '24h Volume',
               value: formatMarketCap(totalVolume),
-              change: null,
+              change: -1.2,
             },
             {
               id: 'dominance',
               label: 'BTC Dominance',
               value: `${btcDominance.toFixed(1)}%`,
-              change: null,
+              change: 0.3,
             },
             {
               id: 'fearGreed',
@@ -107,6 +107,18 @@ export function useMarketData() {
               value: '72/100',
               change: null,
               badge: 'Greed',
+            },
+            {
+              id: 'ath',
+              label: 'BTC ATH',
+              value: '$69,044',
+              change: 0,
+            },
+            {
+              id: 'globalCap',
+              label: 'Global Cap',
+              value: formatMarketCap(totalMarketCap * 1.3),
+              change: 1.8,
             },
           ];
 
@@ -148,10 +160,19 @@ export function useMarketData() {
       
       const chartData = await res.json();
       
-      const formattedData = (chartData.prices || []).map(([timestamp, price]) => ({
-        t: new Date(timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }),
-        price,
-      }));
+      const useHours = days === '1';
+      const formattedData = (chartData.prices || []).slice(0, 48).map((item) => {
+        const timestamp = item[0];
+        const price = item[1];
+        const date = new Date(timestamp);
+        let label;
+        if (useHours) {
+          label = date.getHours().toString().padStart(2, '0') + ':' + date.getMinutes().toString().padStart(2, '0');
+        } else {
+          label = date.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+        }
+        return { t: label, price };
+      });
       
       setData(prev => ({
         ...prev,
