@@ -1,4 +1,4 @@
-import Watchlist from "../models/Watchlist.js";
+import Watchlist from "../models/watchlist.js";
 
 const getMyWatchlist = async (req, res) => {
   const watchlist = await Watchlist.findOne({ userId: req.user._id });

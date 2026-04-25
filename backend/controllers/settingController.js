@@ -1,4 +1,4 @@
-import Setting from "../models/Setting.js";
+import Setting from "../models/setting.js";
 
 const getMySettings = async (req, res) => {
   const settings = await Setting.findOne({ userId: req.user._id });
