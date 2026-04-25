@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import CoinLogo from '../shared/CoinLogo';
 import Badge from '../shared/Badge';
 import { useCurrency } from '../../context/CurrencyContext';
@@ -17,6 +17,7 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
   const bgOverlay = isDark ? '24,24,27' : '255,255,255';
   const borderColor = isDark ? '63,63,70' : '228,231,235';
   const chartBlue = '#3b82f6';
+  const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
 
   const handleTab = (tab) => {
     setActiveTab(tab);
@@ -25,8 +26,15 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
 
   const isPositive = coin?.change >= 0;
 
+  const formatPrice = (value) => {
+    if (value >= 1000000) return `${currencyData.symbol}${(value / 1000000).toFixed(2)}M`;
+    if (value >= 1000) return `${currencyData.symbol}${(value / 1000).toFixed(1)}k`;
+    if (value >= 1) return `${currencyData.symbol}${value.toFixed(0)}`;
+    return `${currencyData.symbol}${value.toFixed(2)}`;
+  };
+
   return (
-    <div className="bg-surface border border-default rounded-xl p-4 lg:p-5">
+    <div className="bg-surface border border-default rounded-xl p-4 lg:p-5 lg:h-[320px]">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 mb-4">
         <div>
           <div className="flex items-center gap-2 mb-2">
@@ -69,6 +77,11 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
               <stop offset="100%" stopColor={chartBlue} stopOpacity={0} />
             </linearGradient>
           </defs>
+          <CartesianGrid 
+            strokeDasharray="3 3" 
+            vertical={false} 
+            stroke={gridColor} 
+          />
           <XAxis
             dataKey="t"
             tick={{ fill: `rgb(${mutedColor})`, fontSize: 10 }}
@@ -81,11 +94,8 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
             axisLine={false}
             tickLine={false}
             domain={['auto', 'auto']}
-            tickFormatter={(value) => {
-              if (value >= 1000) return `${currencyData.symbol}${(value / 1000).toFixed(1)}k`;
-              if (value >= 1) return `${currencyData.symbol}${value.toFixed(0)}`;
-              return `${currencyData.symbol}${value.toFixed(2)}`;
-            }}
+            tickFormatter={formatPrice}
+            width={60}
           />
           <Tooltip
             contentStyle={{

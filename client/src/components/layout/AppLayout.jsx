@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Outlet, useLocation, Navigate } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { useSettings } from '../../context/SettingsContext';
 import { useAuth } from '../../context/AuthContext';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
+import AuthModal from '../auth/AuthModal';
 
 const PAGE_DATA = {
   '/': { title: 'Dashboard', subtitle: 'Live market feed' },
@@ -24,6 +25,8 @@ export default function AppLayout() {
   const { user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState('login');
 
   useEffect(() => {
     const handleResize = () => {
@@ -55,7 +58,10 @@ export default function AppLayout() {
   const requiresAuth = PROTECTED_ROUTES.some(route => location.pathname.startsWith(route));
   
   if (requiresAuth && !user) {
-    return <Navigate to="/login" replace />;
+    if (!showAuthModal) {
+      setShowAuthModal(true);
+      setAuthModalMode('login');
+    }
   }
 
   return (
@@ -76,11 +82,18 @@ export default function AppLayout() {
           pageTitle={title}
           pageSubtitle={subtitle}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          onShowAuth={() => { setShowAuthModal(true); setAuthModalMode('login'); }}
         />
         <div className="flex-1 overflow-y-auto">
           <Outlet />
         </div>
       </div>
+
+      <AuthModal 
+        isOpen={showAuthModal} 
+        onClose={() => setShowAuthModal(false)} 
+        initialMode={authModalMode}
+      />
     </div>
   );
 }

@@ -165,12 +165,11 @@ export default function Dashboard() {
 
   return (
     <main className="p-3 sm:p-5 flex flex-col gap-3">
-      {/* Desktop: chart 65% left, metrics 35% right */}
       <div className="flex flex-col lg:flex-row gap-3">
         <div className="lg:w-[65%]">
           <PriceChart coin={featuredCoin} data={chartData} onTabChange={fetchChartData} />
         </div>
-        <div className="lg:w-[35%]">
+        <div className="lg:w-[35%] lg:h-[320px]">
           <div className="flex overflow-x-auto gap-2 pb-2 sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-2 gap-2 lg:h-full">
             {statsMetrics.map((m) => (
               <MetricCard
@@ -185,23 +184,22 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Search and Columns Bar - Filter left, Columns right */}
+{/* Search and Actions Bar */}
       <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 bg-surface border border-default rounded-lg p-2 min-w-[200px] w-[30%] max-w-[400px] flex-1">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted shrink-0">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Search cryptocurrency (e.g BTC ETH)..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 bg-transparent border-none outline-none text-sm text-primary placeholder:text-muted min-w-0"
+          />
+        </div>
+        
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 bg-surface border border-default rounded-lg p-2 max-w-[280px]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted shrink-0">
-              <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-            </svg>
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1 bg-transparent border-none outline-none text-sm text-primary placeholder:text-muted min-w-0"
-            />
-          </div>
-          
-          {/* Filter dropdown */}
           <div className="relative">
             <button
               onClick={() => setShowFilterMenu(!showFilterMenu)}
@@ -210,7 +208,7 @@ export default function Dashboard() {
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M22 3l-9.5 9.5-5-5L1 18"/>
               </svg>
-              {FILTER_OPTIONS.find(f => f.key === activeFilter)?.label}
+              Filter
             </button>
             {showFilterMenu && (
               <div className="absolute top-full left-0 mt-1 bg-surface border border-default rounded-lg p-1 min-w-[140px] z-50 shadow-lg">
@@ -227,39 +225,38 @@ export default function Dashboard() {
               </div>
             )}
           </div>
-        </div>
-        
-        {/* Columns dropdown - on the right */}
-        <div className="relative">
-          <button
-            onClick={() => setShowColumnMenu(!showColumnMenu)}
-            className="flex items-center gap-1.5 bg-surface border border-default rounded-lg px-2.5 py-1.5 text-xs text-primary cursor-pointer hover:bg-overlay"
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="4" y1="6" x2="20" y2="6" />
-              <line x1="8" y1="12" x2="16" y2="12" />
-              <line x1="11" y1="18" x2="13" y2="18" />
-            </svg>
-            Columns
-          </button>
-          {showColumnMenu && (
-            <div className="absolute top-full right-0 mt-1 bg-surface border border-default rounded-lg p-1 min-w-[150px] z-50 shadow-lg">
-              {AVAILABLE_COLUMNS.map((col) => (
-                <label
-                  key={col.key}
-                  className="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-overlay rounded text-xs text-primary"
-                >
-                  <input
-                    type="checkbox"
-                    checked={visibleColumns.includes(col.key)}
-                    onChange={() => toggleColumn(col.key)}
-                    className="accent-accent"
-                  />
-                  {col.label}
-                </label>
-              ))}
-            </div>
-          )}
+          
+          <div className="relative">
+            <button
+              onClick={() => setShowColumnMenu(!showColumnMenu)}
+              className="flex items-center gap-1.5 bg-surface border border-default rounded-lg px-2.5 py-1.5 text-xs text-primary cursor-pointer hover:bg-overlay"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="4" y1="6" x2="20" y2="6" />
+                <line x1="8" y1="12" x2="16" y2="12" />
+                <line x1="11" y1="18" x2="13" y2="18" />
+              </svg>
+              Columns
+            </button>
+            {showColumnMenu && (
+              <div className="absolute top-full right-0 mt-1 bg-surface border border-default rounded-lg p-1 min-w-[150px] z-50 shadow-lg">
+                {AVAILABLE_COLUMNS.map((col) => (
+                  <label
+                    key={col.key}
+                    className="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-overlay rounded text-xs text-primary"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.includes(col.key)}
+                      onChange={() => toggleColumn(col.key)}
+                      className="accent-accent"
+                    />
+                    {col.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
