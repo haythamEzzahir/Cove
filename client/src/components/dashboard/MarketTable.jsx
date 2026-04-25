@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import Badge from '../shared/Badge';
-import { colors, radius, fontSize } from '../../styles/tokens';
 import CoinLogo from '../shared/CoinLogo';
 
 const AVAILABLE_COLUMNS = [
   { key: 'rank', label: '#', default: true },
-  { key: 'watchlist', label: 'Watchlist', default: true },
+  { key: 'watchlist', label: '', default: true },
   { key: 'name', label: 'Coin', default: true },
   { key: 'price', label: 'Price', default: true },
   { key: 'change', label: '24h %', default: true },
@@ -23,19 +22,9 @@ function StarIcon({ filled, onClick }) {
   return (
     <button
       onClick={onClick}
-      style={{
-        background: 'none',
-        border: 'none',
-        cursor: 'pointer',
-        padding: 0,
-        width: 18,
-        height: 18,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
+      className={`w-7 h-7 flex items-center justify-center bg-transparent border-none cursor-pointer ${filled ? 'text-amber-500' : 'text-muted hover:text-primary'}`}
     >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill={filled ? colors.yellow : 'none'} stroke={filled ? colors.yellow : colors.textMuted} strokeWidth="2">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill={filled ? '#f59e0b' : 'none'} stroke={filled ? '#f59e0b' : 'currentColor'} strokeWidth="2">
         <path d="m12 3.75 2.55 5.17 5.7.83-4.13 4.03.98 5.68L12 16.78l-5.1 2.68.98-5.68L3.75 9.75l5.7-.83L12 3.75Z" />
       </svg>
     </button>
@@ -66,23 +55,18 @@ export default function MarketTable({ assets, onCoinSelect, watchlist = [], onAd
     const inWatchlist = watchlist.includes(asset.coinId);
     switch (key) {
       case 'watchlist':
-        return (
-          <StarIcon 
-            filled={inWatchlist} 
-            onClick={(e) => toggleWatchlist(e, asset)} 
-          />
-        );
+        return <StarIcon filled={inWatchlist} onClick={(e) => toggleWatchlist(e, asset)} />;
       case 'rank':
-        return <span style={{ color: colors.textMuted, fontSize: fontSize.sm }}>{asset.rank}</span>;
+        return <span className="text-sm text-muted">{asset.rank}</span>;
       case 'name':
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="flex items-center gap-2">
             <CoinLogo ticker={asset.ticker} size={24} image={asset.image} />
-            <span style={{ fontWeight: 600, fontSize: fontSize.sm }}>{asset.name}</span>
+            <span className="text-sm font-semibold text-primary">{asset.name}</span>
           </div>
         );
       case 'price':
-        return <span style={{ fontWeight: 600, fontSize: fontSize.sm }}>{asset.price}</span>;
+        return <span className="text-sm font-semibold text-primary">{asset.price}</span>;
       case 'change':
         return (
           <Badge variant={asset.change >= 0 ? 'green' : 'red'}>
@@ -101,41 +85,22 @@ export default function MarketTable({ assets, onCoinSelect, watchlist = [], onAd
       case 'atl':
       case 'marketCap':
       case 'volume':
-        return <span style={{ color: colors.textSecondary, fontSize: fontSize.sm }}>{asset[key]}</span>;
+        return <span className="text-sm text-secondary">{asset[key]}</span>;
       case 'marketCapRank':
-        return <span style={{ color: colors.textSecondary, fontSize: fontSize.sm }}>{asset[key]}</span>;
+        return <span className="text-sm text-secondary">{asset[key]}</span>;
       default:
         return null;
     }
   };
 
   return (
-    <div
-      style={{
-        background: colors.bgSurface,
-        border: `0.5px solid ${colors.borderDefault}`,
-        borderRadius: radius.lg,
-        overflow: 'hidden',
-      }}
-    >
-      <div style={{ padding: '8px 16px', borderBottom: `0.5px solid ${colors.borderDefault}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: fontSize.xs, fontWeight: 600, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Market Data
-        </span>
-        <div style={{ position: 'relative' }}>
+    <div className="bg-surface border border-default rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-default">
+        <span className="text-xs font-semibold text-muted uppercase tracking-wider">Market Data</span>
+        <div className="relative">
           <button
             onClick={() => setShowColumnMenu(!showColumnMenu)}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              color: colors.textMuted,
-              fontSize: fontSize.sm,
-              padding: '4px 8px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-            }}
+            className="flex items-center gap-1 text-sm text-muted bg-transparent border-none cursor-pointer hover:text-primary"
           >
             Columns
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -143,41 +108,17 @@ export default function MarketTable({ assets, onCoinSelect, watchlist = [], onAd
             </svg>
           </button>
           {showColumnMenu && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: 4,
-                background: colors.bgSurface,
-                border: `0.5px solid ${colors.borderDefault}`,
-                borderRadius: radius.md,
-                padding: 4,
-                minWidth: 150,
-                zIndex: 50,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                maxHeight: 200,
-                overflowY: 'auto',
-              }}
-            >
+            <div className="absolute top-full right-0 mt-1 bg-surface border border-default rounded-lg p-1 min-w-[150px] z-50 shadow-lg">
               {AVAILABLE_COLUMNS.map((col) => (
                 <label
                   key={col.key}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '6px 8px',
-                    cursor: 'pointer',
-                    fontSize: fontSize.sm,
-                    color: colors.textPrimary,
-                  }}
+                  className="flex items-center gap-2 px-2 py-1.5 cursor-pointer hover:bg-overlay rounded text-sm text-primary"
                 >
                   <input
                     type="checkbox"
                     checked={visibleColumns.includes(col.key)}
                     onChange={() => toggleColumn(col.key)}
-                    style={{ accentColor: colors.blue }}
+                    className="accent-accent"
                   />
                   {col.label}
                 </label>
@@ -186,52 +127,44 @@ export default function MarketTable({ assets, onCoinSelect, watchlist = [], onAd
           )}
         </div>
       </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
-          <tr>
-            {AVAILABLE_COLUMNS.filter(c => visibleColumns.includes(c.key)).map((col) => (
-              <th
-                key={col.key}
-                style={{
-                  padding: '10px 16px',
-                  textAlign: 'left',
-                  fontSize: fontSize.xs,
-                  fontWeight: 600,
-                  color: colors.textMuted,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  borderBottom: `0.5px solid ${colors.borderDefault}`,
-                  background: colors.bgOverlay,
-                }}
-              >
-                {col.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {assets.map((asset) => (
-            <tr
-              key={asset.coinId}
-              onClick={() => onCoinSelect?.({
-                name: asset.name,
-                ticker: asset.ticker,
-                coinId: asset.coinId,
-                current_price: asset.current_price,
-                change: asset.change,
-                image: asset.image,
-              })}
-              style={{ borderBottom: `0.5px solid ${colors.borderSubtle}`, cursor: 'pointer' }}
-            >
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="border-b border-default">
               {AVAILABLE_COLUMNS.filter(c => visibleColumns.includes(c.key)).map((col) => (
-                <td key={col.key} style={{ padding: '12px 16px' }}>
-                  {renderCell(asset, col.key)}
-                </td>
+                <th
+                  key={col.key}
+                  className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase tracking-wider bg-overlay"
+                >
+                  {col.label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {assets.map((asset) => (
+              <tr
+                key={asset.coinId}
+                onClick={() => onCoinSelect?.({
+                  name: asset.name,
+                  ticker: asset.ticker,
+                  coinId: asset.coinId,
+                  current_price: asset.current_price,
+                  change: asset.change,
+                  image: asset.image,
+                })}
+                className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors"
+              >
+                {AVAILABLE_COLUMNS.filter(c => visibleColumns.includes(c.key)).map((col) => (
+                  <td key={col.key} className="px-4 py-3">
+                    {renderCell(asset, col.key)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

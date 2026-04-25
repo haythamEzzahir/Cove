@@ -10,19 +10,18 @@ import {
   AlertsIcon,
   NewsIcon,
 } from '../icons/SidebarIcons';
-import { colors, radius, fontSize } from '../../styles/tokens';
 import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
-  { path: '/',         label: 'Dashboard', Icon: DashboardIcon },
-  { path: '/markets',  label: 'Markets',  Icon: MarketsIcon },
-  { path: '/watchlist',label: 'Watchlist', Icon: WatchlistIcon },
-  { path: '/portfolio',label: 'Portfolio',Icon: PortfolioIcon },
-  { path: '/alerts',   label: 'Alerts',   Icon: AlertsIcon },
-  { path: '/news',     label: 'News',     Icon: NewsIcon },
+  { path: '/', label: 'Dashboard', Icon: DashboardIcon },
+  { path: '/markets', label: 'Markets', Icon: MarketsIcon },
+  { path: '/watchlist', label: 'Watchlist', Icon: WatchlistIcon },
+  { path: '/portfolio', label: 'Portfolio', Icon: PortfolioIcon },
+  { path: '/alerts', label: 'Alerts', Icon: AlertsIcon },
+  { path: '/news', label: 'News', Icon: NewsIcon },
 ];
 
-export default function Sidebar({ isOpen = false, onClose }) {
+export default function Sidebar({ isOpen, onClose }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
@@ -33,69 +32,15 @@ export default function Sidebar({ isOpen = false, onClose }) {
   };
 
   return (
-    <nav
-      className={`sidebar ${isOpen ? 'sidebar-open' : ''}`}
-      style={{
-        width: 192,
-        flexShrink: 0,
-        background: colors.bgSurface,
-        borderRight: `0.5px solid ${colors.borderDefault}`,
-        display: 'flex',
-        flexDirection: 'column',
-        padding: '16px 12px',
-        height: '100%',
-        overflowY: 'auto',
-        gap: 2,
-        position: 'fixed',
-        left: 0,
-        top: 0,
-        zIndex: 40,
-        transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
-        transition: 'transform 0.3s ease',
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-          padding: '0 4px 16px',
-          borderBottom: `0.5px solid ${colors.borderDefault}`,
-          marginBottom: 12,
-          flexShrink: 0,
-        }}
-      >
-        <div
-          style={{
-            width: 28,
-            height: 28,
-            background: colors.blue,
-            borderRadius: radius.md,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 13,
-            fontWeight: 700,
-            color: '#fff',
-          }}
-        >
+    <nav className={`flex flex-col w-48 h-full p-3 border-r border-default bg-surface overflow-y-auto z-40 ${isOpen === undefined ? 'relative' : 'fixed lg:relative left-0 top-0'} transition-transform duration-300`}>
+      <div className="flex items-center gap-2.5 px-1 pb-4 mb-3 border-b border-default shrink-0">
+        <div className="w-7 h-7 rounded-md bg-accent flex items-center justify-center text-sm font-bold text-white">
           F
         </div>
-        <span style={{ fontSize: fontSize.md, fontWeight: 600, color: colors.textPrimary }}>
-          FinTracker
-        </span>
+        <span className="text-sm font-semibold text-primary">FinTracker</span>
       </div>
 
-      <span
-        style={{
-          fontSize: '10px',
-          color: colors.textMuted,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          padding: '0 6px 6px',
-          flexShrink: 0,
-        }}
-      >
+      <span className="text-[10px] text-muted uppercase tracking-wider px-1.5 py-1.5 shrink-0">
         Main Menu
       </span>
 
@@ -103,109 +48,45 @@ export default function Sidebar({ isOpen = false, onClose }) {
         <NavItem key={path} path={path} label={label} Icon={Icon} />
       ))}
 
-      <div
-        style={{
-          marginTop: 'auto',
-          paddingTop: 16,
-          borderTop: `0.5px solid ${colors.borderDefault}`,
-          flexShrink: 0,
-        }}
-      >
+      <div className="mt-auto pt-4 border-t border-default shrink-0">
         <NavItem path="/settings" label="Settings" />
         {user && (
           <button
             onClick={handleLogout}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 9,
-              padding: '7px 10px',
-              borderRadius: '6px',
-              fontSize: '13px',
-              cursor: 'pointer',
-              border: 'none',
-              width: '100%',
-              textAlign: 'left',
-              background: 'transparent',
-              color: colors.textMuted,
-            }}
+            className="flex items-center gap-2 w-full px-2.5 py-1.5 rounded-md text-[13px] cursor-pointer border-none bg-transparent hover:bg-overlay text-muted"
           >
-            <span style={{ width: 18, height: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span className="w-4.5 h-4.5 inline-flex items-center justify-center shrink-0">
               <LogoutIcon />
             </span>
             <span>Logout</span>
           </button>
         )}
 
-        <div
-          style={{
-            marginTop: 12,
-            background: `linear-gradient(135deg, ${colors.blueDim}, ${colors.blue})`,
-            borderRadius: radius.lg,
-            padding: '10px 12px',
-            textAlign: 'center',
-          }}
-        >
-          <p style={{ fontSize: '11px', color: '#fff', fontWeight: 600 }}>Upgrade to Pro</p>
-          <p style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', marginTop: 2 }}>
-            Unlock all features
-          </p>
+        <div className="mt-3 bg-gradient-to-r from-blue-700 to-blue-500 rounded-lg p-2.5 text-center">
+          <p className="text-[11px] text-white font-semibold">Upgrade to Pro</p>
+          <p className="text-[10px] text-white/70 mt-0.5">Unlock all features</p>
         </div>
       </div>
     </nav>
   );
 }
 
-const baseStyle = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 9,
-  padding: '7px 10px',
-  borderRadius: '6px',
-  fontSize: '13px',
-  cursor: 'pointer',
-  border: 'none',
-  width: '100%',
-  textAlign: 'left',
-  transition: 'background 0.15s, color 0.15s',
-};
+const baseStyle = "flex items-center gap-2 w-full px-2.5 py-1.5 rounded-md text-[13px] cursor-pointer border-none text-left transition-colors no-underline";
 
 function NavItem({ path, label, Icon }) {
-  const IconComponent = Icon
-    || (label === 'Settings' ? SettingsIcon : label === 'Logout' ? LogoutIcon : null);
+  const IconComponent = Icon || (label === 'Settings' ? SettingsIcon : null);
 
   return (
     <NavLink
       to={path}
-      style={({ isActive }) => ({
-        ...baseStyle,
-        background: isActive ? colors.bgOverlay : 'transparent',
-        color: isActive ? colors.blue : colors.textMuted,
-        textDecoration: 'none',
-      })}
-      onMouseEnter={(e) => {
-        if (!e.currentTarget.classList.contains('active')) {
-          e.currentTarget.style.background = colors.bgOverlay;
-          e.currentTarget.style.color = colors.textSecondary;
-        }
-      }}
-      onMouseLeave={(e) => {
-        if (!e.currentTarget.classList.contains('active')) {
-          e.currentTarget.style.background = 'transparent';
-          e.currentTarget.style.color = colors.textMuted;
-        }
-      }}
+      className={({ isActive }) =>
+        `${baseStyle} ${isActive 
+          ? 'bg-overlay text-accent' 
+          : 'text-muted hover:bg-overlay hover:text-secondary'
+        }`
+      }
     >
-      <span
-        style={{
-          width: 18,
-          height: 18,
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-        }}
-      >
+      <span className="w-4.5 h-4.5 inline-flex items-center justify-center shrink-0">
         {IconComponent && <IconComponent />}
       </span>
       <span>{label}</span>

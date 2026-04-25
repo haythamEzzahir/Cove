@@ -1,5 +1,4 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { applyTheme } from '../styles/tokens';
 
 const DEFAULT_SETTINGS = {
   darkMode:         true,
@@ -23,7 +22,11 @@ export function SettingsProvider({ children }) {
   });
 
   useEffect(() => {
-    applyTheme(settings.darkMode ? 'dark' : 'light');
+    if (settings.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, [settings.darkMode]);
 
   useEffect(() => {
@@ -34,7 +37,7 @@ export function SettingsProvider({ children }) {
     try {
       localStorage.setItem('fintracker_settings', JSON.stringify(settings));
     } catch {
-      // ignore localStorage errors (e.g. private browsing)
+      // ignore localStorage errors
     }
   }, [settings]);
 
@@ -49,7 +52,6 @@ export function SettingsProvider({ children }) {
   );
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function useSettings() {
   const ctx = useContext(SettingsContext);
   if (!ctx) throw new Error('useSettings must be used inside <SettingsProvider>');

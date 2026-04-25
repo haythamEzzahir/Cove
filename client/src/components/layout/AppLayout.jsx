@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { Outlet, useLocation, Navigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import { useSettings } from '../../context/SettingsContext';
 import { useAuth } from '../../context/AuthContext';
-import { colors } from '../../styles/tokens';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
+import AuthModal from '../auth/AuthModal';
 
 const PAGE_DATA = {
   '/': { title: 'Dashboard', subtitle: 'Live market feed' },
@@ -17,7 +17,6 @@ const PAGE_DATA = {
   '/settings/profile': { title: 'Profile', subtitle: 'Account settings' },
 };
 
-// Routes that require authentication
 const PROTECTED_ROUTES = ['/watchlist', '/portfolio', '/alerts', '/news', '/settings', '/settings/profile'];
 
 export default function AppLayout() {
@@ -25,6 +24,26 @@ export default function AppLayout() {
   const { settings, updateSetting } = useSettings();
   const { user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState('login');
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+      if (window.innerWidth >= 1024) {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile && sidebarOpen) {
+      setSidebarOpen(false);
+    }
+  }, [isMobile]);
 
   const { title, subtitle } = PAGE_DATA[location.pathname] || { title: 'Dashboard', subtitle: '' };
 
@@ -39,56 +58,42 @@ export default function AppLayout() {
   const requiresAuth = PROTECTED_ROUTES.some(route => location.pathname.startsWith(route));
   
   if (requiresAuth && !user) {
-    return <Navigate to="/login" replace />;
+    if (!showAuthModal) {
+      setShowAuthModal(true);
+      setAuthModalMode('login');
+    }
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        height: '100vh',
-        overflow: 'hidden',
-        background: colors.bgBase,
-        fontFamily: 'system-ui, sans-serif',
-      }}
-    >
-      <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+    <div className="flex h-screen overflow-hidden bg-base font-sans">
+      {(!isMobile || sidebarOpen) && (
+        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      )}
       
-      {sidebarOpen && (
-        <div
+      {isMobile && sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30"
           onClick={() => setSidebarOpen(false)}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.5)',
-            zIndex: 30,
-            display: 'none',
-          }}
-          className="sidebar-overlay"
         />
       )}
-
-      <div
-        style={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          minWidth: 0,
-          overflow: 'hidden',
-        }}
-      >
+      
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <TopBar
           pageTitle={title}
           pageSubtitle={subtitle}
-          user={user}
-          themeMode={settings.darkMode ? 'dark' : 'light'}
-          onToggleTheme={handleToggleTheme}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+          onShowAuth={() => { setShowAuthModal(true); setAuthModalMode('login'); }}
         />
-        <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div className="flex-1 overflow-y-auto">
           <Outlet />
         </div>
       </div>
+
+      <AuthModal 
+        isOpen={showAuthModal} 
+        onClose={() => setShowAuthModal(false)} 
+        initialMode={authModalMode}
+      />
     </div>
   );
 }
