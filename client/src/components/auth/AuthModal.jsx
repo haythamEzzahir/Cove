@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
@@ -11,6 +11,13 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
   const [loading, setLoading] = useState(false);
   const { login, signup } = useAuth();
 
+  useEffect(() => {
+    if (isOpen) {
+      setMode(initialMode);
+      setError('');
+    }
+  }, [initialMode, isOpen]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -22,9 +29,9 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
       return;
     }
 
-    const result = mode === 'login' 
-      ? login(email, password)
-      : signup(name, email, password);
+    const result = mode === 'login'
+      ? await login(email, password)
+      : await signup(name, email, password);
 
     if (result.success) {
       onClose();
@@ -35,13 +42,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
   };
 
   const handleGoogleAuth = () => {
-    const demoUser = {
-      name: 'Google User',
-      email: email || 'user@gmail.com',
-      initials: 'GU',
-    };
-    localStorage.setItem('fintracker_user', JSON.stringify(demoUser));
-    window.location.reload();
+    setError('Google authentication is not configured yet. Please use email and password.');
   };
 
   if (!isOpen) return null;

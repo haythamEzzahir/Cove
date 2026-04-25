@@ -82,7 +82,7 @@ export default function AppLayout() {
           pageTitle={title}
           pageSubtitle={subtitle}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          onShowAuth={() => { setShowAuthModal(true); setAuthModalMode('login'); }}
+          onShowAuth={(mode = 'login') => { setShowAuthModal(true); setAuthModalMode(mode); }}
         />
         <div className="flex-1 overflow-y-auto">
           <Outlet />

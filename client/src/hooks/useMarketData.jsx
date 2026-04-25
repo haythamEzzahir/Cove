@@ -77,8 +77,11 @@ export function useMarketData() {
             price: formatPrice(c.current_price),
             current_price: c.current_price,
             change: c.price_change_percentage_24h || 0,
+            price_change_percentage_24h: c.price_change_percentage_24h || 0,
             marketCap: formatMarketCap(c.market_cap || 0),
+            market_cap: c.market_cap || 0,
             volume: formatMarketCap(c.total_volume || 0),
+            total_volume: c.total_volume || 0,
             image: c.image,
             coinId: c.id,
             high24h: c.high_24h ? formatPrice(c.high_24h) : null,
@@ -87,6 +90,7 @@ export function useMarketData() {
             ath_change: c.ath_change_percentage || 0,
             atl: c.atl ? formatPrice(c.atl) : null,
             marketCapRank: c.market_cap_rank,
+            market_cap_rank: c.market_cap_rank,
             fullyDilutedValuation: c.fully_diluted_valuation ? formatMarketCap(c.fully_diluted_valuation) : null,
           }));
 

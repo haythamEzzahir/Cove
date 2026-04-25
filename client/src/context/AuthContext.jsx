@@ -1,79 +1,330 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 const AuthContext = createContext(null);
 
-const USER_DATA = {
-  email: 'ali@cryptowatch.io',
-  password: 'password123',
-  name: 'Alex Sivera',
-  initials: 'AS',
-};
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+function getInitials(name = '') {
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'U';
+}
+
+async function getJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+function normalizeCoinIds(data) {
+  if (Array.isArray(data)) {
+    const coinIds = data
+      .map((item) => (typeof item === 'string' ? item : item?.coinId))
+      .filter(Boolean)
+      .map((coinId) => coinId.trim().toLowerCase());
+
+    return [...new Set(coinIds)];
+  }
+
+  if (Array.isArray(data?.watchlist)) {
+    return normalizeCoinIds(data.watchlist);
+  }
+
+  if (Array.isArray(data?.items)) {
+    return normalizeCoinIds(data.items);
+  }
+
+  return [];
+}
+
+function getCoinId(coin) {
+  if (typeof coin === 'string') return coin;
+  return coin?.coinId || coin?.id;
+}
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [watchlist, setWatchlist] = useState([]);
 
+  const loadWatchlist = useCallback(async (tokenOverride) => {
+    const token = tokenOverride || user?.token;
+
+    if (!token) {
+      setWatchlist([]);
+      return {
+        success: false,
+        error: 'Please login to view your watchlist',
+      };
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/watchlist`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const data = await getJson(response);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || 'Failed to load watchlist',
+        };
+      }
+
+      const coinIds = normalizeCoinIds(data);
+      setWatchlist(coinIds);
+
+      return { success: true, coinIds };
+    } catch {
+      return {
+        success: false,
+        error: 'Server error',
+      };
+    }
+  }, [user?.token]);
+
   useEffect(() => {
     const savedUser = localStorage.getItem('fintracker_user');
+
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
-    const savedWatchlist = localStorage.getItem('fintracker_watchlist');
-    if (savedWatchlist) {
-      setWatchlist(JSON.parse(savedWatchlist));
-    }
+
+    localStorage.removeItem('fintracker_watchlist');
     setLoading(false);
   }, []);
 
-  const login = (email, password) => {
-    if (email === USER_DATA.email && password === USER_DATA.password) {
-      const userData = { email, name: USER_DATA.name, initials: USER_DATA.initials };
+  useEffect(() => {
+    if (loading) return;
+
+    if (user?.token) {
+      loadWatchlist(user.token);
+    } else {
+      setWatchlist([]);
+    }
+  }, [loading, user?.token, loadWatchlist]);
+
+  const login = async (email, password) => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await getJson(response);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || 'Invalid email or password',
+        };
+      }
+
+      const userData = {
+        _id: data._id,
+        name: data.name,
+        email: data.email,
+        token: data.token,
+        initials: getInitials(data.name),
+      };
+
       setUser(userData);
       localStorage.setItem('fintracker_user', JSON.stringify(userData));
+      await loadWatchlist(data.token);
+
       return { success: true };
+    } catch {
+      return {
+        success: false,
+        error: 'Server error',
+      };
     }
-    return { success: false, error: 'Invalid email or password' };
   };
 
-  const signup = (name, email, password) => {
-    const userData = { 
-      name, 
-      email, 
-      initials: name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) 
-    };
-    setUser(userData);
-    localStorage.setItem('fintracker_user', JSON.stringify(userData));
-    return { success: true };
+  const signup = async (name, email, password) => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, email, password }),
+      });
+
+      const data = await getJson(response);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || 'Signup failed',
+        };
+      }
+
+      const userData = {
+        _id: data._id,
+        name: data.name,
+        email: data.email,
+        token: data.token,
+        initials: getInitials(data.name),
+      };
+
+      setUser(userData);
+      localStorage.setItem('fintracker_user', JSON.stringify(userData));
+      await loadWatchlist(data.token);
+
+      return { success: true };
+    } catch {
+      return {
+        success: false,
+        error: 'Server error',
+      };
+    }
   };
 
   const logout = () => {
     setUser(null);
+    setWatchlist([]);
     localStorage.removeItem('fintracker_user');
+    localStorage.removeItem('fintracker_watchlist');
   };
 
-  const addToWatchlist = (coin) => {
-    if (!user) return { success: false, error: 'Please login to add to watchlist' };
-    if (!watchlist.includes(coin.coinId)) {
-      const newWatchlist = [...watchlist, coin.coinId];
-      setWatchlist(newWatchlist);
-      localStorage.setItem('fintracker_watchlist', JSON.stringify(newWatchlist));
+  const addToWatchlist = async (coin) => {
+    if (!user?.token) {
+      return {
+        success: false,
+        error: 'Please login to add to watchlist',
+      };
     }
-    return { success: true };
+
+    const coinId = getCoinId(coin)?.trim().toLowerCase();
+
+    if (!coinId) {
+      return {
+        success: false,
+        error: 'coinId is required',
+      };
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/watchlist`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({ coinId }),
+      });
+
+      const data = await getJson(response);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || 'Failed to add coin',
+        };
+      }
+
+      const responseCoinIds = normalizeCoinIds(data);
+      const mergedCoinIds = normalizeCoinIds([...watchlist, ...responseCoinIds, coinId]);
+
+      setWatchlist((prev) => normalizeCoinIds([...prev, ...responseCoinIds, coinId]));
+
+      return { success: true, coinIds: mergedCoinIds };
+    } catch {
+      return {
+        success: false,
+        error: 'Server error',
+      };
+    }
   };
 
-  const removeFromWatchlist = (coinId) => {
-    if (!user) return { success: false, error: 'Please login to remove from watchlist' };
-    const newWatchlist = watchlist.filter(id => id !== coinId);
-    setWatchlist(newWatchlist);
-    localStorage.setItem('fintracker_watchlist', JSON.stringify(newWatchlist));
-    return { success: true };
+  const removeFromWatchlist = async (coinId) => {
+    if (!user?.token) {
+      return {
+        success: false,
+        error: 'Please login to remove from watchlist',
+      };
+    }
+
+    const normalizedCoinId = getCoinId(coinId)?.trim().toLowerCase();
+
+    if (!normalizedCoinId) {
+      return {
+        success: false,
+        error: 'coinId is required',
+      };
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/watchlist/${encodeURIComponent(normalizedCoinId)}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      });
+
+      const data = await getJson(response);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || 'Failed to remove coin',
+        };
+      }
+
+      const responseCoinIds = normalizeCoinIds(data);
+      const nextCoinIds = responseCoinIds.length
+        ? responseCoinIds
+        : watchlist.filter((id) => id !== normalizedCoinId);
+
+      setWatchlist((prev) => (
+        responseCoinIds.length
+          ? responseCoinIds
+          : prev.filter((id) => id !== normalizedCoinId)
+      ));
+
+      return { success: true, coinIds: nextCoinIds };
+    } catch {
+      return {
+        success: false,
+        error: 'Server error',
+      };
+    }
   };
 
-  const isInWatchlist = (coinId) => watchlist.includes(coinId);
+  const isInWatchlist = (coinId) => {
+    const normalizedCoinId = getCoinId(coinId)?.trim().toLowerCase();
+    return Boolean(normalizedCoinId && watchlist.includes(normalizedCoinId));
+  };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, watchlist, addToWatchlist, removeFromWatchlist, isInWatchlist }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        signup,
+        logout,
+        watchlist,
+        watchlistItems: watchlist,
+        loadWatchlist,
+        addToWatchlist,
+        removeFromWatchlist,
+        isInWatchlist,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -81,6 +332,10 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');
+
+  if (!ctx) {
+    throw new Error('useAuth must be used inside AuthProvider');
+  }
+
   return ctx;
 }

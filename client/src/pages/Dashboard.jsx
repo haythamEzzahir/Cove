@@ -88,16 +88,26 @@ export default function Dashboard() {
     }
   };
 
-  const handleWatchlistToggle = (e, asset) => {
+  const handleWatchlistToggle = async (e, asset) => {
     e.stopPropagation();
-    if (!user) {
+    if (!user?.token) {
       alert('Please login to add coins to your watchlist');
       return;
     }
-    if (isInWatchlist(asset.coinId)) {
-      removeFromWatchlist(asset.coinId);
-    } else {
-      addToWatchlist(asset);
+
+    const coinId = asset?.coinId;
+
+    if (!coinId) {
+      alert('coinId is required');
+      return;
+    }
+
+    const result = isInWatchlist(coinId)
+      ? await removeFromWatchlist(coinId)
+      : await addToWatchlist(coinId);
+
+    if (!result.success) {
+      alert(result.error);
     }
   };
 
@@ -308,7 +318,7 @@ export default function Dashboard() {
                 </div>
                 <div 
                   onClick={(e) => handleWatchlistToggle(e, asset)}
-                  onMouseEnter={(e) => e.currentTarget.title = 'Add to watchlist'}
+                  onMouseEnter={(e) => e.currentTarget.title = isInWatchlist(asset.coinId) ? 'Remove from watchlist' : 'Add to watchlist'}
                   onMouseLeave={(e) => e.currentTarget.title = ''}
                   className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors text-center flex items-center justify-center h-full"
                 >
