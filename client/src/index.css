@@ -9,30 +9,30 @@
 
 /* Light Theme (default) */
 :root {
-  /* Backgrounds */
-  --bg-base: 255, 255, 255;
-  --bg-surface: 246, 248, 250;
-  --bg-overlay: 246, 248, 250;
+  /* Backgrounds - softer warm whites */
+  --bg-base: 248, 249, 250;
+  --bg-surface: 243, 245, 247;
+  --bg-overlay: 238, 241, 245;
   --bg-card: 255, 255, 255;
   
-  /* Text */
-  --text-primary: 31, 35, 40;
-  --text-secondary: 101, 109, 118;
-  --text-muted: 139, 148, 158;
+  /* Text - softer grays */
+  --text-primary: 33, 37, 41;
+  --text-secondary: 75, 85, 99;
+  --text-muted: 107, 114, 128;
   
   /* Borders */
-  --border-subtle: 208, 215, 222;
-  --border-default: 208, 215, 222;
+  --border-subtle: 209, 213, 219;
+  --border-default: 209, 213, 219;
   
-  /* Brand Colors */
-  --color-primary: 9, 105, 218;
-  --color-success: 26, 127, 55;
-  --color-danger: 207, 34, 46;
-  --color-warning: 187, 128, 9;
+  /* Brand Colors - slightly muted */
+  --color-primary: 37, 99, 235;
+  --color-success: 22, 101, 52;
+  --color-danger: 190, 24, 33;
+  --color-warning: 161, 98, 7;
   
   /* Interactive States */
-  --bg-hover: 246, 248, 250;
-  --bg-active: 234, 238, 242;
+  --bg-hover: 229, 231, 235;
+  --bg-active: 224, 231, 239;
 }
 
 /* Dark Theme */

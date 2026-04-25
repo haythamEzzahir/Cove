@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -8,8 +7,9 @@ export default function TopBar({
   pageTitle = 'Dashboard',
   pageSubtitle,
   onToggleSidebar,
+  onShowAuth,
 }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { currency, setCurrency, currencies, currencyData } = useCurrency();
   const { toggleTheme, isDark } = useTheme();
   const [showCurrencyMenu, setShowCurrencyMenu] = useState(false);
@@ -100,7 +100,7 @@ export default function TopBar({
         </button>
 
         {user ? (
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-semibold text-white">
               {user.initials}
             </div>
@@ -108,11 +108,32 @@ export default function TopBar({
               <p className="text-sm font-medium text-primary leading-tight">{user.name}</p>
               <p className="text-xs text-muted leading-tight">Pro Trader</p>
             </div>
+            <button 
+              onClick={logout}
+              className="text-xs text-muted hover:text-danger bg-transparent border-none cursor-pointer"
+              title="Sign out"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </button>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <Link to="/login" className="no-underline text-sm font-medium text-secondary px-2 sm:px-3 py-2 hidden sm:block">Sign In</Link>
-            <Link to="/signup" className="no-underline text-sm font-semibold text-white bg-accent px-3 sm:px-4 py-2 rounded-md">Sign Up</Link>
+            <button 
+              onClick={() => onShowAuth('login')}
+              className="no-underline text-sm font-medium text-secondary px-2 sm:px-3 py-2 bg-transparent border-none cursor-pointer hidden sm:block"
+            >
+              Sign In
+            </button>
+            <button 
+              onClick={() => onShowAuth('signup')}
+              className="no-underline text-sm font-semibold text-white bg-accent px-3 sm:px-4 py-2 rounded-md border-none cursor-pointer"
+            >
+              Sign Up
+            </button>
           </div>
         )}
       </div>
