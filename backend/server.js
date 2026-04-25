@@ -81,8 +81,7 @@ app.get("/chart/:coinId", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch chart data" });
   }
 });
-<<<<<<< HEAD
-=======
+
 
 app.get("/search", async (req, res) => {
   try {
