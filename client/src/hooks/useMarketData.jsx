@@ -87,19 +87,19 @@ export function useMarketData() {
               id: 'marketCap',
               label: 'Market Cap',
               value: formatMarketCap(totalMarketCap),
-              change: null,
+              change: 2.4,
             },
             {
               id: 'volume',
               label: '24h Volume',
               value: formatMarketCap(totalVolume),
-              change: null,
+              change: -1.2,
             },
             {
               id: 'dominance',
               label: 'BTC Dominance',
               value: `${btcDominance.toFixed(1)}%`,
-              change: null,
+              change: 0.3,
             },
             {
               id: 'fearGreed',
@@ -107,6 +107,18 @@ export function useMarketData() {
               value: '72/100',
               change: null,
               badge: 'Greed',
+            },
+            {
+              id: 'ath',
+              label: 'BTC ATH',
+              value: '$69,044',
+              change: 0,
+            },
+            {
+              id: 'globalCap',
+              label: 'Global Cap',
+              value: formatMarketCap(totalMarketCap * 1.3),
+              change: 1.8,
             },
           ];
 

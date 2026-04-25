@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
+import { useTheme } from '../context/ThemeContext';
 import ProfileCard from '../components/settings/ProfileCard';
 import SettingsSection from '../components/settings/SettingsSection';
 import SettingItem from '../components/settings/SettingItem';
@@ -14,10 +15,11 @@ const USER = {
 function Settings() {
   const navigate = useNavigate();
   const { settings, updateSetting } = useSettings();
+  const { isDark, toggleTheme } = useTheme();
 
   return (
-    <div className="p-8 bg-[#0d1117] text-[#e6edf3]">
-      <p className="text-sm text-[#c9d1d9] mb-6">Manage your preferences and account settings.</p>
+    <div className="settings-wrapper">
+      <p className="text-sm text-secondary mb-6">Manage your preferences and account settings.</p>
 
       <SettingsSection title="Profile">
         <ProfileCard
@@ -33,8 +35,8 @@ function Settings() {
           description="Switch between dark and light themes"
           control={
             <ToggleSwitch
-              checked={settings.darkMode}
-              onChange={(val) => updateSetting('darkMode', val)}
+              checked={isDark}
+              onChange={toggleTheme}
             />
           }
         />
@@ -96,7 +98,7 @@ function Settings() {
         />
       </SettingsSection>
 
-      <footer className="text-center text-xs text-[#7d8590] pt-4 border-t border-[#21262d] flex justify-center gap-5 mt-6">
+      <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-6">
         <span>© 2024 FinTracker Inc. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>

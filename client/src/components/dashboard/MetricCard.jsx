@@ -1,57 +1,36 @@
-import Badge from '../shared/Badge';
-import { colors, radius, fontSize } from '../../styles/tokens';
-
-/**
- * MetricCard
- * Summary stat card shown in the top metrics row.
- *
- * Props:
- *   icon    {string|node}     optional icon or emoji
- *   label   {string}          e.g. "Market Cap"
- *   value   {string|node}     formatted value e.g. "$2.64T" or react node
- *   change  {number|null}    percent change — positive = green, negative = red, null = hide
- *   badge   {string|null}    override badge text (e.g. "Greed")
- *   sub     {string|null}     optional subtext below value
- */
-export default function MetricCard({ icon, label, value, change, badge, sub }) {
+export default function MetricCard({ label, value, change, badge }) {
+  const isFearGreed = label?.includes('Fear');
   const variant = change == null ? 'neutral' : change >= 0 ? 'green' : 'red';
   const badgeText = badge ?? (change != null ? `${change >= 0 ? '+' : ''}${change}%` : null);
 
+  let badgeStyle = {};
+  
+  if (isFearGreed && badge) {
+    const score = parseInt(badge.split('/')[0]) || 50;
+    if (score <= 35) {
+      badgeStyle = { background: 'rgba(255,107,107,0.15)', color: '#ff6b6b', border: '1px solid rgba(255,107,107,0.25)' };
+    } else if (score <= 65) {
+      badgeStyle = { background: 'rgba(255,200,0,0.15)', color: '#ffc800', border: '1px solid rgba(255,200,0,0.25)' };
+    } else {
+      badgeStyle = { background: 'rgba(0,255,136,0.15)', color: '#00e676', border: '1px solid rgba(0,255,136,0.25)' };
+    }
+  } else if (variant === 'green') {
+    badgeStyle = { background: 'rgba(0,255,136,0.12)', color: '#00e676', border: '1px solid rgba(0,255,136,0.2)' };
+  } else if (variant === 'red') {
+    badgeStyle = { background: 'rgba(255,107,107,0.12)', color: '#ff6b6b', border: '1px solid rgba(255,107,107,0.2)' };
+  }
+
   return (
-    <div
-      style={{
-        background: colors.bgSurface,
-        border: `0.5px solid ${colors.borderDefault}`,
-        borderRadius: radius.lg,
-        padding: '14px 16px',
-        flex: 1,
-        minWidth: 0,
-      }}
-    >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          marginBottom: 6,
-          fontSize: fontSize.xs,
-          color: colors.textMuted,
-        }}
-      >
-        {icon && <span style={{ fontSize: 15 }}>{icon}</span>}
-        {label}
+    <div className="bg-white/5 border border-white/10 rounded-2xl p-3 min-w-[140px] flex-shrink-0">
+      <div className="flex justify-between items-start mb-2">
+        <span className="text-[10px] uppercase tracking-widest text-white/40">{label}</span>
+        {badgeText && (
+          <span className="text-[9px] font-medium px-2 py-0.5 rounded-full" style={badgeStyle}>{badgeText}</span>
+        )}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <span style={{ fontSize: fontSize.xl, fontWeight: 600, color: colors.textPrimary }}>
-          {value}
-        </span>
-        {badgeText && <Badge variant={variant}>{badgeText}</Badge>}
+      <div className="text-xl sm:text-2xl lg:text-[26px] font-mono font-medium text-white leading-tight truncate">
+        {value}
       </div>
-      {sub && (
-        <div style={{ fontSize: fontSize.xs, color: colors.textMuted, marginTop: 4 }}>
-          {sub}
-        </div>
-      )}
     </div>
   );
 }

@@ -44,27 +44,27 @@ function fmt(n) {
 function DonutLabel({ cx, cy, total }) {
   return (
     <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
-      <tspan x={cx} dy="-8" className="text-[10px] fill-[#c9d1d9]">Total</tspan>
-      <tspan x={cx} dy="18" className="text-xs font-bold fill-[#e6edf3]">{fmt(total)}</tspan>
+      <tspan x={cx} dy="-8" className="text-[10px] fill-secondary">Total</tspan>
+      <tspan x={cx} dy="18" className="text-xs font-bold fill-primary">{fmt(total)}</tspan>
     </text>
   );
 }
 
 function AllocationCard({ total }) {
   return (
-    <div className="flex-1 min-w-0 p-3.5 bg-[#161b22] border border-[#30363d] rounded-lg">
-      <div className="mb-2">
-        <span className="text-xs font-semibold text-[#e6edf3] block">Asset Allocation</span>
-        <span className="text-[11px] text-[#7d8590] block mt-0.5">Distribution by value</span>
+    <div className="bg-surface border border-default rounded-xl p-4 flex-1 min-w-[250px]">
+      <div className="mb-3">
+        <span className="text-sm font-semibold text-primary block">Asset Allocation</span>
+        <span className="text-xs text-muted block mt-0.5">Distribution by value</span>
       </div>
-      <div className="flex justify-center my-auto flex-1 min-h-[120px]">
-        <PieChart width={200} height={120}>
+      <div className="flex justify-center my-4">
+        <PieChart width={200} height={140}>
           <Pie
             data={allocationData}
             cx={100}
-            cy={60}
-            innerRadius={40}
-            outerRadius={58}
+            cy={70}
+            innerRadius={45}
+            outerRadius={65}
             paddingAngle={2}
             dataKey="value"
             stroke="none"
@@ -73,17 +73,17 @@ function AllocationCard({ total }) {
               <Cell key={i} fill={entry.color} />
             ))}
           </Pie>
-          <DonutLabel cx={100} cy={60} total={total} />
+          <DonutLabel cx={100} cy={70} total={total} />
         </PieChart>
       </div>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         {allocationData.map((d) => (
-          <div key={d.name} className="flex items-center justify-between text-[11px]">
-            <span className="flex items-center gap-1.5 text-[#c9d1d9]">
-              <span className="w-2 h-2 rounded-full" style={{ background: d.color }} />
+          <div key={d.name} className="flex items-center justify-between">
+            <span className="flex items-center gap-2 text-sm text-secondary">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
               {d.name}
             </span>
-            <span className="font-semibold text-[#e6edf3]">{d.value}%</span>
+            <span className="text-sm font-semibold text-primary">{d.value}%</span>
           </div>
         ))}
       </div>
@@ -120,21 +120,21 @@ function AddAssetModal({ onClose, onAdd }) {
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={onClose}>
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 w-[400px] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-surface border border-default rounded-xl p-6 w-[400px] max-w-[90vw]" onClick={(e) => e.stopPropagation()}>
         <div className="flex justify-between mb-4">
           <div>
-            <h2 className="text-base font-semibold text-[#e6edf3]">Add Asset</h2>
-            <p className="text-xs text-[#c9d1d9]">Select a coin and enter amount.</p>
+            <h2 className="text-base font-semibold text-primary">Add Asset</h2>
+            <p className="text-xs text-secondary">Select a coin and enter amount.</p>
           </div>
-          <button className="bg-none border-none cursor-pointer text-[#c9d1d9] p-1" onClick={onClose}>
+          <button className="bg-transparent border-none cursor-pointer text-secondary p-1 hover:text-primary" onClick={onClose}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
         <form onSubmit={handleSubmit}>
-          <div className="flex items-center gap-2 bg-[#0d1117] border border-[#30363d] rounded-lg p-2.5 mb-3">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7d8590" strokeWidth="2">
+          <div className="flex items-center gap-2 bg-base border border-default rounded-lg p-2.5 mb-3">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
             <input
@@ -143,24 +143,24 @@ function AddAssetModal({ onClose, onAdd }) {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               autoFocus
-              className="flex-1 bg-transparent border-none outline-none text-[#e6edf3] text-sm"
+              className="flex-1 bg-transparent border-none outline-none text-sm text-primary placeholder:text-muted"
             />
           </div>
           <div className="max-h-[150px] overflow-y-auto mb-3">
             {filteredCoins.map((coin) => (
               <div
                 key={coin.ticker}
-                className={`flex justify-between p-2.5 cursor-pointer ${selectedCoin?.ticker === coin.ticker ? 'bg-blue-500 text-white' : ''}`}
+                className={`flex justify-between p-3 cursor-pointer rounded-lg transition-colors ${selectedCoin?.ticker === coin.ticker ? 'bg-accent text-white' : 'hover:bg-overlay text-primary'}`}
                 onClick={() => setSelectedCoin(coin)}
               >
-                <span>{coin.name} ({coin.ticker})</span>
+                <span className="font-medium">{coin.name} ({coin.ticker})</span>
                 <span>${coin.price.toLocaleString()}</span>
               </div>
             ))}
           </div>
           {selectedCoin && (
             <div className="mb-3">
-              <label className="text-[11px] text-[#c9d1d9] uppercase block mb-1.5">Amount ({selectedCoin.ticker})</label>
+              <label className="text-xs font-medium text-secondary uppercase block mb-1.5">Amount ({selectedCoin.ticker})</label>
               <input
                 type="number"
                 placeholder="0.00"
@@ -168,14 +168,14 @@ function AddAssetModal({ onClose, onAdd }) {
                 onChange={(e) => setAmount(e.target.value)}
                 step="any"
                 min="0"
-                className="w-full h-10 px-3.5 rounded-lg border border-[#30363d] bg-[#0d1117] text-sm text-[#e6edf3] outline-none"
+                className="w-full h-10 px-3.5 rounded-lg border border-default bg-base text-sm text-primary outline-none focus:border-accent"
               />
-              <p className="text-xs text-[#c9d1d9] text-right mt-1.5">Total: ${amount ? (selectedCoin.price * parseFloat(amount || 0)).toLocaleString() : '0.00'}</p>
+              <p className="text-xs text-secondary text-right mt-1.5">Total: ${amount ? (selectedCoin.price * parseFloat(amount || 0)).toLocaleString() : '0.00'}</p>
             </div>
           )}
           <div className="flex gap-2.5 justify-end">
-            <button type="button" className="h-10 px-5 rounded-lg border border-[#30363d] bg-[#0d1117] text-sm text-[#e6edf3] cursor-pointer" onClick={onClose}>Cancel</button>
-            <button type="submit" disabled={!selectedCoin || !amount} className="h-10 px-5 rounded-lg bg-blue-500 text-sm text-white font-semibold cursor-pointer hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">Add Asset</button>
+            <button type="button" className="h-10 px-5 rounded-lg border border-default bg-base text-sm text-primary cursor-pointer hover:bg-overlay" onClick={onClose}>Cancel</button>
+            <button type="submit" disabled={!selectedCoin || !amount} className="h-10 px-5 rounded-lg bg-accent text-sm text-white font-semibold cursor-pointer hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed">Add Asset</button>
           </div>
         </form>
       </div>
@@ -219,9 +219,9 @@ export default function Portfolio() {
   };
 
   return (
-    <main className="p-6 flex flex-col gap-4">
+    <main className="p-4 sm:p-6 flex flex-col gap-4">
       <header className="flex gap-2">
-        <button className="flex items-center gap-1.5 bg-transparent border border-[#30363d] rounded-lg p-2 text-sm text-[#e6edf3] cursor-pointer font-medium">
+        <button className="flex items-center gap-1.5 bg-transparent border border-default rounded-lg px-3 py-2 text-sm text-primary cursor-pointer font-medium hover:bg-overlay">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
             <polyline points="7 10 12 15 17 10" />
@@ -229,7 +229,7 @@ export default function Portfolio() {
           </svg>
           Export
         </button>
-        <button className="flex items-center gap-1.5 bg-blue-500 border-none rounded-lg p-2 text-sm text-white cursor-pointer font-semibold" onClick={() => setShowAddModal(true)}>
+        <button className="flex items-center gap-1.5 bg-accent border-none rounded-lg px-3 py-2 text-sm text-white cursor-pointer font-semibold hover:opacity-90" onClick={() => setShowAddModal(true)}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
           </svg>
@@ -237,24 +237,26 @@ export default function Portfolio() {
         </button>
       </header>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {portfolioMetrics.map((m, i) => (
           <MetricCard key={i} label={m.label} value={m.value} change={m.change} sub={m.sub} />
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col lg:flex-row gap-4">
         <AllocationCard total={totalBalance} />
-        <PriceChart coin={portfolioCoin} data={portfolioChartData} />
+        <div className="flex-1 min-w-0">
+          <PriceChart coin={portfolioCoin} data={portfolioChartData} />
+        </div>
       </div>
 
-      <div className="bg-[#161b22] border border-[#30363d] rounded-lg overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-[#21262d]">
+      <div className="bg-surface border border-default rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-default">
           <div>
-            <span className="text-sm font-semibold text-[#e6edf3]">Your Holdings</span>
-            <span className="text-xs text-[#7d8590] block mt-0.5">Assets in your portfolio</span>
+            <span className="text-sm font-semibold text-primary">Your Holdings</span>
+            <span className="text-xs text-muted block mt-0.5">Assets in your portfolio</span>
           </div>
-          <button className="flex items-center gap-1.5 bg-transparent border border-[#30363d] rounded-lg p-1.5 text-xs text-[#c9d1d9] cursor-pointer">
+          <button className="flex items-center gap-1.5 bg-transparent border border-default rounded-lg px-2.5 py-1.5 text-xs text-secondary cursor-pointer hover:text-primary hover:bg-overlay">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="4" y1="6" x2="20" y2="6" />
               <line x1="8" y1="12" x2="16" y2="12" />
@@ -263,62 +265,64 @@ export default function Portfolio() {
             Filter
           </button>
         </div>
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              <th className="text-left p-2.5 text-[11px] font-semibold text-[#7d8590] uppercase tracking-wider border-b border-[#21262d] bg-[#1c2128]">#</th>
-              <th className="text-left p-2.5 text-[11px] font-semibold text-[#7d8590] uppercase tracking-wider border-b border-[#21262d] bg-[#1c2128]">Coin</th>
-              <th className="text-right p-2.5 text-[11px] font-semibold text-[#7d8590] uppercase tracking-wider border-b border-[#21262d] bg-[#1c2128]">Amount</th>
-              <th className="text-right p-2.5 text-[11px] font-semibold text-[#7d8590] uppercase tracking-wider border-b border-[#21262d] bg-[#1c2128]">Avg. Buy</th>
-              <th className="text-right p-2.5 text-[11px] font-semibold text-[#7d8590] uppercase tracking-wider border-b border-[#21262d] bg-[#1c2128]">Value</th>
-              <th className="text-right p-2.5 text-[11px] font-semibold text-[#7d8590] uppercase tracking-wider border-b border-[#21262d] bg-[#1c2128]">P&L</th>
-            </tr>
-          </thead>
-          <tbody>
-            {holdingsList.map((h) => (
-              <tr key={h.ticker} className="border-b border-[#21262d]">
-                <td className="p-3 text-sm text-[#7d8590] w-8">{h.rank}</td>
-                <td className="p-3 text-sm text-[#e6edf3]">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-6 h-6 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold text-white">{h.ticker[0]}</span>
-                    <div>
-                      <span className="font-semibold block">{h.name}</span>
-                      <span className="text-xs text-[#c9d1d9]">{h.ticker}</span>
-                    </div>
-                  </div>
-                </td>
-                <td className="p-3 text-sm text-right text-[#e6edf3]">{h.amount}</td>
-                <td className="p-3 text-sm text-right text-[#c9d1d9]">{h.avgBuy}</td>
-                <td className="p-3 text-sm text-right font-semibold text-[#e6edf3]">{h.currentValue}</td>
-                <td className="p-3 text-sm text-right">
-                  <div className="flex flex-col items-end gap-0.5">
-                    <span className={h.unrealizedPnl >= 0 ? 'text-green-500 font-semibold text-sm' : 'text-red-500 font-semibold text-sm'}>
-                      {h.unrealizedPnl >= 0 ? '+' : ''}${Math.abs(h.unrealizedPnl).toLocaleString()}
-                    </span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded ${h.pnlPct >= 0 ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
-                      {h.pnlPct >= 0 ? '+' : ''}{h.pnlPct}%
-                    </span>
-                  </div>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-default bg-overlay">
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase w-8">#</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase">Coin</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase">Amount</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase">Avg. Buy</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase">Value</th>
+                <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase">P&L</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {holdingsList.map((h) => (
+                <tr key={h.ticker} className="border-b border-subtle hover:bg-overlay transition-colors">
+                  <td className="p-3 text-sm text-muted w-8">{h.rank}</td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-bold text-white">{h.ticker.slice(0, 2)}</div>
+                      <div>
+                        <span className="text-sm font-semibold text-primary block">{h.name}</span>
+                        <span className="text-xs text-muted">{h.ticker}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-3 text-right text-sm text-primary">{h.amount}</td>
+                  <td className="p-3 text-right text-sm text-secondary">{h.avgBuy}</td>
+                  <td className="p-3 text-right text-sm font-semibold text-primary">{h.currentValue}</td>
+                  <td className="p-3 text-right">
+                    <div className="flex flex-col items-end gap-0.5">
+                      <span className={`text-sm font-semibold ${h.unrealizedPnl >= 0 ? 'text-success' : 'text-danger'}`}>
+                        {h.unrealizedPnl >= 0 ? '+' : ''}${Math.abs(h.unrealizedPnl).toLocaleString()}
+                      </span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${h.pnlPct >= 0 ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'}`}>
+                        {h.pnlPct >= 0 ? '+' : ''}{h.pnlPct}%
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <div className="flex flex-wrap gap-3.5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {aiInsights.map((ins) => (
-          <div key={ins.label} className={`flex-1 min-w-[200px] p-4 rounded-lg border-t-2 ${ins.color === 'green' ? 'border-green-500' : ins.color === 'amber' ? 'border-amber-500' : 'border-blue-500'}`}>
-            <div className={`text-[11px] font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5 ${ins.color === 'green' ? 'text-green-500' : ins.color === 'amber' ? 'text-amber-500' : 'text-blue-500'}`}>
+          <div key={ins.label} className={`p-4 rounded-xl border-l-2 ${ins.color === 'green' ? 'border-success bg-success/5' : ins.color === 'amber' ? 'border-amber-500 bg-amber-500/5' : 'border-accent bg-accent/5'}`}>
+            <div className={`text-xs font-bold uppercase tracking-wider mb-2 flex items-center gap-1.5 ${ins.color === 'green' ? 'text-success' : ins.color === 'amber' ? 'text-amber-500' : 'text-accent'}`}>
               <span>{ins.icon}</span>
               {ins.label}
             </div>
-            <p className="text-xs text-[#c9d1d9] leading-relaxed">{ins.text}</p>
+            <p className="text-sm text-secondary leading-relaxed">{ins.text}</p>
           </div>
         ))}
       </div>
 
-      <footer className="text-center text-xs text-[#7d8590] pt-4 border-t border-[#21262d] flex justify-center gap-5">
+      <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5">
         <span>© 2024 FinTracker Inc. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>

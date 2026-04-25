@@ -39,7 +39,7 @@ function Sparkline({ data, positive, width = 80, height = 28 }) {
     const y = height - ((v - min) / range) * height;
     return `${x},${y}`;
   });
-  const color = positive ? "#22c55e" : "#ef4444";
+  const color = positive ? "rgb(var(--color-success))" : "rgb(var(--color-danger))";
   return (
     <svg width={width} height={height} style={{ overflow: "visible" }}>
       <polyline points={pts.join(" ")} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
@@ -67,34 +67,34 @@ function AddModal({ onClose, onAdd, existing }) {
   const handleAdd = (coin) => { setAdded(prev => [...prev, coin.ticker]); onAdd(coin); };
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={onClose}>
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-7 w-[420px] max-w-[90vw]" onClick={e => e.stopPropagation()}>
+      <div className="bg-surface border border-default rounded-xl p-7 w-[420px] max-w-[90vw]" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between mb-1.5">
-          <h2 className="text-lg font-semibold text-[#e6edf3]">Add to Watchlist</h2>
-          <button className="bg-none border-none cursor-pointer text-[#c9d1d9] p-1 rounded" onClick={onClose}>
+          <h2 className="text-lg font-semibold text-primary">Add to Watchlist</h2>
+          <button className="bg-none border-none cursor-pointer text-secondary p-1 rounded" onClick={onClose}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
-        <p className="text-xs text-[#c9d1d9] mb-4.5">Search and add assets to your personal tracking list.</p>
-        <div className="flex items-center gap-2 bg-[#0d1117] border border-[#30363d] rounded-lg p-2.5 mb-4">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7d8590" strokeWidth="2">
+        <p className="text-xs text-secondary mb-4.5">Search and add assets to your personal tracking list.</p>
+        <div className="flex items-center gap-2 bg-base border border-default rounded-lg p-2.5 mb-4">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          <input placeholder="Enter coin name or ticker..." value={search} onChange={e => setSearch(e.target.value)} autoFocus className="flex-1 bg-transparent border-none outline-none text-[#e6edf3] text-sm" />
+          <input placeholder="Enter coin name or ticker..." value={search} onChange={e => setSearch(e.target.value)} autoFocus className="flex-1 bg-transparent border-none outline-none text-primary text-sm" />
         </div>
         <div>
-          {filtered.length === 0 && <p className="text-xs text-[#c9d1d9] text-center py-5">No results found</p>}
+          {filtered.length === 0 && <p className="text-xs text-secondary text-center py-5">No results found</p>}
           {filtered.map(coin => (
-            <div key={coin.ticker} className="flex items-center justify-between py-2.5 border-b border-[#30363d]">
+            <div key={coin.ticker} className="flex items-center justify-between py-2.5 border-b border-default">
               <div className="flex items-center gap-2.5">
                 <CoinLogo ticker={coin.ticker} size={32} />
-                <span className="text-sm font-medium text-[#e6edf3]">{coin.name} ({coin.ticker})</span>
+                <span className="text-sm font-medium text-primary">{coin.name} ({coin.ticker})</span>
               </div>
               {added.includes(coin.ticker) ? (
-                <span className="px-4 py-1.5 rounded-lg bg-green-500/15 text-green-500 text-sm font-medium border border-green-500/30">Added ✓</span>
+                <span className="px-4 py-1.5 rounded-lg bg-success/15 text-success text-sm font-medium border border-success/30">Added ✓</span>
               ) : (
-                <button className="px-4 py-1.5 rounded-lg bg-blue-500 text-white text-sm font-medium border-none cursor-pointer hover:opacity-90" onClick={() => handleAdd(coin)}>Add</button>
+                <button className="px-4 py-1.5 rounded-lg bg-accent text-white text-sm font-medium border-none cursor-pointer hover:opacity-90" onClick={() => handleAdd(coin)}>Add</button>
               )}
             </div>
           ))}
@@ -107,17 +107,17 @@ function AddModal({ onClose, onAdd, existing }) {
 function RemoveModal({ coin, onConfirm, onCancel }) {
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center" onClick={onCancel}>
-      <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-7 w-[360px] text-center" onClick={e => e.stopPropagation()}>
-        <div className="w-11 h-11 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-3.5">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2">
+      <div className="bg-surface border border-default rounded-xl p-7 w-[360px] text-center" onClick={e => e.stopPropagation()}>
+        <div className="w-11 h-11 rounded-full bg-danger/15 flex items-center justify-center mx-auto mb-3.5">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" />
           </svg>
         </div>
-        <p className="text-base font-semibold text-[#e6edf3] mb-2">Remove {coin.name}?</p>
-        <p className="text-xs text-[#c9d1d9] mb-6">This will remove <strong>{coin.ticker}</strong> from your watchlist. You can add it back anytime.</p>
+        <p className="text-base font-semibold text-primary mb-2">Remove {coin.name}?</p>
+        <p className="text-xs text-secondary mb-6">This will remove <strong>{coin.ticker}</strong> from your watchlist. You can add it back anytime.</p>
         <div className="flex gap-2.5">
-          <button className="flex-1 py-2.5 bg-[#0d1117] border border-[#30363d] rounded-lg text-sm font-medium text-[#e6edf3] cursor-pointer" onClick={onCancel}>Cancel</button>
-          <button className="flex-1 py-2.5 bg-red-500 border-none rounded-lg text-sm font-medium text-white cursor-pointer" onClick={onConfirm}>Remove</button>
+          <button className="flex-1 py-2.5 bg-base border border-default rounded-lg text-sm font-medium text-primary cursor-pointer" onClick={onCancel}>Cancel</button>
+          <button className="flex-1 py-2.5 bg-danger border-none rounded-lg text-sm font-medium text-white cursor-pointer" onClick={onConfirm}>Remove</button>
         </div>
       </div>
     </div>
@@ -171,17 +171,17 @@ export default function Watchlist() {
   const toggleStar = (ticker) => { setWatchlist(prev => prev.map(c => c.ticker === ticker ? { ...c, starred: !c.starred } : c)); };
 
   return (
-    <div className="p-7 min-h-full bg-[#0d1117] text-[#e6edf3]">
-      <div className="flex items-center gap-1.5 text-xs text-[#c9d1d9] mb-1.5">
+    <div className="p-7 min-h-full bg-base text-primary">
+      <div className="flex items-center gap-1.5 text-xs text-secondary mb-1.5">
         <span>Active Tracking</span>
         <span>›</span>
-        <span className="text-blue-500 font-medium">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500 mr-1 animate-pulse" />
+        <span className="text-accent font-medium">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-success mr-1 animate-pulse" />
           V3.4 LIVE
         </span>
       </div>
 
-      <p className="text-sm text-[#c9d1d9] mb-6">Monitor your selected assets with real-time price feeds and trend analysis.</p>
+      <p className="text-sm text-secondary mb-6">Monitor your selected assets with real-time price feeds and trend analysis.</p>
 
       <div className="flex flex-wrap gap-3 mb-6">
         <MetricCard label="Tracked Assets" value={watchlist.length} change={null} />
@@ -193,14 +193,14 @@ export default function Watchlist() {
       <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
         <div className="flex items-center gap-3">
           <TabBar tabs={tabs} active={activeTab} onChange={t => { setActiveTab(t); setCurrentPage(1); }} size="sm" />
-          <div className="flex items-center gap-2 bg-[#161b22] border border-[#30363d] rounded-lg p-2.5 min-w-[220px]">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7d8590" strokeWidth="2">
+          <div className="flex items-center gap-2 bg-surface border border-default rounded-lg p-2.5 min-w-[220px]">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            <input placeholder="Filter your list..." value={filterText} onChange={e => { setFilterText(e.target.value); setCurrentPage(1); }} className="bg-transparent border-none outline-none text-[#e6edf3] text-sm flex-1" />
+            <input placeholder="Filter your list..." value={filterText} onChange={e => { setFilterText(e.target.value); setCurrentPage(1); }} className="bg-transparent border-none outline-none text-primary text-sm flex-1" />
           </div>
         </div>
-        <button className="flex items-center gap-1.5 bg-blue-500 text-white border-none rounded-lg py-2 px-4.5 text-sm font-semibold cursor-pointer hover:opacity-90" onClick={() => setShowAddModal(true)}>
+        <button className="flex items-center gap-1.5 bg-accent text-white border-none rounded-lg py-2 px-4.5 text-sm font-semibold cursor-pointer hover:opacity-90" onClick={() => setShowAddModal(true)}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
           </svg>
@@ -208,33 +208,33 @@ export default function Watchlist() {
         </button>
       </div>
 
-      <div className="bg-[#161b22] border border-[#30363d] rounded-lg overflow-hidden">
+      <div className="bg-surface border border-default rounded-lg overflow-hidden">
         <table className="w-full border-collapse">
-          <thead className="border-b border-[#30363d]">
+          <thead className="border-b border-default">
             <tr>
-              <th className="text-left p-2.5 text-xs font-semibold text-[#7d8590] uppercase tracking-wider w-8"></th>
-              <th className="text-left p-2.5 text-xs font-semibold text-[#7d8590] uppercase tracking-wider cursor-pointer" onClick={() => handleSort("name")}>Asset <SortIcon col="name" sortKey={sortKey} sortDir={sortDir} /></th>
-              <th className="text-right p-2.5 text-xs font-semibold text-[#7d8590] uppercase tracking-wider cursor-pointer" onClick={() => handleSort("price")}>Price <SortIcon col="price" sortKey={sortKey} sortDir={sortDir} /></th>
-              <th className="text-right p-2.5 text-xs font-semibold text-[#7d8590] uppercase tracking-wider cursor-pointer" onClick={() => handleSort("change24h")}>24h % <SortIcon col="change24h" sortKey={sortKey} sortDir={sortDir} /></th>
-              <th className="text-right p-2.5 text-xs font-semibold text-[#7d8590] uppercase tracking-wider cursor-pointer" onClick={() => handleSort("marketCap")}>Market Cap <SortIcon col="marketCap" sortKey={sortKey} sortDir={sortDir} /></th>
-              <th className="text-right p-2.5 text-xs font-semibold text-[#7d8590] uppercase tracking-wider">Last 24h</th>
-              <th className="text-right p-2.5 text-xs font-semibold text-[#7d8590] uppercase tracking-wider">Actions</th>
+              <th className="text-left p-2.5 text-xs font-semibold text-muted uppercase tracking-wider w-8"></th>
+              <th className="text-left p-2.5 text-xs font-semibold text-muted uppercase tracking-wider cursor-pointer" onClick={() => handleSort("name")}>Asset <SortIcon col="name" sortKey={sortKey} sortDir={sortDir} /></th>
+              <th className="text-right p-2.5 text-xs font-semibold text-muted uppercase tracking-wider cursor-pointer" onClick={() => handleSort("price")}>Price <SortIcon col="price" sortKey={sortKey} sortDir={sortDir} /></th>
+              <th className="text-right p-2.5 text-xs font-semibold text-muted uppercase tracking-wider cursor-pointer" onClick={() => handleSort("change24h")}>24h % <SortIcon col="change24h" sortKey={sortKey} sortDir={sortDir} /></th>
+              <th className="text-right p-2.5 text-xs font-semibold text-muted uppercase tracking-wider cursor-pointer" onClick={() => handleSort("marketCap")}>Market Cap <SortIcon col="marketCap" sortKey={sortKey} sortDir={sortDir} /></th>
+              <th className="text-right p-2.5 text-xs font-semibold text-muted uppercase tracking-wider">Last 24h</th>
+              <th className="text-right p-2.5 text-xs font-semibold text-muted uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody>
             {paginated.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center py-15 text-[#c9d1d9]">
+                <td colSpan={7} className="text-center py-15 text-secondary">
                   <div className="text-[2.5rem] mb-2">📋</div>
-                  <div className="font-semibold mb-1 text-[#e6edf3]">{filterText ? "No matching assets" : "Your watchlist is empty"}</div>
+                  <div className="font-semibold mb-1 text-primary">{filterText ? "No matching assets" : "Your watchlist is empty"}</div>
                   <div className="text-xs">{filterText ? "Try a different search term" : "Click 'Add Asset' to start tracking cryptocurrencies"}</div>
                 </td>
               </tr>
             ) : (
               paginated.map(coin => (
-                <tr key={coin.ticker} className="border-b border-[#30363d] hover:bg-[#161b22] transition-colors">
+                <tr key={coin.ticker} className="border-b border-default hover:bg-surface transition-colors">
                   <td className="p-3">
-                    <button className={`cursor-pointer ${coin.starred ? "text-amber-500" : "text-[#7d8590]"} hover:text-[#e6edf3]`} onClick={() => toggleStar(coin.ticker)}>
+                    <button className={`cursor-pointer ${coin.starred ? "text-amber-500" : "text-muted"} hover:text-primary`} onClick={() => toggleStar(coin.ticker)}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill={coin.starred ? "#f59e0b" : "none"} stroke={coin.starred ? "#f59e0b" : "currentColor"} strokeWidth="2">
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                       </svg>
@@ -244,24 +244,24 @@ export default function Watchlist() {
                     <div className="flex items-center gap-2.5">
                       <CoinLogo ticker={coin.ticker} size={34} />
                       <div>
-                        <div className="text-sm font-semibold text-[#e6edf3]">{coin.name}</div>
-                        <div className="text-xs text-[#c9d1d9]">{coin.ticker}</div>
+                        <div className="text-sm font-semibold text-primary">{coin.name}</div>
+                        <div className="text-xs text-secondary">{coin.ticker}</div>
                       </div>
                     </div>
                   </td>
                   <td className="p-3 text-right font-semibold">{formatPrice(coin.price)}</td>
                   <td className="p-3 text-right"><Badge variant={coin.change24h >= 0 ? "green" : "red"}>{coin.change24h >= 0 ? "+" : ""}{coin.change24h.toFixed(2)}%</Badge></td>
-                  <td className="p-3 text-right text-[#c9d1d9]">{formatMarketCap(coin.marketCap)}</td>
+                  <td className="p-3 text-right text-secondary">{formatMarketCap(coin.marketCap)}</td>
                   <td className="p-3 text-right"><div className="flex justify-end"><Sparkline data={coin.sparkline} positive={coin.change24h >= 0} /></div></td>
                   <td className="p-3 text-right">
                     <div className="flex justify-end gap-1">
-                      <button className="cursor-pointer text-[#7d8590] hover:text-[#e6edf3] p-1" title="View details">
+                      <button className="cursor-pointer text-muted hover:text-primary p-1" title="View details">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                       </button>
-                      <button className="cursor-pointer text-[#7d8590] hover:text-[#e6edf3] p-1" title="Set alert">
+                      <button className="cursor-pointer text-muted hover:text-primary p-1" title="Set alert">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
                       </button>
-                      <button className="cursor-pointer text-[#7d8590] hover:text-[#e6edf3] p-1" title="Remove from watchlist" onClick={() => handleRemove(coin)}>
+                      <button className="cursor-pointer text-muted hover:text-primary p-1" title="Remove from watchlist" onClick={() => handleRemove(coin)}>
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" /></svg>
                       </button>
                     </div>
@@ -274,20 +274,20 @@ export default function Watchlist() {
       </div>
 
       <div className="flex items-center justify-between mt-4 gap-3">
-        <span className="text-sm text-[#c9d1d9]">Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filtered.length)}–{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length} tracked asset{filtered.length !== 1 ? "s" : ""}</span>
+        <span className="text-sm text-secondary">Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filtered.length)}–{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length} tracked asset{filtered.length !== 1 ? "s" : ""}</span>
         <div className="flex gap-2">
-          <button className="px-3.5 py-1.5 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-[#e6edf3] cursor-pointer disabled:opacity-40 disabled:cursor-default" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</button>
+          <button className="px-3.5 py-1.5 bg-surface border border-default rounded-lg text-sm text-primary cursor-pointer disabled:opacity-40 disabled:cursor-default" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</button>
           {Array.from({ length: totalPages }, (_, i) => i + 1).map(pg => (
-            <button key={pg} className={`px-3.5 py-1.5 rounded-lg text-sm cursor-pointer ${pg === currentPage ? "bg-blue-500 text-white border-blue-500" : "bg-[#161b22] border border-[#30363d] text-[#e6edf3]"}`} onClick={() => setCurrentPage(pg)}>{pg}</button>
+            <button key={pg} className={`px-3.5 py-1.5 rounded-lg text-sm cursor-pointer ${pg === currentPage ? "bg-accent text-white border-accent" : "bg-surface border border-default text-primary"}`} onClick={() => setCurrentPage(pg)}>{pg}</button>
           ))}
-          <button className="px-3.5 py-1.5 bg-[#161b22] border border-[#30363d] rounded-lg text-sm text-[#e6edf3] cursor-pointer disabled:opacity-40 disabled:cursor-default" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
+          <button className="px-3.5 py-1.5 bg-surface border border-default rounded-lg text-sm text-primary cursor-pointer disabled:opacity-40 disabled:cursor-default" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
         </div>
       </div>
 
       {showAddModal && <AddModal onClose={() => setShowAddModal(false)} onAdd={handleAddCoin} existing={watchlist.map(c => c.ticker)} />}
       {removeTarget && <RemoveModal coin={removeTarget} onConfirm={confirmRemove} onCancel={() => setRemoveTarget(null)} />}
 
-      <footer className="text-center text-xs text-[#7d8590] pt-4 border-t border-[#21262d] flex justify-center gap-5 mt-6">
+      <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-6">
         <span>© 2024 FinTracker Inc. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>

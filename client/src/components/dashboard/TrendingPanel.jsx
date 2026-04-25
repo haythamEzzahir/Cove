@@ -1,102 +1,50 @@
 import CoinLogo from '../shared/CoinLogo';
-import { colors, radius, fontSize } from '../../styles/tokens';
 
-/**
- * TrendingPanel
- * "Trending Now" sidebar card showing top movers.
- *
- * Props:
- *   coins      {Array<{ name, ticker, price, change }>}
- *   onViewAll  {() => void}
- *   onCoinClick {(coin) => void}
- */
 export default function TrendingPanel({ coins = [], onViewAll, onCoinClick }) {
   return (
-    <div
-      style={{
-        background: colors.bgSurface,
-        border: `0.5px solid ${colors.borderDefault}`,
-        borderRadius: radius.lg,
-        padding: 16,
-        width: 210,
-        flexShrink: 0,
-      }}
-    >
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <span style={{ fontSize: fontSize.base, fontWeight: 500, color: colors.textPrimary }}>
-          Trending Now
-        </span>
-        <button
-          onClick={onViewAll}
-          style={{ fontSize: '11px', color: colors.blue, background: 'none', border: 'none', cursor: 'pointer' }}
-        >
+    <div className="bg-surface border border-default rounded-xl p-4 w-full sm:w-[280px] flex-shrink-0">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-base font-semibold text-primary">Trending Now</span>
+        <button onClick={onViewAll} className="text-xs text-accent bg-transparent border-none cursor-pointer hover:opacity-80">
           View All
         </button>
       </div>
 
-      {/* Coin rows */}
-      {coins.map((coin, i) => {
-        const isPositive = coin.change >= 0;
-        return (
-          <button
-            key={coin.ticker}
-            onClick={() => onCoinClick?.({
-              name: coin.name,
-              ticker: coin.ticker,
-              coinId: coin.coinId,
-              current_price: parseFloat(coin.price.replace(/[^0-9.-]/g, '')),
-              change: coin.change,
-              image: coin.image,
-            })}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              width: '100%',
-              padding: '8px 0',
-              borderBottom: i < coins.length - 1 ? `0.5px solid ${colors.borderSubtle}` : 'none',
-              background: 'none',
-              border: 'none',
-              borderBottomStyle: i < coins.length - 1 ? 'solid' : undefined,
-              borderBottomWidth: i < coins.length - 1 ? '0.5px' : undefined,
-              borderBottomColor: i < coins.length - 1 ? colors.borderSubtle : undefined,
-              cursor: 'pointer',
-              textAlign: 'left',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-              <CoinLogo ticker={coin.ticker} size={30} image={coin.image} />
-              <div>
-                <p style={{ fontSize: fontSize.sm, fontWeight: 500, color: colors.textPrimary, margin: 0 }}>{coin.name}</p>
-                <p style={{ fontSize: '10px', color: colors.textMuted, margin: 0 }}>{coin.ticker}</p>
+      <div className="flex flex-col gap-1">
+        {coins.map((coin, i) => {
+          const isPositive = coin.change >= 0;
+          return (
+            <button
+              key={coin.ticker}
+              onClick={() => onCoinClick?.({
+                name: coin.name,
+                ticker: coin.ticker,
+                coinId: coin.coinId,
+                current_price: parseFloat(coin.price.replace(/[^0-9.-]/g, '')),
+                change: coin.change,
+                image: coin.image,
+              })}
+              className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-overlay transition-colors cursor-pointer text-left border-none bg-transparent"
+            >
+              <div className="flex items-center gap-2.5">
+                <CoinLogo ticker={coin.ticker} size={28} image={coin.image} />
+                <div>
+                  <p className="text-sm font-medium text-primary">{coin.name}</p>
+                  <p className="text-xs text-muted">{coin.ticker}</p>
+                </div>
               </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: fontSize.sm, color: colors.textPrimary, margin: 0 }}>{coin.price}</p>
-              <p style={{ fontSize: '11px', color: isPositive ? colors.green : colors.red, margin: 0 }}>
-                {isPositive ? '+' : ''}{coin.change}%
-              </p>
-            </div>
-          </button>
-        );
-      })}
+              <div className="text-right">
+                <p className="text-sm font-medium text-primary">{coin.price}</p>
+                <p className={`text-xs font-medium ${isPositive ? 'text-success' : 'text-danger'}`}>
+                  {isPositive ? '+' : ''}{coin.change}%
+                </p>
+              </div>
+            </button>
+          );
+        })}
+      </div>
 
-      {/* CTA */}
-      <button
-        style={{
-          marginTop: 12,
-          width: '100%',
-          padding: '7px',
-          fontSize: '11px',
-          fontWeight: 500,
-          color: colors.blue,
-          background: 'rgba(59,130,246,0.1)',
-          border: `0.5px solid rgba(59,130,246,0.3)`,
-          borderRadius: radius.md,
-          cursor: 'pointer',
-        }}
-      >
+      <button className="w-full mt-3 py-2 text-xs font-medium text-accent bg-accent/10 border border-accent/30 rounded-md cursor-pointer hover:opacity-80">
         Explore Markets →
       </button>
     </div>
