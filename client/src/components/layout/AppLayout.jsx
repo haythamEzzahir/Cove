@@ -24,9 +24,21 @@ export default function AppLayout() {
   const { settings, updateSetting } = useSettings();
   const { user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sidebar-collapsed') === 'true';
+    }
+    return false;
+  });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState('login');
+
+  const toggleSidebar = () => {
+    const newState = !sidebarCollapsed;
+    setSidebarCollapsed(newState);
+    localStorage.setItem('sidebar-collapsed', newState.toString());
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -66,10 +78,27 @@ export default function AppLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-base font-sans">
-      {(!isMobile || sidebarOpen) && (
-        <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      {/* Sidebar */}
+      {!isMobile && (
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)} 
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebar}
+        />
       )}
       
+      {/* Mobile sidebar */}
+      {isMobile && sidebarOpen && (
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)} 
+          collapsed={false}
+          onToggleCollapse={toggleSidebar}
+        />
+      )}
+      
+      {/* Mobile sidebar overlay */}
       {isMobile && sidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-30"
@@ -77,7 +106,11 @@ export default function AppLayout() {
         />
       )}
       
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* Main content */}
+      <div 
+        className="flex-1 flex flex-col min-w-0 overflow-hidden"
+        style={{ marginLeft: isMobile ? 0 : (sidebarCollapsed ? '56px' : '220px') }}
+      >
         <TopBar
           pageTitle={title}
           pageSubtitle={subtitle}
