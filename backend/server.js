@@ -4,6 +4,12 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import dns from "dns";
 
+import authRoutes from "./routes/authRoutes.js";
+import settingRoutes from "./routes/settingRoutes.js";
+import userRoutes from "./routes/userRoutes.js";
+import watchlistRoutes from "./routes/watchlistRoutes.js";
+import { ensureWatchlistIndexes } from "./models/watchlist.js";
+
 dotenv.config();
 dns.setDefaultResultOrder("ipv4first");
 
@@ -17,12 +23,18 @@ app.get("/", (req, res) => {
   res.send("Backend API is running");
 });
 
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/settings", settingRoutes);
+app.use("/api/watchlist", watchlistRoutes);
 
 app.get("/coins", async (req, res) => {
   try {
     const currency = req.query.currency || "usd";
+    const ids = req.query.ids;
+    const idsParam = ids ? `&ids=${encodeURIComponent(ids)}` : "";
     const response = await fetch(
-      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}&order=market_cap_desc&per_page=100&page=1`,
+      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}${idsParam}&order=market_cap_desc&per_page=100&page=1`,
       {
         method: "GET",
         headers: {
@@ -43,8 +55,9 @@ mongoose
   .connect(process.env.MONGO_URI, {
     serverSelectionTimeoutMS: 10000
   })
-  .then(() => {
+  .then(async () => {
     console.log("MongoDB connected");
+    await ensureWatchlistIndexes();
     app.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
@@ -82,6 +95,7 @@ app.get("/chart/:coinId", async (req, res) => {
   }
 });
 
+
 app.get("/search", async (req, res) => {
   try {
     const query = req.query.q || "";
@@ -102,3 +116,4 @@ app.get("/search", async (req, res) => {
     res.status(500).json({ error: "Failed to search coins" });
   }
 });
+

@@ -14,7 +14,7 @@ export default function Login() {
     setError('');
     setLoading(true);
     
-    const result = login(email, password);
+    const result = await login(email, password);
     
     if (result.success) {
       window.location.href = '/';

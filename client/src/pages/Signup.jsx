@@ -21,10 +21,12 @@ export default function Signup() {
       return;
     }
     
-    const result = signup(name, email, password);
+    const result = await signup(name, email, password);
     
     if (result.success) {
       window.location.href = '/';
+    } else {
+      setError(result.error);
     }
     setLoading(false);
   };

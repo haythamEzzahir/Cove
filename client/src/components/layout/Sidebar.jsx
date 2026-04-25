@@ -123,27 +123,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
           <p className="text-[10px] text-white/70 mt-0.5">Unlock all features</p>
         </div>
 
-        {user && (
-          <div 
-            className="flex items-center px-3 py-2 mt-2 transition-all duration-150"
-            style={{ justifyContent: collapsed ? 'center' : 'flex-start' }}
-          >
-            <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-semibold text-white shrink-0">
-              {user.initials}
-            </div>
-            <div 
-              className="ml-2.5 overflow-hidden transition-all duration-150"
-              style={{ 
-                opacity: collapsed ? 0 : 1, 
-                width: collapsed ? 0 : 'auto',
-                pointerEvents: collapsed ? 'none' : 'auto'
-              }}
-            >
-              <p className="text-sm font-medium text-primary whitespace-nowrap leading-tight">{user.name}</p>
-              <p className="text-xs text-muted whitespace-nowrap leading-tight">Pro Trader</p>
-            </div>
-          </div>
-        )}
+        
       </div>
     </nav>
   );

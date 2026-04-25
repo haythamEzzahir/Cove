@@ -1,7 +1,6 @@
 import bcrypt from "bcryptjs";
-import User from "../models/User.js";
-import Setting from "../models/Setting.js";
-import Watchlist from "../models/Watchlist.js";
+import User from "../models/user.js";
+import Setting from "../models/setting.js";
 import generateToken from "../utils/generateToken.js";
 
 const registerUser = async (req, res) => {
@@ -28,11 +27,6 @@ const registerUser = async (req, res) => {
 
   await Setting.create({
     userId: user._id
-  });
-
-  await Watchlist.create({
-    userId: user._id,
-    items: []
   });
 
   res.status(201).json({

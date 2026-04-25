@@ -1,36 +1,24 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import CoinLogo from "../components/shared/CoinLogo";
 import Badge from "../components/shared/Badge";
 import TabBar from "../components/shared/TabBar";
 import MetricCard from "../components/dashboard/MetricCard";
+import { useAuth } from "../context/AuthContext";
+import { useCurrency } from "../context/CurrencyContext";
 
-const mockWatchlist = [
-  { id: "bitcoin", name: "Bitcoin", ticker: "BTC", price: 67420.5, change24h: 2.34, marketCap: 1327000000000, volume24h: 28400000000, sparkline: [64000, 65200, 63800, 66100, 65700, 67000, 67420], starred: true },
-  { id: "ethereum", name: "Ethereum", ticker: "ETH", price: 3541.2, change24h: -1.12, marketCap: 425700000000, volume24h: 14200000000, sparkline: [3600, 3580, 3620, 3510, 3490, 3530, 3541], starred: true },
-  { id: "solana", name: "Solana", ticker: "SOL", price: 184.88, change24h: 5.67, marketCap: 84600000000, volume24h: 4100000000, sparkline: [170, 172, 175, 178, 180, 183, 184], starred: false },
-  { id: "cardano", name: "Cardano", ticker: "ADA", price: 0.4452, change24h: -3.22, marketCap: 16160000000, volume24h: 520000000, sparkline: [0.47, 0.46, 0.46, 0.45, 0.45, 0.44, 0.445], starred: false },
-  { id: "polkadot", name: "Polkadot", ticker: "DOT", price: 7.34, change24h: 1.15, marketCap: 10380000000, volume24h: 310000000, sparkline: [7.1, 7.15, 7.2, 7.25, 7.28, 7.31, 7.34], starred: false },
-];
-
-const suggestedCoins = [
-  { name: "Polygon", ticker: "MATIC" },
-  { name: "Avalanche", ticker: "AVAX" },
-  { name: "Chainlink", ticker: "LINK" },
-  { name: "Uniswap", ticker: "UNI" },
-  { name: "Litecoin", ticker: "LTC" },
-  { name: "Cosmos", ticker: "ATOM" },
-];
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 function SortIcon({ col, sortKey, sortDir }) {
   return (
     <span className="ml-1 opacity-30 text-[10px]">
-      {sortKey === col ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
+      {sortKey === col ? (sortDir === "asc" ? "^" : "v") : "<>"}
     </span>
   );
 }
 
 function Sparkline({ data, positive, width = 80, height = 28 }) {
   if (!data || data.length < 2) return null;
+
   const min = Math.min(...data);
   const max = Math.max(...data);
   const range = max - min || 1;
@@ -40,6 +28,7 @@ function Sparkline({ data, positive, width = 80, height = 28 }) {
     return `${x},${y}`;
   });
   const color = positive ? "rgb(var(--color-success))" : "rgb(var(--color-danger))";
+
   return (
     <svg width={width} height={height} style={{ overflow: "visible" }}>
       <polyline points={pts.join(" ")} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
@@ -47,27 +36,121 @@ function Sparkline({ data, positive, width = 80, height = 28 }) {
   );
 }
 
-function formatPrice(price) {
-  if (price >= 1000) return `$${price.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
-  if (price >= 1) return `$${price.toFixed(2)}`;
-  return `$${price.toFixed(4)}`;
+function formatPrice(price, symbol = "$") {
+  if (price === null || price === undefined || Number.isNaN(Number(price))) return "-";
+  const value = Number(price);
+  if (value >= 1000) return `${symbol}${value.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+  if (value >= 1) return `${symbol}${value.toFixed(2)}`;
+  return `${symbol}${value.toFixed(4)}`;
 }
 
-function formatMarketCap(value) {
-  if (value >= 1e12) return `$${(value / 1e12).toFixed(2)}T`;
-  if (value >= 1e9) return `$${(value / 1e9).toFixed(1)}B`;
-  if (value >= 1e6) return `$${(value / 1e6).toFixed(1)}M`;
-  return `$${value.toLocaleString()}`;
+function formatMarketCap(value, symbol = "$") {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "-";
+  const amount = Number(value);
+  if (amount >= 1e12) return `${symbol}${(amount / 1e12).toFixed(2)}T`;
+  if (amount >= 1e9) return `${symbol}${(amount / 1e9).toFixed(1)}B`;
+  if (amount >= 1e6) return `${symbol}${(amount / 1e6).toFixed(1)}M`;
+  return `${symbol}${amount.toLocaleString()}`;
 }
 
-function AddModal({ onClose, onAdd, existing }) {
+function toWatchlistCoin(coin) {
+  return {
+    coinId: coin.id,
+    id: coin.id,
+    name: coin.name,
+    ticker: coin.symbol?.toUpperCase() || "",
+    image: coin.image || "",
+    price: coin.current_price ?? null,
+    change24h: coin.price_change_percentage_24h ?? 0,
+    marketCap: coin.market_cap ?? null,
+    volume24h: coin.total_volume ?? null,
+    marketCapRank: coin.market_cap_rank ?? null,
+    sparkline: [],
+  };
+}
+
+function AddModal({ onClose, onAdd, existing = [], currency }) {
   const [search, setSearch] = useState("");
+  const [coins, setCoins] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [added, setAdded] = useState([]);
-  const filtered = suggestedCoins.filter(c => !existing.includes(c.ticker) && (search === "" || c.name.toLowerCase().includes(search.toLowerCase()) || c.ticker.toLowerCase().includes(search.toLowerCase())));
-  const handleAdd = (coin) => { setAdded(prev => [...prev, coin.ticker]); onAdd(coin); };
+  const [error, setError] = useState("");
+  const existingIds = existing.map((coinId) => String(coinId).toLowerCase());
+  const searchValue = search.trim().toLowerCase();
+
+  useEffect(() => {
+    let active = true;
+
+    async function fetchCoins() {
+      setLoading(true);
+      setError("");
+
+      try {
+        const response = await fetch(`${API_URL}/coins?currency=${currency}`);
+
+        if (!response.ok) {
+          throw new Error("Failed to load coins");
+        }
+
+        const data = await response.json();
+
+        if (active) {
+          setCoins(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        if (active) {
+          setError(err.message);
+          setCoins([]);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    fetchCoins();
+
+    return () => {
+      active = false;
+    };
+  }, [currency]);
+
+  const filtered = coins
+    .filter((coin) => {
+      const coinId = coin.id?.toLowerCase();
+      const symbol = coin.symbol?.toLowerCase() || "";
+      const name = coin.name?.toLowerCase() || "";
+
+      if (!coinId || existingIds.includes(coinId)) {
+        return false;
+      }
+
+      return searchValue === "" || name.includes(searchValue) || symbol.includes(searchValue);
+    })
+    .slice(0, 40);
+
+  const handleAdd = async (coin) => {
+    setError("");
+    const coinId = coin.id?.trim().toLowerCase();
+
+    if (!coinId) {
+      setError("coinId is required");
+      return;
+    }
+
+    const result = await onAdd(coinId);
+
+    if (result?.success) {
+      setAdded((prev) => [...prev, coinId]);
+    } else {
+      setError(result?.error || "Failed to add coin");
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={onClose}>
-      <div className="bg-surface border border-default rounded-xl p-7 w-[420px] max-w-[90vw]" onClick={e => e.stopPropagation()}>
+      <div className="bg-surface border border-default rounded-xl p-7 w-[520px] max-w-[92vw] max-h-[88vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex justify-between mb-1.5">
           <h2 className="text-lg font-semibold text-primary">Add to Watchlist</h2>
           <button className="bg-none border-none cursor-pointer text-secondary p-1 rounded" onClick={onClose}>
@@ -77,24 +160,33 @@ function AddModal({ onClose, onAdd, existing }) {
           </button>
         </div>
         <p className="text-xs text-secondary mb-4.5">Search and add assets to your personal tracking list.</p>
+        {error && <p className="text-xs text-danger mb-3">{error}</p>}
         <div className="flex items-center gap-2 bg-base border border-default rounded-lg p-2.5 mb-4">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
           <input placeholder="Enter coin name or ticker..." value={search} onChange={e => setSearch(e.target.value)} autoFocus className="flex-1 bg-transparent border-none outline-none text-primary text-sm" />
         </div>
-        <div>
-          {filtered.length === 0 && <p className="text-xs text-secondary text-center py-5">No results found</p>}
+        <div className="min-h-0 flex-1 max-h-[420px] overflow-y-auto pr-1">
+          <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1fr)_auto] gap-3 bg-surface border-b border-default py-2 text-[10px] font-semibold text-muted uppercase tracking-wider">
+            <span>Asset</span>
+            <span className="text-right">Action</span>
+          </div>
+          {loading && <p className="text-xs text-secondary text-center py-5">Loading coins...</p>}
+          {!loading && filtered.length === 0 && <p className="text-xs text-secondary text-center py-5">No results found</p>}
           {filtered.map(coin => (
-            <div key={coin.ticker} className="flex items-center justify-between py-2.5 border-b border-default">
-              <div className="flex items-center gap-2.5">
-                <CoinLogo ticker={coin.ticker} size={32} />
-                <span className="text-sm font-medium text-primary">{coin.name} ({coin.ticker})</span>
+            <div key={coin.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2.5 border-b border-default">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <CoinLogo ticker={coin.symbol?.toUpperCase()} image={coin.image} size={32} />
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-primary truncate">{coin.name}</div>
+                  <div className="text-xs text-secondary">{coin.symbol?.toUpperCase()} {coin.market_cap_rank ? `#${coin.market_cap_rank}` : ""}</div>
+                </div>
               </div>
-              {added.includes(coin.ticker) ? (
-                <span className="px-4 py-1.5 rounded-lg bg-success/15 text-success text-sm font-medium border border-success/30">Added ✓</span>
+              {added.includes(coin.id?.toLowerCase()) ? (
+                <span className="px-3 py-1.5 rounded-lg bg-success/15 text-success text-sm font-medium border border-success/30 whitespace-nowrap">Added</span>
               ) : (
-                <button className="px-4 py-1.5 rounded-lg bg-accent text-white text-sm font-medium border-none cursor-pointer hover:opacity-90" onClick={() => handleAdd(coin)}>Add</button>
+                <button className="px-3 py-1.5 rounded-lg bg-accent text-white text-sm font-medium border-none cursor-pointer hover:opacity-90 whitespace-nowrap" onClick={() => handleAdd(coin)}>Add</button>
               )}
             </div>
           ))}
@@ -125,7 +217,9 @@ function RemoveModal({ coin, onConfirm, onCancel }) {
 }
 
 export default function Watchlist() {
-  const [watchlist, setWatchlist] = useState(mockWatchlist);
+  const { user, watchlistItems, loadWatchlist, addToWatchlist, removeFromWatchlist } = useAuth();
+  const { currency, currencyData } = useCurrency();
+  const [coins, setCoins] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [removeTarget, setRemoveTarget] = useState(null);
   const [filterText, setFilterText] = useState("");
@@ -133,11 +227,79 @@ export default function Watchlist() {
   const [sortDir, setSortDir] = useState("asc");
   const [activeTab, setActiveTab] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageError, setPageError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const ITEMS_PER_PAGE = 8;
   const tabs = ["All", "Gainers", "Losers"];
+  const currencySymbol = currencyData?.symbol || "$";
+  const watchlist = coins.map(toWatchlistCoin);
 
-  const totalValue = watchlist.reduce((sum, c) => sum + c.price, 0);
+  useEffect(() => {
+    let active = true;
+
+    async function refreshCoinIds() {
+      if (!user?.token) return;
+
+      const result = await loadWatchlist();
+
+      if (active && !result.success) {
+        setPageError(result.error);
+      }
+    }
+
+    refreshCoinIds();
+
+    return () => {
+      active = false;
+    };
+  }, [user?.token, loadWatchlist]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function fetchCoinDetails() {
+      if (!watchlistItems.length) {
+        setCoins([]);
+        return;
+      }
+
+      setLoading(true);
+      setPageError("");
+
+      try {
+        const ids = watchlistItems.join(",");
+        const response = await fetch(`${API_URL}/coins?currency=${currency}&ids=${encodeURIComponent(ids)}`);
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch watchlist coin data");
+        }
+
+        const data = await response.json();
+
+        if (active) {
+          setCoins(Array.isArray(data) ? data : []);
+        }
+      } catch (error) {
+        if (active) {
+          setPageError(error.message);
+          setCoins([]);
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+
+    fetchCoinDetails();
+
+    return () => {
+      active = false;
+    };
+  }, [watchlistItems, currency]);
+
+  const totalValue = watchlist.reduce((sum, c) => sum + (c.price || 0), 0);
   const gainers = watchlist.filter(c => c.change24h > 0).length;
   const losers = watchlist.filter(c => c.change24h < 0).length;
 
@@ -161,20 +323,37 @@ export default function Watchlist() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  const handleAddCoin = (coin) => {
-    const newCoin = { id: coin.ticker.toLowerCase(), name: coin.name, ticker: coin.ticker, price: Math.random() * 500 + 0.5, change24h: (Math.random() - 0.5) * 10, marketCap: Math.random() * 50e9, volume24h: Math.random() * 2e9, sparkline: Array.from({ length: 7 }, () => Math.random() * 100), starred: false };
-    setWatchlist(prev => [...prev, newCoin]);
+  const handleAddCoin = async (coinId) => {
+    setPageError("");
+    const result = await addToWatchlist(coinId);
+
+    if (!result.success) {
+      setPageError(result.error);
+    }
+
+    return result;
   };
 
   const handleRemove = (coin) => setRemoveTarget(coin);
-  const confirmRemove = () => { setWatchlist(prev => prev.filter(c => c.ticker !== removeTarget.ticker)); setRemoveTarget(null); };
-  const toggleStar = (ticker) => { setWatchlist(prev => prev.map(c => c.ticker === ticker ? { ...c, starred: !c.starred } : c)); };
+
+  const confirmRemove = async () => {
+    if (!removeTarget) return;
+
+    setPageError("");
+    const result = await removeFromWatchlist(removeTarget.coinId);
+
+    if (!result.success) {
+      setPageError(result.error);
+    }
+
+    setRemoveTarget(null);
+  };
 
   return (
     <div className="p-7 min-h-full bg-base text-primary">
       <div className="flex items-center gap-1.5 text-xs text-secondary mb-1.5">
         <span>Active Tracking</span>
-        <span>›</span>
+        <span>&gt;</span>
         <span className="text-accent font-medium">
           <span className="inline-block w-1.5 h-1.5 rounded-full bg-success mr-1 animate-pulse" />
           V3.4 LIVE
@@ -182,11 +361,12 @@ export default function Watchlist() {
       </div>
 
       <p className="text-sm text-secondary mb-6">Monitor your selected assets with real-time price feeds and trend analysis.</p>
+      {pageError && <p className="text-sm text-danger mb-4">{pageError}</p>}
 
       <div className="flex flex-wrap gap-3 mb-6">
-        <MetricCard label="Tracked Assets" value={watchlist.length} change={null} />
-        <MetricCard label="Total Value (est.)" value={formatMarketCap(totalValue * 1e6)} change={null} />
-        <MetricCard label="Top Gainer (24h)" value={watchlist.reduce((best, c) => (c.change24h > (best?.change24h ?? -Infinity) ? c : best), null)?.name ?? "—"} change={null} />
+        <MetricCard label="Tracked Assets" value={watchlistItems.length} change={null} />
+        <MetricCard label="Total Value (est.)" value={formatMarketCap(totalValue * 1e6, currencySymbol)} change={null} />
+        <MetricCard label="Top Gainer (24h)" value={watchlist.reduce((best, c) => (c.change24h > (best?.change24h ?? -Infinity) ? c : best), null)?.name ?? "-"} change={null} />
         <MetricCard label="Gainers / Losers" value={`${gainers} / ${losers}`} change={null} />
       </div>
 
@@ -209,7 +389,8 @@ export default function Watchlist() {
       </div>
 
       <div className="bg-surface border border-default rounded-lg overflow-hidden">
-        <table className="w-full border-collapse">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[760px] border-collapse">
           <thead className="border-b border-default">
             <tr>
               <th className="text-left p-2.5 text-xs font-semibold text-muted uppercase tracking-wider w-8"></th>
@@ -222,36 +403,41 @@ export default function Watchlist() {
             </tr>
           </thead>
           <tbody>
-            {paginated.length === 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan={7} className="text-center py-15 text-secondary">Loading watchlist...</td>
+              </tr>
+            ) : paginated.length === 0 ? (
               <tr>
                 <td colSpan={7} className="text-center py-15 text-secondary">
-                  <div className="text-[2.5rem] mb-2">📋</div>
+                  <div className="text-[2.5rem] mb-2">-</div>
                   <div className="font-semibold mb-1 text-primary">{filterText ? "No matching assets" : "Your watchlist is empty"}</div>
-                  <div className="text-xs">{filterText ? "Try a different search term" : "Click 'Add Asset' to start tracking cryptocurrencies"}</div>
+                  <div className="text-xs">{filterText ? "Try a different search term" : "Star coins from the dashboard to add them here"}</div>
                 </td>
               </tr>
             ) : (
               paginated.map(coin => (
-                <tr key={coin.ticker} className="border-b border-default hover:bg-surface transition-colors">
+                <tr key={coin.coinId} className="border-b border-default hover:bg-surface transition-colors">
                   <td className="p-3">
-                    <button className={`cursor-pointer ${coin.starred ? "text-amber-500" : "text-muted"} hover:text-primary`} onClick={() => toggleStar(coin.ticker)}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill={coin.starred ? "#f59e0b" : "none"} stroke={coin.starred ? "#f59e0b" : "currentColor"} strokeWidth="2">
+                    <button className="cursor-pointer text-amber-500 hover:text-primary" onClick={() => handleRemove(coin)}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" strokeWidth="2">
                         <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                       </svg>
                     </button>
                   </td>
                   <td className="p-3">
                     <div className="flex items-center gap-2.5">
-                      <CoinLogo ticker={coin.ticker} size={34} />
+                      <CoinLogo ticker={coin.ticker} image={coin.image} size={34} />
                       <div>
                         <div className="text-sm font-semibold text-primary">{coin.name}</div>
                         <div className="text-xs text-secondary">{coin.ticker}</div>
+                        <div className="text-[10px] text-muted">Rank #{coin.marketCapRank ?? "-"}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="p-3 text-right font-semibold">{formatPrice(coin.price)}</td>
+                  <td className="p-3 text-right font-semibold">{formatPrice(coin.price, currencySymbol)}</td>
                   <td className="p-3 text-right"><Badge variant={coin.change24h >= 0 ? "green" : "red"}>{coin.change24h >= 0 ? "+" : ""}{coin.change24h.toFixed(2)}%</Badge></td>
-                  <td className="p-3 text-right text-secondary">{formatMarketCap(coin.marketCap)}</td>
+                  <td className="p-3 text-right text-secondary">{formatMarketCap(coin.marketCap, currencySymbol)}</td>
                   <td className="p-3 text-right"><div className="flex justify-end"><Sparkline data={coin.sparkline} positive={coin.change24h >= 0} /></div></td>
                   <td className="p-3 text-right">
                     <div className="flex justify-end gap-1">
@@ -271,10 +457,11 @@ export default function Watchlist() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="flex items-center justify-between mt-4 gap-3">
-        <span className="text-sm text-secondary">Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filtered.length)}–{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length} tracked asset{filtered.length !== 1 ? "s" : ""}</span>
+        <span className="text-sm text-secondary">Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filtered.length)}-{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length} tracked asset{filtered.length !== 1 ? "s" : ""}</span>
         <div className="flex gap-2">
           <button className="px-3.5 py-1.5 bg-surface border border-default rounded-lg text-sm text-primary cursor-pointer disabled:opacity-40 disabled:cursor-default" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</button>
           {Array.from({ length: totalPages }, (_, i) => i + 1).map(pg => (
@@ -284,11 +471,11 @@ export default function Watchlist() {
         </div>
       </div>
 
-      {showAddModal && <AddModal onClose={() => setShowAddModal(false)} onAdd={handleAddCoin} existing={watchlist.map(c => c.ticker)} />}
+      {showAddModal && <AddModal onClose={() => setShowAddModal(false)} onAdd={handleAddCoin} existing={watchlistItems} currency={currency} />}
       {removeTarget && <RemoveModal coin={removeTarget} onConfirm={confirmRemove} onCancel={() => setRemoveTarget(null)} />}
 
       <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-6">
-        <span>© 2024 FinTracker Inc. All rights reserved.</span>
+        <span>(c) 2024 FinTracker Inc. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>
           <a href="#" className="text-inherit no-underline">Privacy</a>

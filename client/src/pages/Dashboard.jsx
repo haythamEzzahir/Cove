@@ -106,16 +106,26 @@ export default function Dashboard() {
     }
   };
 
-  const handleWatchlistToggle = (e, asset) => {
+  const handleWatchlistToggle = async (e, asset) => {
     e.stopPropagation();
-    if (!user) {
+    if (!user?.token) {
       alert('Please login to add coins to your watchlist');
       return;
     }
-    if (isInWatchlist(asset.coinId)) {
-      removeFromWatchlist(asset.coinId);
-    } else {
-      addToWatchlist(asset);
+
+    const coinId = asset?.coinId;
+
+    if (!coinId) {
+      alert('coinId is required');
+      return;
+    }
+
+    const result = isInWatchlist(coinId)
+      ? await removeFromWatchlist(coinId)
+      : await addToWatchlist(coinId);
+
+    if (!result.success) {
+      alert(result.error);
     }
   };
 
