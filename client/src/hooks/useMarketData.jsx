@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useCurrency } from '../context/CurrencyContext';
+import { useBinanceWebSocket } from './useBinanceWebSocket';
 
 const API_URL = 'http://localhost:5000/coins';
 const CHART_API_URL = 'http://localhost:5000/chart';
@@ -33,6 +34,68 @@ export function useMarketData() {
     error: null,
   });
 
+  const formatPrice = useCallback((price) => {
+    if (!price && price !== 0) return '-';
+    if (price >= 1) return `${currencyData.symbol}${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${currencyData.symbol}${price.toFixed(6)}`;
+  }, [currencyData.symbol]);
+
+  const formatMarketCap = useCallback((cap) => {
+    if (!cap && cap !== 0) return '-';
+    if (cap >= 1e12) return `${currencyData.symbol}${(cap / 1e12).toFixed(2)}T`;
+    if (cap >= 1e9) return `${currencyData.symbol}${(cap / 1e9).toFixed(1)}B`;
+    return `${currencyData.symbol}${(cap / 1e6).toFixed(1)}M`;
+  }, [currencyData.symbol]);
+
+  const handlePriceUpdate = useCallback((coinId, newPrice) => {
+    setData(prev => {
+      const updatedAssets = prev.assets.map(asset => {
+        if (asset.coinId.toLowerCase() === coinId.toLowerCase()) {
+          const priceDirection = newPrice > asset.current_price ? 'up' : newPrice < asset.current_price ? 'down' : asset.priceDirection;
+          return {
+            ...asset,
+            price: formatPrice(newPrice),
+            current_price: newPrice,
+            priceDirection,
+          };
+        }
+        return asset;
+      });
+
+      let updatedFeatured = prev.featuredCoin;
+      if (prev.featuredCoin?.coinId.toLowerCase() === coinId.toLowerCase()) {
+        const priceDirection = newPrice > prev.featuredCoin.price ? 'up' : newPrice < prev.featuredCoin.price ? 'down' : prev.featuredCoin.priceDirection;
+        updatedFeatured = {
+          ...prev.featuredCoin,
+          price: newPrice,
+          priceDirection,
+        };
+      }
+
+      const updatedTrending = prev.trendingCoins.map(coin => {
+        if (coin.coinId.toLowerCase() === coinId.toLowerCase()) {
+          const priceDirection = newPrice > coin.current_price ? 'up' : newPrice < coin.current_price ? 'down' : coin.priceDirection;
+          return {
+            ...coin,
+            price: formatPrice(newPrice),
+            current_price: newPrice,
+            priceDirection,
+          };
+        }
+        return coin;
+      });
+
+      return {
+        ...prev,
+        assets: updatedAssets,
+        featuredCoin: updatedFeatured,
+        trendingCoins: updatedTrending,
+      };
+    });
+  }, [formatPrice]);
+
+  useBinanceWebSocket(data.assets, handlePriceUpdate);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -44,17 +107,6 @@ export function useMarketData() {
         const coins = await res.json();
         
         if (coins && coins.length > 0) {
-          const formatPrice = (price) => {
-            if (price >= 1) return `${currencyData.symbol}${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            return `${currencyData.symbol}${price.toFixed(6)}`;
-          };
-
-          const formatMarketCap = (cap) => {
-            if (cap >= 1e12) return `${currencyData.symbol}${(cap / 1e12).toFixed(2)}T`;
-            if (cap >= 1e9) return `${currencyData.symbol}${(cap / 1e9).toFixed(1)}B`;
-            return `${currencyData.symbol}${(cap / 1e6).toFixed(1)}M`;
-          };
-
           const totalMarketCap = coins.reduce((sum, c) => sum + (c.market_cap || 0), 0);
           const totalVolume = coins.reduce((sum, c) => sum + (c.total_volume || 0), 0);
           const btcDominance = coins[0]?.market_cap_share ? (coins[0].market_cap / totalMarketCap * 100) : 50;
@@ -78,6 +130,8 @@ export function useMarketData() {
             current_price: c.current_price,
             change: c.price_change_percentage_24h || 0,
             price_change_percentage_24h: c.price_change_percentage_24h || 0,
+            price_change_percentage_1h_in_currency: c.price_change_percentage_1h_in_currency || 0,
+            price_change_percentage_7d_in_currency: c.price_change_percentage_7d_in_currency || 0,
             marketCap: formatMarketCap(c.market_cap || 0),
             market_cap: c.market_cap || 0,
             volume: formatMarketCap(c.total_volume || 0),

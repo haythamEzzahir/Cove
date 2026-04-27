@@ -34,7 +34,7 @@ app.get("/coins", async (req, res) => {
     const ids = req.query.ids;
     const idsParam = ids ? `&ids=${encodeURIComponent(ids)}` : "";
     const response = await fetch(
-      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}${idsParam}&order=market_cap_desc&per_page=100&page=1`,
+      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}${idsParam}&order=market_cap_desc&per_page=100&page=1&sparkline=true&price_change_percentage=1h%2C7d`,
       {
         method: "GET",
         headers: {

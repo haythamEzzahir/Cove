@@ -42,10 +42,20 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
             <span className="text-sm text-muted">{coin?.name} / USD</span>
             {coin?.status && <Badge variant="green" className="text-[10px]">{coin.status}</Badge>}
           </div>
-          <div className="flex items-baseline gap-3">
+          <div className="flex items-baseline gap-2">
             <span className="text-2xl font-bold text-primary">
               {currencyData.symbol}{coin?.price?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
+            {coin?.priceDirection === 'up' && (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-success">
+                <path d="M12 19V5M5 12l7-7 7 7" />
+              </svg>
+            )}
+            {coin?.priceDirection === 'down' && (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-danger">
+                <path d="M12 5v14M19 12l-7 7-7-7" />
+              </svg>
+            )}
             <span className={`text-sm font-medium ${isPositive ? 'text-success' : 'text-danger'}`}>
               {isPositive ? '+' : ''}{coin?.change}% ({isPositive ? '+' : ''}{currencyData.symbol}{coin?.changeAbs?.toLocaleString()})
             </span>

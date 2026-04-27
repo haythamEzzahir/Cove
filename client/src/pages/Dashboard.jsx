@@ -9,6 +9,8 @@ const AVAILABLE_COLUMNS = [
   { key: 'watchlist', label: 'Watchlist', default: true },
   { key: 'name', label: 'Coin', default: true },
   { key: 'price', label: 'Price', default: true },
+  { key: 'change1h', label: '1h %', default: true },
+  { key: 'change7d', label: '7d %', default: true },
   { key: 'change', label: '24h %', default: true },
   { key: 'marketCap', label: 'Market Cap', default: true },
   { key: 'volume', label: 'Volume', default: true },
@@ -23,17 +25,19 @@ const AVAILABLE_COLUMNS = [
 const COLUMN_WIDTHS = {
     rank: '50px',
     watchlist: '40px',
-    name: '180px',
-    price: '1fr',
-    change: '1fr',
-    marketCap: '1fr',
-    volume: '1fr',
-    high24h: '1fr',
-    low24h: '1fr',
-    ath: '1fr',
-    ath_change: '1fr',
-    atl: '1fr',
-    mCapRank: '1fr',
+    name: 'minmax(140px, 1.5fr)',
+    price: 'minmax(100px, 1fr)',
+    change1h: 'minmax(70px, 0.7fr)',
+    change7d: 'minmax(70px, 0.7fr)',
+    change: 'minmax(80px, 0.8fr)',
+    marketCap: 'minmax(110px, 1fr)',
+    volume: 'minmax(90px, 1fr)',
+    high24h: 'minmax(90px, 1fr)',
+    low24h: 'minmax(90px, 1fr)',
+    ath: 'minmax(90px, 1fr)',
+    ath_change: 'minmax(100px, 1fr)',
+    atl: 'minmax(90px, 1fr)',
+    mCapRank: '60px',
   };
 
   const getColumnWidth = (key) => COLUMN_WIDTHS[key] || '1fr';
@@ -156,11 +160,39 @@ export default function Dashboard() {
           </div>
         );
       case 'price':
-        return <span className="text-sm font-semibold text-primary whitespace-nowrap">{asset.price}</span>;
+        return (
+          <div className="flex items-center gap-1">
+            <span className={`text-sm font-semibold whitespace-nowrap ${asset.priceDirection === 'up' ? 'text-success' : asset.priceDirection === 'down' ? 'text-danger' : 'text-primary'}`}>
+              {asset.price}
+            </span>
+            {asset.priceDirection === 'up' && (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-success shrink-0">
+                <path d="M12 19V5M5 12l7-7 7 7" />
+              </svg>
+            )}
+            {asset.priceDirection === 'down' && (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-danger shrink-0">
+                <path d="M12 5v14M19 12l-7 7-7-7" />
+              </svg>
+            )}
+          </div>
+        );
       case 'change':
         return (
           <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${asset.change >= 0 ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'}`}>
             {asset.change >= 0 ? '+' : ''}{asset.change?.toFixed(2)}%
+          </span>
+        );
+      case 'change1h':
+        return (
+          <span className={`text-xs font-medium ${asset.price_change_percentage_1h_in_currency >= 0 ? 'text-success' : 'text-danger'}`}>
+            {asset.price_change_percentage_1h_in_currency >= 0 ? '+' : ''}{asset.price_change_percentage_1h_in_currency?.toFixed(2)}%
+          </span>
+        );
+      case 'change7d':
+        return (
+          <span className={`text-xs font-medium ${asset.price_change_percentage_7d_in_currency >= 0 ? 'text-success' : 'text-danger'}`}>
+            {asset.price_change_percentage_7d_in_currency >= 0 ? '+' : ''}{asset.price_change_percentage_7d_in_currency?.toFixed(2)}%
           </span>
         );
       case 'ath_change':
@@ -302,11 +334,18 @@ export default function Dashboard() {
           >
             {visibleColumns.map((colKey) => {
               const col = AVAILABLE_COLUMNS.find(c => c.key === colKey);
+              const isLeftAligned = colKey === 'name' || colKey === 'price' || colKey === 'change1h' || colKey === 'change7d';
+              const centerAlign = colKey === 'watchlist';
               return (
                 <div 
                   key={colKey} 
-                  className="sticky top-0 z-10 bg-surface border-b border-default px-2 py-2 text-xs font-semibold text-muted uppercase"
-                  style={{ textAlign: colKey === 'name' ? 'left' : 'right' }}
+                  className={`sticky top-0 z-10 bg-surface border-b border-default px-2 py-2 text-xs font-semibold text-muted uppercase ${centerAlign ? 'flex items-center justify-center' : ''}`}
+                  style={{ 
+                    display: 'flex',
+                    textAlign: isLeftAligned ? 'left' : 'right',
+                    justifyContent: isLeftAligned ? 'flex-start' : (centerAlign ? 'center' : 'flex-end'),
+                    alignItems: 'center'
+                  }}
                 >
                   {colKey === 'watchlist' ? '★' : col?.label}
                 </div>
@@ -326,7 +365,12 @@ export default function Dashboard() {
                     image: asset.image,
                   })}
                   className={`border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-2 py-2 ${colKey === 'watchlist' ? 'flex items-center justify-center' : ''}`}
-                  style={{ textAlign: colKey === 'name' ? 'left' : 'right' }}
+                  style={{ 
+                    display: 'flex',
+                    textAlign: (colKey === 'name' || colKey === 'price' || colKey === 'change1h' || colKey === 'change7d') ? 'left' : 'right',
+                    justifyContent: (colKey === 'name' || colKey === 'price' || colKey === 'change1h' || colKey === 'change7d') ? 'flex-start' : (colKey === 'watchlist' ? 'center' : 'flex-end'),
+                    alignItems: 'center'
+                  }}
                 >
                   {colKey === 'watchlist' ? (
                     <div 
