@@ -1,13 +1,63 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useGoogleLogin } from '@react-oauth/google';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+const AUTH_REDIRECT_KEY = 'fintracker_auth_redirect';
+
+function getSafeRedirectPath(path) {
+  return path && path.startsWith('/') && !path.startsWith('//') ? path : '/';
+}
+
 export default function Login() {
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, googleLogin } = useAuth();
+
+  const getRedirectPath = () => {
+    const params = new URLSearchParams(location.search);
+    const redirectParam = params.get('redirect');
+    const savedRedirect = sessionStorage.getItem(AUTH_REDIRECT_KEY);
+    return getSafeRedirectPath(redirectParam || savedRedirect);
+  };
+
+  const redirectAfterAuth = () => {
+    const target = getRedirectPath();
+    sessionStorage.removeItem(AUTH_REDIRECT_KEY);
+    window.location.href = target;
+  };
+
+  const googleLoginHandler = useGoogleLogin({
+    flow: 'auth-code',
+    scope: 'openid email profile',
+    onSuccess: async (codeResponse) => {
+      try {
+        setError('');
+
+        if (!codeResponse.code) {
+          setError('Google authorization code missing');
+          return;
+        }
+
+        const result = await googleLogin(codeResponse.code);
+
+        if (result.success) {
+          redirectAfterAuth();
+        } else {
+          setError(result.error || 'Google authentication failed');
+        }
+      } catch (error) {
+        console.error('Google login handler error:', error);
+        setError('Google authentication failed');
+      }
+    },
+    onError: () => {
+      setError('Google login failed');
+    },
+  });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,7 +67,7 @@ export default function Login() {
     const result = await login(email, password);
     
     if (result.success) {
-      window.location.href = '/';
+      redirectAfterAuth();
     } else {
       setError(result.error);
     }
@@ -70,10 +120,18 @@ export default function Login() {
           >
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
+
+          <button
+            type="button"
+            onClick={() => googleLoginHandler()}
+            className="h-10 rounded-lg border border-default bg-base text-sm font-semibold text-primary cursor-pointer hover:bg-overlay transition-colors"
+          >
+            Continue with Google
+          </button>
         </form>
 
         <p className="text-center text-sm text-secondary mt-5">
-          Don't have an account? <Link to="/signup" className="text-accent no-underline font-medium hover:underline">Sign up</Link>
+          Don't have an account? <Link to={`/signup${location.search}`} className="text-accent no-underline font-medium hover:underline">Sign up</Link>
         </p>
       </div>
     </div>

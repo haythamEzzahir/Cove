@@ -25,15 +25,19 @@ async function getJson(response) {
 function normalizeCoinIds(data) {
   if (Array.isArray(data)) {
     const coinIds = data
-      .map((item) => (typeof item === 'string' ? item : item?.coinId))
+      .map((item) => (typeof item === 'string' ? item : item?.coinId || item?.id))
       .filter(Boolean)
-      .map((coinId) => coinId.trim().toLowerCase());
+      .map((coinId) => String(coinId).trim().toLowerCase());
 
     return [...new Set(coinIds)];
   }
 
   if (Array.isArray(data?.watchlist)) {
     return normalizeCoinIds(data.watchlist);
+  }
+
+  if (Array.isArray(data?.coins)) {
+    return normalizeCoinIds(data.coins);
   }
 
   if (Array.isArray(data?.items)) {
@@ -193,6 +197,62 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const googleLogin = async (code) => {
+    try {
+      if (!code) {
+        return {
+          success: false,
+          error: 'Google authorization code missing',
+        };
+      }
+
+      const response = await fetch(`${API_URL}/api/auth/google`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code }),
+      });
+
+      const data = await getJson(response);
+
+      console.log('Google auth response:', data);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || data.error || 'Google authentication failed',
+        };
+      }
+
+      const userData = {
+        _id: data._id,
+        name: data.name,
+        email: data.email,
+        avatar: data.avatar || '',
+        provider: data.provider || 'google',
+        token: data.token,
+        initials: getInitials(data.name),
+      };
+
+      setUser(userData);
+      localStorage.setItem('fintracker_user', JSON.stringify(userData));
+
+      if (data.token && typeof loadWatchlist === 'function') {
+        await loadWatchlist(data.token);
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Google login frontend error:', error);
+
+      return {
+        success: false,
+        error: error.message || 'Google authentication failed',
+      };
+    }
+  };
+
   const logout = () => {
     setUser(null);
     setWatchlist([]);
@@ -316,6 +376,7 @@ export function AuthProvider({ children }) {
         loading,
         login,
         signup,
+        googleLogin,
         logout,
         watchlist,
         watchlistItems: watchlist,

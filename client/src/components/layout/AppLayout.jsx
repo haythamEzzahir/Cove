@@ -18,6 +18,11 @@ const PAGE_DATA = {
 };
 
 const PROTECTED_ROUTES = ['/watchlist', '/portfolio', '/alerts', '/news', '/settings', '/settings/profile'];
+const AUTH_REDIRECT_KEY = 'fintracker_auth_redirect';
+
+function getCurrentPath(location) {
+  return `${location.pathname}${location.search}${location.hash}`;
+}
 
 export default function AppLayout() {
   const location = useLocation();
@@ -33,6 +38,7 @@ export default function AppLayout() {
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState('login');
+  const [authRedirectTo, setAuthRedirectTo] = useState('/');
 
   const toggleSidebar = () => {
     const newState = !sidebarCollapsed;
@@ -63,17 +69,28 @@ export default function AppLayout() {
     updateSetting('darkMode', !settings.darkMode);
   };
 
+  const requiresAuth = PROTECTED_ROUTES.some(route => location.pathname.startsWith(route));
+
+  useEffect(() => {
+    if (!loading && requiresAuth && !user) {
+      const requestedPath = getCurrentPath(location);
+      sessionStorage.setItem(AUTH_REDIRECT_KEY, requestedPath);
+      setAuthRedirectTo(requestedPath);
+      setAuthModalMode('login');
+      setShowAuthModal(true);
+    }
+  }, [loading, location, requiresAuth, user]);
+
+  const handleShowAuth = (mode = 'login') => {
+    const requestedPath = getCurrentPath(location);
+    sessionStorage.setItem(AUTH_REDIRECT_KEY, requestedPath);
+    setAuthRedirectTo(requestedPath);
+    setShowAuthModal(true);
+    setAuthModalMode(mode);
+  };
+
   if (loading) {
     return null;
-  }
-
-  const requiresAuth = PROTECTED_ROUTES.some(route => location.pathname.startsWith(route));
-  
-  if (requiresAuth && !user) {
-    if (!showAuthModal) {
-      setShowAuthModal(true);
-      setAuthModalMode('login');
-    }
   }
 
   return (
@@ -115,7 +132,7 @@ export default function AppLayout() {
           pageTitle={title}
           pageSubtitle={subtitle}
           onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-          onShowAuth={(mode = 'login') => { setShowAuthModal(true); setAuthModalMode(mode); }}
+          onShowAuth={handleShowAuth}
         />
         <div className="flex-1 overflow-y-auto">
           <Outlet />
@@ -126,6 +143,7 @@ export default function AppLayout() {
         isOpen={showAuthModal} 
         onClose={() => setShowAuthModal(false)} 
         initialMode={authModalMode}
+        redirectTo={authRedirectTo}
       />
     </div>
   );

@@ -1,15 +1,22 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useGoogleLogin } from '@react-oauth/google';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+const AUTH_REDIRECT_KEY = 'fintracker_auth_redirect';
+
+function getSafeRedirectPath(path) {
+  return path && path.startsWith('/') && !path.startsWith('//') ? path : '/';
+}
+
 export default function Signup() {
+  const location = useLocation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signup } = useAuth();
-
+  
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -24,7 +31,7 @@ export default function Signup() {
     const result = await signup(name, email, password);
     
     if (result.success) {
-      window.location.href = '/';
+      redirectAfterAuth();
     } else {
       setError(result.error);
     }
@@ -89,10 +96,18 @@ export default function Signup() {
           >
             {loading ? 'Creating account...' : 'Create Account'}
           </button>
+
+          <button
+            type="button"
+            onClick={() => googleLoginHandler()}
+            className="h-10 rounded-lg border border-default bg-base text-sm font-semibold text-primary cursor-pointer hover:bg-overlay transition-colors"
+          >
+            Continue with Google
+          </button>
         </form>
 
         <p className="text-center text-sm text-secondary mt-5">
-          Already have an account? <Link to="/login" className="text-accent no-underline font-medium hover:underline">Sign in</Link>
+          Already have an account? <Link to={`/login${location.search}`} className="text-accent no-underline font-medium hover:underline">Sign in</Link>
         </p>
       </div>
     </div>
