@@ -1,6 +1,7 @@
-import { StrictMode } from 'react';
+import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 import { SettingsProvider } from './context/SettingsContext';
 import { AuthProvider } from './context/AuthContext';
 import { CurrencyProvider } from './context/CurrencyContext';
@@ -14,6 +15,8 @@ import Portfolio from './pages/Portfolio';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import './index.css';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const router = createBrowserRouter([
   {
@@ -40,16 +43,66 @@ const router = createBrowserRouter([
   },
 ]);
 
+function GoogleProviderWrapper({ children }) {
+  const [clientId, setClientId] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadClientId = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/auth/google/client-id`);
+        const data = await response.json();
+
+        console.log('Google client id response:', data);
+
+        if (!response.ok) {
+          throw new Error(data.message || 'Failed to load Google Client ID');
+        }
+
+        if (!data.clientId) {
+          throw new Error('Google Client ID is empty');
+        }
+
+        setClientId(data.clientId);
+      } catch (err) {
+        console.error('Failed to load Google Client ID:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadClientId();
+  }, []);
+
+  if (loading) {
+    return <div>Loading Google configuration...</div>;
+  }
+
+  if (error) {
+    return <div>Google configuration error: {error}</div>;
+  }
+
+  return (
+    <GoogleOAuthProvider clientId={clientId}>
+      {children}
+    </GoogleOAuthProvider>
+  );
+}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ThemeProvider>
-      <SettingsProvider>
-        <CurrencyProvider>
-          <AuthProvider>
-            <RouterProvider router={router} />
-          </AuthProvider>
-        </CurrencyProvider>
-      </SettingsProvider>
-    </ThemeProvider>
+    <GoogleProviderWrapper>
+      <ThemeProvider>
+        <SettingsProvider>
+          <CurrencyProvider>
+            <AuthProvider>
+              <RouterProvider router={router} />
+            </AuthProvider>
+          </CurrencyProvider>
+        </SettingsProvider>
+      </ThemeProvider>
+    </GoogleProviderWrapper>
   </StrictMode>
 );

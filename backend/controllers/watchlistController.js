@@ -1,112 +1,147 @@
-import Watchlist, { ensureWatchlistIndexes } from "../models/watchlist.js";
+import Watchlist from "../models/watchlist.js";
 
-const getUserCoinIds = async (userId) => {
-  const watchlist = await Watchlist.find({
-    userId,
-    coinId: { $exists: true, $ne: null }
-  })
-    .sort({ createdAt: 1 })
-    .select("coinId -_id");
+const normalizeCoinIds = (coins = []) => {
+  const coinIds = coins
+    .map((coinId) => String(coinId || "").trim().toLowerCase())
+    .filter(Boolean);
 
-  return watchlist.map((item) => item.coinId);
+  return [...new Set(coinIds)];
+};
+
+const getOrCreateWatchlist = async (userId) => {
+  let watchlist = await Watchlist.findOne({ userId });
+
+  if (!watchlist) {
+    watchlist = await Watchlist.create({
+      userId,
+      coins: []
+    });
+  }
+
+  return watchlist;
+};
+
+const fetchCoinDetails = async (coinIds, currency = "usd") => {
+  const coins = normalizeCoinIds(coinIds);
+
+  if (coins.length === 0) {
+    return [];
+  }
+
+  try {
+    const headers = process.env.CG_API_KEY
+      ? { "x-cg-demo-api-key": process.env.CG_API_KEY }
+      : {};
+
+    const response = await fetch(
+      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${encodeURIComponent(currency)}&ids=${encodeURIComponent(coins.join(","))}&order=market_cap_desc&per_page=${coins.length}&page=1&sparkline=true&price_change_percentage=1h%2C7d`,
+      {
+        method: "GET",
+        headers
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`CoinGecko request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  } catch (error) {
+    console.error("Fetch watchlist coin details error:", error.message);
+    return [];
+  }
+};
+
+const buildWatchlistResponse = async (watchlist, currency) => {
+  const coins = normalizeCoinIds(watchlist.coins);
+  const items = await fetchCoinDetails(coins, currency);
+
+  return {
+    _id: watchlist._id,
+    userId: watchlist.userId,
+    coins,
+    items,
+    createdAt: watchlist.createdAt,
+    updatedAt: watchlist.updatedAt
+  };
 };
 
 const getMyWatchlist = async (req, res) => {
   try {
-    const coinIds = await getUserCoinIds(req.user._id);
-    res.json(coinIds);
+    const watchlist = await getOrCreateWatchlist(req.user._id);
+    const response = await buildWatchlistResponse(
+      watchlist,
+      req.query.currency || "usd"
+    );
+
+    res.json(response);
   } catch (error) {
     console.error("Get watchlist error:", error.message);
     res.status(500).json({ message: "Server error" });
   }
 };
 
-const isOldUserIdUniqueIndexError = (error) => {
-  if (error.code !== 11000) return false;
-  if (error.keyPattern?.userId && !error.keyPattern?.coinId) return true;
-  return error.message?.includes("index: userId_1 ");
-};
-
 const addWatchlistItem = async (req, res) => {
-  const coinId = req.body?.coinId?.trim().toLowerCase();
+  const coinId = String(req.body?.coinId || "").trim().toLowerCase();
 
   try {
     if (!coinId) {
       return res.status(400).json({ message: "coinId is required" });
     }
 
-    const coinExists = await Watchlist.findOne({
-      userId: req.user._id,
-      coinId
-    });
-
-    if (coinExists) {
-      return res.status(409).json({ message: "Coin already in watchlist" });
-    }
-
-    await Watchlist.create({
-      userId: req.user._id,
-      coinId
-    });
-
-    const coinIds = await getUserCoinIds(req.user._id);
-
-    res.status(201).json(coinIds);
-  } catch (error) {
-    if (isOldUserIdUniqueIndexError(error)) {
-      try {
-        await ensureWatchlistIndexes();
-
-        const coinExists = await Watchlist.findOne({
-          userId: req.user._id,
-          coinId
-        });
-
-        if (coinExists) {
-          return res.status(409).json({ message: "Coin already in watchlist" });
-        }
-
-        await Watchlist.create({
-          userId: req.user._id,
-          coinId
-        });
-
-        const coinIds = await getUserCoinIds(req.user._id);
-        return res.status(201).json(coinIds);
-      } catch (retryError) {
-        console.error("Retry add watchlist item error:", retryError.message);
-        return res.status(500).json({ message: "Server error" });
+    const watchlist = await Watchlist.findOneAndUpdate(
+      { userId: req.user._id },
+      { $addToSet: { coins: coinId } },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true
       }
-    }
+    );
 
-    if (error.code === 11000) {
-      return res.status(409).json({ message: "Coin already in watchlist" });
-    }
+    const response = await buildWatchlistResponse(
+      watchlist,
+      req.query.currency || "usd"
+    );
 
+    return res.status(201).json(response);
+  } catch (error) {
     console.error("Add watchlist item error:", error.message);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
 const removeWatchlistItem = async (req, res) => {
   try {
-    const coinId = req.params.coinId?.trim().toLowerCase();
+    const coinId = String(req.params.coinId || "").trim().toLowerCase();
 
-    const deleted = await Watchlist.findOneAndDelete({
-      userId: req.user._id,
-      coinId
-    });
-
-    if (!deleted) {
-      return res.status(404).json({ message: "Coin not found in watchlist" });
+    if (!coinId) {
+      return res.status(400).json({ message: "coinId is required" });
     }
 
-    const coinIds = await getUserCoinIds(req.user._id);
+    let watchlist = await Watchlist.findOneAndUpdate(
+      { userId: req.user._id },
+      { $pull: { coins: coinId } },
+      { new: true }
+    );
 
-    res.json(coinIds);
+    if (!watchlist) {
+      watchlist = await Watchlist.create({
+        userId: req.user._id,
+        coins: []
+      });
+    }
+
+    const response = await buildWatchlistResponse(
+      watchlist,
+      req.query.currency || "usd"
+    );
+
+    return res.json(response);
   } catch (error) {
     console.error("Remove watchlist item error:", error.message);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 

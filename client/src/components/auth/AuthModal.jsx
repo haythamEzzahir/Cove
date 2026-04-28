@@ -1,7 +1,21 @@
 import { useEffect, useState } from 'react';
+import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../../context/AuthContext';
 
-export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
+const AUTH_REDIRECT_KEY = 'fintracker_auth_redirect';
+
+function getSafeRedirectPath(path) {
+  return path && path.startsWith('/') && !path.startsWith('//') ? path : '/';
+}
+
+function redirectAfterAuth(redirectTo) {
+  const savedRedirect = sessionStorage.getItem(AUTH_REDIRECT_KEY);
+  const target = getSafeRedirectPath(redirectTo || savedRedirect);
+  sessionStorage.removeItem(AUTH_REDIRECT_KEY);
+  window.location.href = target;
+}
+
+export default function AuthModal({ isOpen, onClose, initialMode = 'login', redirectTo = '/' }) {
   const [mode, setMode] = useState(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -9,7 +23,36 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { login, signup } = useAuth();
+  const { login, signup, googleLogin } = useAuth();
+
+  const googleLoginHandler = useGoogleLogin({
+    flow: 'auth-code',
+    scope: 'openid email profile',
+    onSuccess: async (codeResponse) => {
+      try {
+        setError('');
+
+        if (!codeResponse.code) {
+          setError('Google authorization code missing');
+          return;
+        }
+
+        const result = await googleLogin(codeResponse.code);
+
+        if (result.success) {
+          redirectAfterAuth(redirectTo);
+        } else {
+          setError(result.error || 'Google authentication failed');
+        }
+      } catch (error) {
+        console.error('Google login handler error:', error);
+        setError('Google authentication failed');
+      }
+    },
+    onError: () => {
+      setError('Google login failed');
+    },
+  });
 
   useEffect(() => {
     if (isOpen) {
@@ -34,23 +77,19 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
       : await signup(name, email, password);
 
     if (result.success) {
-      onClose();
+      redirectAfterAuth(redirectTo);
     } else {
       setError(result.error);
     }
     setLoading(false);
   };
 
-  const handleGoogleAuth = () => {
-    setError('Google authentication is not configured yet. Please use email and password.');
-  };
-
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div 
-        className="bg-surface border border-default rounded-2xl p-8 w-[420px] max-w-[90vw] shadow-2xl max-h-[90vh] overflow-y-auto" 
+      <div
+        className="bg-surface border border-default rounded-2xl p-8 w-[420px] max-w-[90vw] shadow-2xl max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex border-b border-default mb-6">
@@ -73,7 +112,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
         <div className="flex flex-col gap-3 mb-6">
           <button
             type="button"
-            onClick={handleGoogleAuth}
+            onClick={() => googleLoginHandler()}
             className="h-12 flex items-center justify-center gap-2.5 rounded-xl border border-default bg-base text-base font-medium text-primary hover:bg-overlay cursor-pointer"
           >
             <svg width="20" height="20" viewBox="0 0 24 24">
@@ -153,13 +192,13 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login' }) {
             </div>
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="h-12 bg-accent rounded-xl text-base font-semibold text-white cursor-pointer hover:opacity-90 disabled:opacity-50 mt-2"
           >
-            {loading 
-              ? (mode === 'login' ? 'Signing in...' : 'Creating account...') 
+            {loading
+              ? (mode === 'login' ? 'Signing in...' : 'Creating account...')
               : (mode === 'login' ? 'Log in' : 'Create account')}
           </button>
         </form>
