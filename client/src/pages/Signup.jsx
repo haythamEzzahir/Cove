@@ -1,13 +1,6 @@
 import { useState } from 'react';
-import { useGoogleLogin } from '@react-oauth/google';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
-const AUTH_REDIRECT_KEY = 'fintracker_auth_redirect';
-
-function getSafeRedirectPath(path) {
-  return path && path.startsWith('/') && !path.startsWith('//') ? path : '/';
-}
 
 export default function Signup() {
   const location = useLocation();
@@ -16,22 +9,24 @@ export default function Signup() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  
+  const navigate = useNavigate();
+  const { signup } = useAuth();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    
+
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
       setLoading(false);
       return;
     }
-    
+
     const result = await signup(name, email, password);
-    
+
     if (result.success) {
-      redirectAfterAuth();
+      navigate(`/verify-pending?email=${encodeURIComponent(email)}`);
     } else {
       setError(result.error);
     }
@@ -52,7 +47,7 @@ export default function Signup() {
               {error}
             </div>
           )}
-          
+
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-secondary">Full Name</label>
             <input
@@ -89,20 +84,12 @@ export default function Signup() {
             />
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="h-10 bg-accent rounded-lg text-sm font-semibold text-white cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Creating account...' : 'Create Account'}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => googleLoginHandler()}
-            className="h-10 rounded-lg border border-default bg-base text-sm font-semibold text-primary cursor-pointer hover:bg-overlay transition-colors"
-          >
-            Continue with Google
           </button>
         </form>
 

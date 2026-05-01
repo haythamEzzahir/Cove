@@ -14,6 +14,7 @@ import Watchlist from './pages/Watchlist';
 import Portfolio from './pages/Portfolio';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import VerifyPending from './pages/VerifyPending';
 import './index.css';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -26,6 +27,10 @@ const router = createBrowserRouter([
   {
     path: '/signup',
     element: <Signup />,
+  },
+  {
+    path: '/verify-pending',
+    element: <VerifyPending />,
   },
   {
     path: '/',

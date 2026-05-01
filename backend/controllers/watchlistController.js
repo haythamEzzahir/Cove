@@ -94,7 +94,7 @@ const addWatchlistItem = async (req, res) => {
       { userId: req.user._id },
       { $addToSet: { coins: coinId } },
       {
-        new: true,
+        returnDocument: 'after',
         upsert: true,
         setDefaultsOnInsert: true
       }
@@ -123,7 +123,7 @@ const removeWatchlistItem = async (req, res) => {
     let watchlist = await Watchlist.findOneAndUpdate(
       { userId: req.user._id },
       { $pull: { coins: coinId } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     if (!watchlist) {
