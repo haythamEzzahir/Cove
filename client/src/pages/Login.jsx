@@ -97,7 +97,7 @@ export default function Login() {
 
   const handleResendVerification = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/auth/resend-verification`, {
+      const response = await fetch(`${API_URL}/api/auth/resend-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

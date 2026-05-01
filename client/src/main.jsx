@@ -14,7 +14,6 @@ import Watchlist from './pages/Watchlist';
 import Portfolio from './pages/Portfolio';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
-import VerifyEmail from './pages/VerifyEmail';
 import VerifyPending from './pages/VerifyPending';
 import './index.css';
 
@@ -28,10 +27,6 @@ const router = createBrowserRouter([
   {
     path: '/signup',
     element: <Signup />,
-  },
-  {
-    path: '/verify/:token',
-    element: <VerifyEmail />,
   },
   {
     path: '/verify-pending',

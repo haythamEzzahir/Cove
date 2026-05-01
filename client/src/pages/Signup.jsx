@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,19 +9,8 @@ export default function Signup() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [registered, setRegistered] = useState(false);
-  const [registeredEmail, setRegisteredEmail] = useState('');
   const navigate = useNavigate();
   const { signup } = useAuth();
-
-  useEffect(() => {
-    if (registered) {
-      const timer = setTimeout(() => {
-        navigate(`/login?msg=verify&email=${encodeURIComponent(registeredEmail)}`);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [registered, registeredEmail, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -37,37 +26,12 @@ export default function Signup() {
     const result = await signup(name, email, password);
 
     if (result.success) {
-      setRegisteredEmail(email);
-      setRegistered(true);
+      navigate(`/verify-pending?email=${encodeURIComponent(email)}`);
     } else {
       setError(result.error);
     }
     setLoading(false);
   };
-
-  if (registered) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-base">
-        <div className="w-full max-w-[400px] bg-surface border border-default rounded-xl p-8 text-center">
-          <div className="text-5xl mb-4">📧</div>
-          <h1 className="text-2xl font-bold text-primary mb-2">Check your email</h1>
-          <p className="text-sm text-secondary mb-2">
-            We've sent a verification link to
-          </p>
-          <p className="text-sm font-medium text-primary mb-4">{registeredEmail}</p>
-          <p className="text-sm text-secondary mb-6">
-            Click the link in your email to verify your account. Redirecting to login...
-          </p>
-          <button
-            onClick={() => navigate(`/login?msg=verify&email=${encodeURIComponent(registeredEmail)}`)}
-            className="h-10 bg-accent rounded-lg text-sm font-semibold text-white px-6 cursor-pointer hover:opacity-90 transition-opacity w-full"
-          >
-            Go to Login Now
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-base">

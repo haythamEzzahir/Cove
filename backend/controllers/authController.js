@@ -1,11 +1,12 @@
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
-import crypto from "crypto";
 import User from "../models/user.js";
 import Setting from "../models/setting.js";
 import Watchlist from "../models/watchlist.js";
 import generateToken from "../utils/generateToken.js";
 import { sendVerificationEmail } from "../utils/sendEmail.js";
+
+const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const createGoogleOAuthClient = () => (
   new OAuth2Client(
@@ -52,16 +53,18 @@ const registerUser = async (req, res) => {
 
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
-  const verificationToken = crypto.randomBytes(32).toString("hex");
+  const otp = generateOTP();
+  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
 
   const user = await User.create({
     name,
     email,
     password: hashedPassword,
-    verificationToken
+    verificationOTP: otp,
+    otpExpiry
   });
 
-  await sendVerificationEmail(email, name, verificationToken);
+  await sendVerificationEmail(email, name, otp);
 
   await Setting.create({
     userId: user._id
@@ -194,24 +197,40 @@ const googleAuth = async (req, res) => {
   }
 };
 
-const verifyEmail = async (req, res) => {
-  const { token } = req.params;
+const verifyOTP = async (req, res) => {
+  const { email, otp } = req.body;
 
-  const user = await User.findOne({ verificationToken: token });
-
-  if (user) {
-    if (!user.isVerified) {
-      user.isVerified = true;
-      user.verificationToken = "";
-      await user.save();
-    }
-    return res.json({ message: "Email verified successfully. You can now log in." });
+  if (!email || !otp) {
+    return res.status(400).json({ message: "Email and OTP are required" });
   }
 
-  return res.json({ message: "Email already verified. You can now log in." });
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  if (user.isVerified) {
+    return res.json({ message: "Email already verified. You can now log in." });
+  }
+
+  if (user.verificationOTP !== otp) {
+    return res.status(400).json({ message: "Invalid OTP code" });
+  }
+
+  if (user.otpExpiry && new Date() > user.otpExpiry) {
+    return res.status(400).json({ message: "OTP has expired. Please request a new code." });
+  }
+
+  user.isVerified = true;
+  user.verificationOTP = "";
+  user.otpExpiry = null;
+  await user.save();
+
+  res.json({ message: "Email verified successfully. You can now log in." });
 };
 
-const resendVerificationEmail = async (req, res) => {
+const resendVerificationOTP = async (req, res) => {
   const { email } = req.body;
 
   const user = await User.findOne({ email });
@@ -224,13 +243,14 @@ const resendVerificationEmail = async (req, res) => {
     return res.status(400).json({ message: "Email is already verified" });
   }
 
-  const verificationToken = crypto.randomBytes(32).toString("hex");
-  user.verificationToken = verificationToken;
+  const otp = generateOTP();
+  user.verificationOTP = otp;
+  user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
   await user.save();
 
-  await sendVerificationEmail(email, user.name, verificationToken);
+  await sendVerificationEmail(email, user.name, otp);
 
-  res.json({ message: "Verification email sent. Please check your inbox." });
+  res.json({ message: "Verification code sent. Please check your inbox." });
 };
 
-export { registerUser, loginUser, googleAuth, getGoogleClientId, verifyEmail, resendVerificationEmail };
+export { registerUser, loginUser, googleAuth, getGoogleClientId, verifyOTP, resendVerificationOTP };
