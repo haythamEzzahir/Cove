@@ -1,9 +1,11 @@
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
+import crypto from "crypto";
 import User from "../models/user.js";
 import Setting from "../models/setting.js";
 import Watchlist from "../models/watchlist.js";
 import generateToken from "../utils/generateToken.js";
+import { sendVerificationEmail } from "../utils/sendEmail.js";
 
 const createGoogleOAuthClient = () => (
   new OAuth2Client(
@@ -19,6 +21,7 @@ const buildAuthResponse = (user) => ({
   email: user.email,
   avatar: user.avatar || "",
   provider: user.provider || "local",
+  isVerified: user.isVerified || false,
   token: generateToken(user._id)
 });
 
@@ -49,12 +52,16 @@ const registerUser = async (req, res) => {
 
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
+  const verificationToken = crypto.randomBytes(32).toString("hex");
 
   const user = await User.create({
     name,
     email,
-    password: hashedPassword
+    password: hashedPassword,
+    verificationToken
   });
+
+  await sendVerificationEmail(email, name, verificationToken);
 
   await Setting.create({
     userId: user._id
@@ -65,13 +72,27 @@ const registerUser = async (req, res) => {
     coins: []
   });
 
-  res.status(201).json(buildAuthResponse(user));
+  res.status(201).json({
+    message: "Registration successful. Please check your email to verify your account.",
+    email: user.email
+  });
 };
 
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
   const user = await User.findOne({ email });
+
+  if (!user) {
+    return res.status(401).json({ message: "Invalid email or password" });
+  }
+
+  if (!user.isVerified) {
+    return res.status(401).json({
+      message: "Please verify your email before logging in.",
+      needsVerification: true
+    });
+  }
 
   if (user?.password && (await bcrypt.compare(password, user.password))) {
     res.json(buildAuthResponse(user));
@@ -140,6 +161,7 @@ const googleAuth = async (req, res) => {
       if (!user.googleId) user.googleId = googleId;
       if (!user.avatar && picture) user.avatar = picture;
       if (!user.provider) user.provider = "google";
+      if (!user.isVerified) user.isVerified = true;
       await user.save();
     } else {
       user = await User.create({
@@ -147,7 +169,8 @@ const googleAuth = async (req, res) => {
         email,
         googleId,
         avatar: picture || "",
-        provider: "google"
+        provider: "google",
+        isVerified: true
       });
 
       await Setting.create({
@@ -171,4 +194,43 @@ const googleAuth = async (req, res) => {
   }
 };
 
-export { registerUser, loginUser, googleAuth, getGoogleClientId };
+const verifyEmail = async (req, res) => {
+  const { token } = req.params;
+
+  const user = await User.findOne({ verificationToken: token });
+
+  if (user) {
+    if (!user.isVerified) {
+      user.isVerified = true;
+      user.verificationToken = "";
+      await user.save();
+    }
+    return res.json({ message: "Email verified successfully. You can now log in." });
+  }
+
+  return res.json({ message: "Email already verified. You can now log in." });
+};
+
+const resendVerificationEmail = async (req, res) => {
+  const { email } = req.body;
+
+  const user = await User.findOne({ email });
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  if (user.isVerified) {
+    return res.status(400).json({ message: "Email is already verified" });
+  }
+
+  const verificationToken = crypto.randomBytes(32).toString("hex");
+  user.verificationToken = verificationToken;
+  await user.save();
+
+  await sendVerificationEmail(email, user.name, verificationToken);
+
+  res.json({ message: "Verification email sent. Please check your inbox." });
+};
+
+export { registerUser, loginUser, googleAuth, getGoogleClientId, verifyEmail, resendVerificationEmail };

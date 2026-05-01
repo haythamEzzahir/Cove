@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../../context/AuthContext';
 
@@ -16,6 +17,7 @@ function redirectAfterAuth(redirectTo) {
 }
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'login', redirectTo = '/' }) {
+  const navigate = useNavigate();
   const [mode, setMode] = useState(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -77,7 +79,12 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', redi
       : await signup(name, email, password);
 
     if (result.success) {
-      redirectAfterAuth(redirectTo);
+      if (mode === 'signup') {
+        onClose();
+        navigate(`/verify-pending?email=${encodeURIComponent(email)}`);
+      } else {
+        redirectAfterAuth(redirectTo);
+      }
     } else {
       setError(result.error);
     }

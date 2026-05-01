@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const AUTH_REDIRECT_KEY = 'fintracker_auth_redirect';
 
 function getSafeRedirectPath(path) {
@@ -14,8 +15,23 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
   const { login, googleLogin } = useAuth();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const msg = params.get('msg');
+    if (msg === 'verify') {
+      const emailParam = params.get('email');
+      if (emailParam) setEmail(emailParam);
+      setSuccess('Account created! Please verify your email before logging in.');
+    } else if (msg === 'verified') {
+      setSuccess('Email verified! You can now log in.');
+    }
+  }, [location.search]);
 
   const getRedirectPath = () => {
     const params = new URLSearchParams(location.search);
@@ -69,9 +85,34 @@ export default function Login() {
     if (result.success) {
       redirectAfterAuth();
     } else {
-      setError(result.error);
+      if (result.needsVerification) {
+        setNeedsVerification(true);
+        setError(result.error);
+      } else {
+        setError(result.error);
+      }
     }
     setLoading(false);
+  };
+
+  const handleResendVerification = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      
+      if (response.ok) {
+        setVerificationSent(true);
+        setError('');
+      } else {
+        setError(data.message);
+      }
+    } catch (error) {
+      setError('Failed to resend verification email');
+    }
   };
 
   return (
@@ -83,9 +124,31 @@ export default function Login() {
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          {success && (
+            <div className="bg-success/15 border border-success/30 rounded-lg p-3 text-sm text-success">
+              {success}
+            </div>
+          )}
+
           {error && (
             <div className="bg-danger/15 border border-danger/30 rounded-lg p-3 text-sm text-danger">
               {error}
+            </div>
+          )}
+
+          {needsVerification && !verificationSent && (
+            <button
+              type="button"
+              onClick={handleResendVerification}
+              className="text-sm text-accent hover:underline cursor-pointer"
+            >
+              Resend verification email
+            </button>
+          )}
+
+          {verificationSent && (
+            <div className="bg-success/15 border border-success/30 rounded-lg p-3 text-sm text-success">
+              Verification email sent! Please check your inbox.
             </div>
           )}
           

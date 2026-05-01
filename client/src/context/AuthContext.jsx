@@ -133,6 +133,15 @@ export function AuthProvider({ children }) {
         return {
           success: false,
           error: data.message || 'Invalid email or password',
+          needsVerification: data.needsVerification || false,
+        };
+      }
+
+      if (data.isVerified === false) {
+        return {
+          success: false,
+          error: 'Please verify your email before logging in.',
+          needsVerification: true,
         };
       }
 
@@ -152,7 +161,7 @@ export function AuthProvider({ children }) {
     } catch {
       return {
         success: false,
-        error: 'Server error',
+        error: 'An error occurred. Please try again.',
       };
     }
   };
@@ -176,23 +185,14 @@ export function AuthProvider({ children }) {
         };
       }
 
-      const userData = {
-        _id: data._id,
-        name: data.name,
-        email: data.email,
-        token: data.token,
-        initials: getInitials(data.name),
+      return {
+        success: true,
+        message: data.message,
       };
-
-      setUser(userData);
-      localStorage.setItem('fintracker_user', JSON.stringify(userData));
-      await loadWatchlist(data.token);
-
-      return { success: true };
     } catch {
       return {
         success: false,
-        error: 'Server error',
+        error: 'An error occurred. Please try again.',
       };
     }
   };
