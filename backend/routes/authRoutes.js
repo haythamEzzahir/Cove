@@ -21,5 +21,9 @@ router.post("/google", googleAuth);
 router.post("/verify-otp", verifyOTP);
 router.post("/resend-otp", resendVerificationOTP);
 router.delete("/account", protect, deleteAccount);
+// Route to send Google Client ID to the frontend
+router.get("/google/client-id", (req, res) => {
+  res.json({ clientId: process.env.GOOGLE_CLIENT_ID || "" });
+});
 
 export default router;
