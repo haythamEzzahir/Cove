@@ -378,7 +378,7 @@ function AlertModal({ coin, currentPrice, currencySymbol, existingAlert, onSave,
 }
 
 export default function Watchlist() {
-  const { user, watchlistItems, loadWatchlist, addToWatchlist, removeFromWatchlist } = useAuth();
+  const { user, token, watchlistItems, loadWatchlist, addToWatchlist, removeFromWatchlist } = useAuth();
   const { currency, currencyData } = useCurrency();
   const [coins, setCoins] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -440,7 +440,7 @@ export default function Watchlist() {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${user?.token}`,
+                'Authorization': `Bearer ${token}`,
               },
               body: JSON.stringify({
                 coinName: coin?.name || coinId,
@@ -463,7 +463,7 @@ export default function Watchlist() {
       livePricesRef.current = { ...livePricesRef.current, [coinId]: price };
       return prev.map(c => (c.id === coinId || c.coinId === coinId) ? { ...c, current_price: price } : c);
     });
-  }, [currencySymbol, user?.token]);
+  }, [currencySymbol, token]);
 
   const { isConnected } = useBinanceWebSocket(watchlistItems, handlePriceUpdate, currency);
 
@@ -473,7 +473,7 @@ export default function Watchlist() {
     let active = true;
 
     async function refreshCoinIds() {
-      if (!user?.token) return;
+      if (!token) return;
 
       const result = await loadWatchlist();
 
@@ -487,7 +487,7 @@ export default function Watchlist() {
     return () => {
       active = false;
     };
-  }, [user?.token, loadWatchlist]);
+  }, [token, loadWatchlist]);
 
   useEffect(() => {
     let active = true;

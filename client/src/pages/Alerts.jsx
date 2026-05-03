@@ -206,7 +206,128 @@ function AlertCard({ coin, alert, onDismiss, currencySymbol, currency }) {
   );
 }
 
-function EmptyState() {
+function CreateAlertModal({ onClose, onCreateAlert, currencySymbol }) {
+  const [search, setSearch] = useState("");
+  const [coins, setCoins] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedCoin, setSelectedCoin] = useState(null);
+  const [condition, setCondition] = useState("above");
+  const [targetPrice, setTargetPrice] = useState("");
+  const [step, setStep] = useState(1);
+  const [suggestions, setSuggestions] = useState([]);
+
+  const suggestedIds = ["bitcoin", "ethereum", "solana", "dogecoin", "xrp", "cardano", "avalanche-2", "chainlink"];
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const res = await window.fetch(`${API_URL}/coins?currency=usd`);
+        const data = await res.json();
+        if (active && Array.isArray(data)) {
+          setCoins(data);
+          const sug = suggestedIds.map(id => data.find(c => c.id === id)).filter(Boolean);
+          setSuggestions(sug);
+        }
+      } catch { /* silent */ } finally {
+        if (active) setLoading(false);
+      }
+    }
+    load();
+    return () => { active = false; };
+  }, []);
+
+  const filtered = search
+    ? coins.filter(c => {
+        const q = search.toLowerCase();
+        return c.id?.toLowerCase().includes(q) || c.symbol?.toLowerCase().includes(q) || c.name?.toLowerCase().includes(q);
+      }).slice(0, 20)
+    : suggestions;
+
+  const handleCreate = () => {
+    if (!selectedCoin || !targetPrice) return;
+    onCreateAlert(selectedCoin.id, {
+      name: selectedCoin.name,
+      ticker: selectedCoin.symbol?.toUpperCase() || selectedCoin.id.toUpperCase().slice(0, 6),
+      targetPrice: parseFloat(targetPrice),
+      condition,
+      triggered: false,
+      createdAt: Date.now(),
+    });
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="bg-surface border border-default rounded-xl p-6 w-[460px] max-w-[92vw] max-h-[88vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h2 className="text-base font-semibold text-primary">Create Price Alert</h2>
+            <p className="text-xs text-secondary mt-0.5">Choose a coin and set your target price.</p>
+          </div>
+          <button className="bg-transparent border-none cursor-pointer text-secondary p-1 rounded hover:text-primary" onClick={onClose}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        {step === 1 ? (
+          <>
+            <div className="flex items-center gap-2 bg-base border border-default rounded-lg p-2.5 mb-3">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted shrink-0">
+                <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input placeholder="Search coin..." value={search} onChange={e => setSearch(e.target.value)} autoFocus className="flex-1 bg-transparent border-none outline-none text-sm text-primary placeholder:text-muted" />
+            </div>
+            <div className="flex-1 overflow-y-auto min-h-[200px] max-h-[350px]">
+              {loading && <p className="text-xs text-secondary text-center py-5">Loading coins...</p>}
+              {!loading && !search && <p className="text-xs text-muted px-3 pb-1.5 uppercase tracking-wider font-semibold text-[10px]">Popular coins</p>}
+              {!loading && search && filtered.length === 0 && <p className="text-xs text-muted text-center py-5">No results found</p>}
+              {filtered.map(coin => (
+                <div key={coin.id} className={`flex items-center justify-between p-3 rounded-lg cursor-pointer border-none transition-colors ${selectedCoin?.id === coin.id ? "bg-accent/15 border border-accent/30" : "hover:bg-overlay"}`} onClick={() => setSelectedCoin(coin)}>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <img src={coin.image} alt="" className="w-8 h-8 rounded-full shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-primary truncate">{coin.name}</p>
+                      <p className="text-xs text-secondary">{coin.symbol?.toUpperCase()}</p>
+                    </div>
+                  </div>
+                  <span className="text-sm text-primary shrink-0 ml-2">{currencySymbol}{coin.current_price?.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+            <button disabled={!selectedCoin} className="mt-3 w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-lg border-none cursor-pointer hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed" onClick={() => setStep(2)}>Next</button>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-base border border-default mb-4">
+              <img src={selectedCoin?.image} alt="" className="w-9 h-9 rounded-full" />
+              <div>
+                <p className="text-sm font-semibold text-primary">{selectedCoin?.name}</p>
+                <p className="text-xs text-secondary">{selectedCoin?.symbol?.toUpperCase()} · {currencySymbol}{selectedCoin?.current_price?.toLocaleString()}</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 mb-4">
+              <button className={`flex-1 py-2 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${condition === "above" ? "bg-success/15 border-success/30 text-success" : "bg-base border-default text-secondary"}`} onClick={() => setCondition("above")}>Goes Above</button>
+              <button className={`flex-1 py-2 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${condition === "below" ? "bg-danger/15 border-danger/30 text-danger" : "bg-base border-default text-secondary"}`} onClick={() => setCondition("below")}>Goes Below</button>
+            </div>
+
+            <div className="flex items-center gap-2 bg-base border border-default rounded-lg p-2.5 mb-5">
+              <span className="text-xs text-muted">{currencySymbol}</span>
+              <input type="number" value={targetPrice} onChange={e => setTargetPrice(e.target.value)} placeholder="Target price" className="flex-1 bg-transparent border-none outline-none text-sm text-primary" />
+            </div>
+
+            <button disabled={!targetPrice || isNaN(parseFloat(targetPrice)) || parseFloat(targetPrice) <= 0} className="w-full py-2.5 bg-accent text-white text-sm font-semibold rounded-lg border-none cursor-pointer hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed" onClick={handleCreate}>Create Alert</button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EmptyState({ onCreateAlert }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
       <div className="w-20 h-20 rounded-2xl bg-surface border border-default flex items-center justify-center mb-5">
@@ -217,7 +338,7 @@ function EmptyState() {
       </div>
       <h3 className="text-base font-semibold text-primary mb-1.5">No alerts yet</h3>
       <p className="text-sm text-muted max-w-sm">Set price alerts on your watchlist to get notified when coins hit your target prices.</p>
-      <button onClick={() => navigate("/watchlist")} className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white text-sm font-semibold border-none cursor-pointer hover:opacity-90 transition-opacity">
+      <button onClick={() => onCreateAlert()} className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent text-white text-sm font-semibold border-none cursor-pointer hover:opacity-90 transition-opacity">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
         </svg>
@@ -239,6 +360,15 @@ export default function Alerts() {
   });
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const handleCreateAlert = useCallback((coinId, alertData) => {
+    setAlerts(prev => {
+      const next = { ...prev, [coinId]: alertData };
+      localStorage.setItem("fintracker_alerts", JSON.stringify(next));
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -321,6 +451,15 @@ export default function Alerts() {
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-1.5 bg-accent text-white border-none rounded-lg py-1.5 px-3 text-xs font-semibold cursor-pointer hover:opacity-90 whitespace-nowrap"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            New Alert
+          </button>
           <div className="flex items-center gap-2 bg-surface border border-default rounded-lg p-2 min-w-[200px] max-w-[300px] flex-1">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-muted shrink-0">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -350,7 +489,7 @@ export default function Alerts() {
             <p className="text-xs text-muted">Try a different search term</p>
           </div>
         ) : (
-          <EmptyState />
+          <EmptyState onCreateAlert={() => setShowCreateModal(true)} />
         )
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -365,6 +504,14 @@ export default function Alerts() {
             />
           ))}
         </div>
+      )}
+
+      {showCreateModal && (
+        <CreateAlertModal
+          onClose={() => setShowCreateModal(false)}
+          onCreateAlert={handleCreateAlert}
+          currencySymbol={currencySymbol}
+        />
       )}
 
       <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-auto">
