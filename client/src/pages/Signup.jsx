@@ -2,6 +2,12 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
+const AUTH_REDIRECT_KEY = 'fintracker_auth_redirect';
+
+function getSafeRedirectPath(path) {
+  return path && path.startsWith('/') && !path.startsWith('//') ? path : '/';
+}
+
 export default function Signup() {
   const location = useLocation();
   const [name, setName] = useState('');
@@ -26,7 +32,11 @@ export default function Signup() {
     const result = await signup(name, email, password);
 
     if (result.success) {
-      navigate(`/verify-pending?email=${encodeURIComponent(email)}`);
+      const params = new URLSearchParams(location.search);
+      const redirectParam = params.get('redirect');
+      const savedRedirect = sessionStorage.getItem(AUTH_REDIRECT_KEY);
+      sessionStorage.removeItem(AUTH_REDIRECT_KEY);
+      navigate(getSafeRedirectPath(redirectParam || savedRedirect), { replace: true });
     } else {
       setError(result.error);
     }

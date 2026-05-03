@@ -102,10 +102,10 @@ export default function TopBar({
         {user ? (
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-semibold text-white">
-              {user.initials}
+              {user.initials || 'U'}
             </div>
             <div className="hidden sm:block">
-              <p className="text-sm font-medium text-primary leading-tight">{user.name}</p>
+              <p className="text-sm font-medium text-primary leading-tight">{user.name || user.email || 'User'}</p>
               <p className="text-xs text-muted leading-tight">Pro Trader</p>
             </div>
             <button 

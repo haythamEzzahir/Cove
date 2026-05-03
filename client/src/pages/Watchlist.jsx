@@ -139,7 +139,7 @@ function AddModal({ onClose, onAdd, existing = [], currency }) {
       return;
     }
 
-    const result = await onAdd(coinId);
+    const result = await onAdd(coin);
 
     if (result?.success) {
       setAdded((prev) => [...prev, coinId]);
@@ -217,7 +217,7 @@ function RemoveModal({ coin, onConfirm, onCancel }) {
 }
 
 export default function Watchlist() {
-  const { user, watchlistItems, loadWatchlist, addToWatchlist, removeFromWatchlist } = useAuth();
+  const { token, watchlistItems, loadWatchlist, addToWatchlist, removeFromWatchlist } = useAuth();
   const { currency, currencyData } = useCurrency();
   const [coins, setCoins] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -239,7 +239,7 @@ export default function Watchlist() {
     let active = true;
 
     async function refreshCoinIds() {
-      if (!user?.token) return;
+      if (!token) return;
 
       const result = await loadWatchlist();
 
@@ -253,7 +253,7 @@ export default function Watchlist() {
     return () => {
       active = false;
     };
-  }, [user?.token, loadWatchlist]);
+  }, [token, loadWatchlist]);
 
   useEffect(() => {
     let active = true;
@@ -323,9 +323,9 @@ export default function Watchlist() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  const handleAddCoin = async (coinId) => {
+  const handleAddCoin = async (coin) => {
     setPageError("");
-    const result = await addToWatchlist(coinId);
+    const result = await addToWatchlist(coin);
 
     if (!result.success) {
       setPageError(result.error);

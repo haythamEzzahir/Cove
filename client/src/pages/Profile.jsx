@@ -1,12 +1,17 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ToggleSwitch from '../components/settings/ToggleSwitch';
+import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 
-const INITIAL_PROFILE = {
-  firstName: 'Ali',
-  lastName: 'Karim',
-  email: 'ali@cryptowatch.io',
-  bio: 'Passionate crypto trader with 5+ years of experience in technical analysis and portfolio management. Focused on DeFi and long-term asset growth.',
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const MAX_AVATAR_SIZE = 800 * 1024;
+
+const EMPTY_PROFILE = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  bio: '',
   currentPassword: '',
   newPassword: '',
   confirmPassword: '',
@@ -23,29 +28,257 @@ const INITIAL_NOTIFS = {
   productUpdates: true,
 };
 
+function splitName(name = '') {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+
+  return {
+    firstName: parts[0] || '',
+    lastName: parts.slice(1).join(' '),
+  };
+}
+
+function profileFromUser(user) {
+  const { firstName, lastName } = splitName(user?.name || '');
+
+  return {
+    ...EMPTY_PROFILE,
+    firstName,
+    lastName,
+    email: user?.email || '',
+    bio: user?.bio || '',
+  };
+}
+
+function getFullName(profile, user) {
+  const name = [profile.firstName, profile.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+  return name || user?.name || profile.email.split('@')[0] || 'User';
+}
+
+function getInitials(name, email) {
+  const source = name || email || 'User';
+
+  return source
+    .split(/[ @._-]+/)
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'U';
+}
+
+async function getJson(response) {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
+}
+
+function getInitialLastSaved(user) {
+  return user?.updatedAt
+    ? new Date(user.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : 'Not saved yet';
+}
+
 export default function Profile() {
   useSettings();
-  const [profile, setProfile] = useState(INITIAL_PROFILE);
+  const { user, token, loading, logout, updateCurrentUser } = useAuth();
+
+  if (!loading && !user) {
+    return (
+      <div className="flex h-full items-center justify-center bg-[#0d1117] text-[#e6edf3] p-9">
+        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 max-w-md text-center">
+          <h2 className="text-base font-semibold mb-2">Profile unavailable</h2>
+          <p className="text-sm text-[#7d8590]">Please sign in to view and update your account details.</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ProfileEditor
+      key={user?._id || user?.email || 'loading'}
+      user={user}
+      token={token}
+      logout={logout}
+      updateCurrentUser={updateCurrentUser}
+    />
+  );
+}
+
+function ProfileEditor({ user, token, logout, updateCurrentUser }) {
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState(() => profileFromUser(user));
   const [notifs, setNotifs]   = useState(INITIAL_NOTIFS);
-  const [lastSaved, setLastSaved] = useState('10:42 AM');
-  const [avatarUrl, setAvatarUrl] = useState(null);
+  const [lastSaved, setLastSaved] = useState(() => getInitialLastSaved(user));
+  const [avatarUrl, setAvatarUrl] = useState(() => user?.avatar || '');
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+  const [status, setStatus] = useState('');
+  const [error, setError] = useState('');
+
+  const displayName = useMemo(() => getFullName(profile, user), [profile, user]);
+  const initials = useMemo(() => getInitials(displayName, profile.email), [displayName, profile.email]);
 
   const set  = (key, val) => setProfile(p => ({ ...p, [key]: val }));
   const setN = (key, val) => setNotifs(n => ({ ...n, [key]: val }));
 
-  const handleSave = () => {
-    const now = new Date();
-    setLastSaved(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+  const handleSave = async () => {
+    if (!token) {
+      setError('Please sign in to save your profile.');
+      return;
+    }
+
+    if (!profile.email.trim()) {
+      setError('Email is required.');
+      return;
+    }
+
+    if ((profile.currentPassword || profile.newPassword || profile.confirmPassword)
+      && profile.newPassword !== profile.confirmPassword) {
+      setError('New passwords do not match.');
+      return;
+    }
+
+    setIsSaving(true);
+    setError('');
+    setStatus('');
+
+    const payload = {
+      name: getFullName(profile, user),
+      email: profile.email.trim(),
+      bio: profile.bio.trim(),
+    };
+
+    if (!avatarUrl.startsWith('blob:')) {
+      payload.avatar = avatarUrl;
+    }
+
+    if (profile.currentPassword || profile.newPassword || profile.confirmPassword) {
+      payload.currentPassword = profile.currentPassword;
+      payload.newPassword = profile.newPassword;
+      payload.confirmPassword = profile.confirmPassword;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/users/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await getJson(response);
+
+      if (response.status === 401) {
+        logout();
+        setError('Your session expired. Please sign in again.');
+        return;
+      }
+
+      if (!response.ok) {
+        setError(data.message || 'Failed to save profile.');
+        return;
+      }
+
+      updateCurrentUser(data);
+      setProfile(profileFromUser(data));
+      setAvatarUrl(data.avatar || '');
+      setLastSaved(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+      setStatus('Profile saved.');
+    } catch {
+      setError('Server error. Please try again.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDiscard = () => {
-    setProfile(INITIAL_PROFILE);
+    setProfile(profileFromUser(user));
+    setAvatarUrl(user?.avatar || '');
     setNotifs(INITIAL_NOTIFS);
+    setError('');
+    setStatus('');
   };
 
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
-    if (file) setAvatarUrl(URL.createObjectURL(file));
+
+    if (!file) return;
+
+    if (file.size > MAX_AVATAR_SIZE) {
+      setError('Avatar image must be 800K or smaller.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setAvatarUrl(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleDeleteAccount = () => {
+    setDeleteError('');
+    setShowDeleteModal(true);
+  };
+
+  const handleCancelDelete = () => {
+    if (isDeleting) return;
+
+    setShowDeleteModal(false);
+    setDeleteError('');
+  };
+
+  const handleConfirmDelete = async () => {
+    const authToken = localStorage.getItem('token') || token;
+
+    if (!authToken) {
+      setDeleteError('Please sign in again before deleting your account.');
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError('');
+    setStatus('');
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/account`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+
+      const data = await getJson(response);
+
+      if (!response.ok) {
+        setDeleteError(data.message || 'Failed to delete account.');
+        return;
+      }
+
+      localStorage.removeItem('fintracker_user');
+      localStorage.removeItem('fintracker_watchlist');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      logout();
+      navigate('/login', { replace: true });
+    } catch (deleteError) {
+      console.error('Delete account error:', deleteError);
+      setDeleteError(deleteError.message || 'Server error. Please try again.');
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   return (
@@ -65,11 +298,21 @@ export default function Profile() {
           </div>
 
           <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 flex flex-col gap-4.5">
+            {error && (
+              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-sm text-red-400">
+                {error}
+              </div>
+            )}
+            {status && (
+              <div className="rounded-lg border border-green-500/30 bg-green-500/10 px-3.5 py-2 text-sm text-green-400">
+                {status}
+              </div>
+            )}
             <div className="flex items-center gap-5">
               <div className="w-[72px] h-[72px] rounded-full overflow-hidden border-2 border-[#30363d] flex-shrink-0">
                 {avatarUrl
                   ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-                  : <div className="w-full h-full bg-blue-500 text-white flex items-center justify-center text-xl font-bold">AK</div>
+                  : <div className="w-full h-full bg-blue-500 text-white flex items-center justify-center text-xl font-bold">{initials}</div>
                 }
               </div>
               <div className="flex flex-wrap gap-2.5">
@@ -81,7 +324,7 @@ export default function Profile() {
                   Change Photo
                   <input type="file" accept="image/*" onChange={handleAvatarChange} className="hidden" />
                 </label>
-                <button className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-transparent bg-transparent text-sm font-medium text-red-500 cursor-pointer hover:bg-red-500/10 transition-colors" onClick={() => setAvatarUrl(null)}>
+                <button className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg border border-transparent bg-transparent text-sm font-medium text-red-500 cursor-pointer hover:bg-red-500/10 transition-colors" onClick={() => setAvatarUrl('')}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
                     <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
@@ -133,16 +376,16 @@ export default function Profile() {
           <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-6 flex flex-col gap-4.5">
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-[#c9d1d9]">Current Password</label>
-              <input className="h-10 px-3.5 rounded-lg border border-[#30363d] bg-[#1c2128] text-sm text-[#e6edf3] outline-none focus:border-blue-500" type="password" placeholder="••••••••" value={profile.currentPassword} onChange={e => set('currentPassword', e.target.value)} />
+              <input className="h-10 px-3.5 rounded-lg border border-[#30363d] bg-[#1c2128] text-sm text-[#e6edf3] outline-none focus:border-blue-500" type="password" placeholder="********" value={profile.currentPassword} onChange={e => set('currentPassword', e.target.value)} />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-[#c9d1d9]">New Password</label>
-                <input className="h-10 px-3.5 rounded-lg border border-[#30363d] bg-[#1c2128] text-sm text-[#e6edf3] outline-none focus:border-blue-500" type="password" placeholder="••••••••" value={profile.newPassword} onChange={e => set('newPassword', e.target.value)} />
+                <input className="h-10 px-3.5 rounded-lg border border-[#30363d] bg-[#1c2128] text-sm text-[#e6edf3] outline-none focus:border-blue-500" type="password" placeholder="********" value={profile.newPassword} onChange={e => set('newPassword', e.target.value)} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label className="text-sm font-medium text-[#c9d1d9]">Confirm Password</label>
-                <input className="h-10 px-3.5 rounded-lg border border-[#30363d] bg-[#1c2128] text-sm text-[#e6edf3] outline-none focus:border-blue-500" type="password" placeholder="••••••••" value={profile.confirmPassword} onChange={e => set('confirmPassword', e.target.value)} />
+                <input className="h-10 px-3.5 rounded-lg border border-[#30363d] bg-[#1c2128] text-sm text-[#e6edf3] outline-none focus:border-blue-500" type="password" placeholder="********" value={profile.confirmPassword} onChange={e => set('confirmPassword', e.target.value)} />
               </div>
             </div>
 
@@ -247,7 +490,12 @@ export default function Profile() {
                 <div className="text-xs text-[#7d8590] max-w-[500px]">Permanently delete your account and all associated trading data. This action is irreversible.</div>
               </div>
             </div>
-            <button className="px-5 rounded-lg border-none bg-red-500 text-white text-sm font-semibold cursor-pointer hover:opacity-85 transition-opacity flex-shrink-0">Delete Account</button>
+            <button
+              className="px-5 rounded-lg border-none bg-red-500 text-white text-sm font-semibold cursor-pointer hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+              onClick={handleDeleteAccount}
+            >
+              Delete Account
+            </button>
           </div>
         </section>
       </div>
@@ -261,7 +509,9 @@ export default function Profile() {
         </div>
         <div className="flex items-center gap-2.5">
           <button className="px-5 rounded-lg border border-[#30363d] bg-transparent text-sm font-medium text-[#c9d1d9] cursor-pointer hover:bg-[#1c2128] transition-colors" onClick={handleDiscard}>Discard Changes</button>
-          <button className="px-5 rounded-lg border-none bg-blue-500 text-white text-sm font-semibold cursor-pointer hover:opacity-85 transition-opacity" onClick={handleSave}>Save Changes</button>
+          <button className="px-5 rounded-lg border-none bg-blue-500 text-white text-sm font-semibold cursor-pointer hover:opacity-85 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </button>
         </div>
       </div>
 
@@ -273,6 +523,63 @@ export default function Profile() {
           <a href="#" className="text-inherit no-underline">Support</a>
         </div>
       </footer>
+
+      <DeleteAccountModal
+        open={showDeleteModal}
+        deleting={isDeleting}
+        error={deleteError}
+        onCancel={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+      />
+    </div>
+  );
+}
+
+function DeleteAccountModal({ open, deleting, error, onCancel, onConfirm }) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+      <div className="w-full max-w-md rounded-xl border border-red-500/35 bg-[#161b22] p-6 shadow-2xl">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-red-500/40 bg-red-500/10 text-red-500">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="8" x2="12" y2="12" />
+              <line x1="12" y1="16" x2="12.01" y2="16" />
+            </svg>
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-[#e6edf3]">Delete Account</h2>
+            <p className="mt-2 text-sm leading-relaxed text-[#7d8590]">
+              This action is irreversible. Your profile and all associated account data will be permanently deleted.
+            </p>
+          </div>
+        </div>
+
+        {error && (
+          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3.5 py-2 text-sm text-red-400">
+            {error}
+          </div>
+        )}
+
+        <div className="mt-6 flex flex-col-reverse gap-2.5 sm:flex-row sm:justify-end">
+          <button
+            className="h-10 rounded-lg border border-[#30363d] bg-transparent px-5 text-sm font-medium text-[#c9d1d9] transition-colors hover:bg-[#1c2128] disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={onCancel}
+            disabled={deleting}
+          >
+            Cancel
+          </button>
+          <button
+            className="h-10 rounded-lg border-none bg-red-500 px-5 text-sm font-semibold text-white transition-opacity hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={onConfirm}
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting...' : 'Delete Account'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

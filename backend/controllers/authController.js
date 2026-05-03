@@ -16,11 +16,97 @@ const createGoogleOAuthClient = () => (
   )
 );
 
+const getGooglePayload = async ({ code, credential }) => {
+  if (!process.env.GOOGLE_CLIENT_ID) {
+    throw new Error("GOOGLE_CLIENT_ID is missing");
+  }
+
+  const oauth2Client = createGoogleOAuthClient();
+
+  if (credential) {
+    const ticket = await oauth2Client.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID
+    });
+
+    return ticket.getPayload();
+  }
+
+  if (!code) {
+    const error = new Error("Google authorization code or credential is missing");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!process.env.GOOGLE_CLIENT_SECRET) {
+    throw new Error("GOOGLE_CLIENT_SECRET is missing");
+  }
+
+  const { tokens } = await oauth2Client.getToken(code);
+
+  if (!tokens.id_token) {
+    const error = new Error("Google id_token is missing");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const ticket = await oauth2Client.verifyIdToken({
+    idToken: tokens.id_token,
+    audience: process.env.GOOGLE_CLIENT_ID
+  });
+
+  return ticket.getPayload();
+};
+
+const findOrCreateGoogleUser = async (payload) => {
+  const googleId = payload?.sub;
+  const email = payload?.email;
+  const name = payload?.name;
+  const picture = payload?.picture;
+
+  if (!email) {
+    const error = new Error("Google email is missing");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!googleId) {
+    const error = new Error("Google account id is missing");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  let user = await User.findOne({ email });
+
+  if (user) {
+    if (!user.googleId) user.googleId = googleId;
+    if (!user.avatar && picture) user.avatar = picture;
+    if (!user.provider) user.provider = "google";
+    if (!user.isVerified) user.isVerified = true;
+    await user.save();
+    return user;
+  }
+
+  user = await User.create({
+    name: name || email.split("@")[0],
+    email,
+    googleId,
+    avatar: picture || "",
+    provider: "google",
+    isVerified: true
+  });
+
+  await Setting.create({ userId: user._id });
+
+  return user;
+};
+
 const buildAuthResponse = (user) => ({
   _id: user._id,
   name: user.name,
   email: user.email,
   avatar: user.avatar || "",
+  bio: user.bio || "",
   provider: user.provider || "local",
   isVerified: user.isVerified || false,
   token: generateToken(user._id)
@@ -36,6 +122,16 @@ const getGoogleClientId = (req, res) => {
   return res.json({
     clientId: process.env.GOOGLE_CLIENT_ID
   });
+};
+
+const getCurrentUser = async (req, res) => {
+  const user = await User.findById(req.user.id).select("-password");
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  return res.json(user);
 };
 
 const registerUser = async (req, res) => {
@@ -60,25 +156,22 @@ const registerUser = async (req, res) => {
     name,
     email,
     password: hashedPassword,
+    isVerified: true,
     verificationOTP: otp,
     otpExpiry
   });
 
-  await sendVerificationEmail(email, name, otp);
+  try {
+    await sendVerificationEmail(email, name, otp);
+  } catch (error) {
+    console.error("Verification email error:", error.message);
+  }
 
   await Setting.create({
     userId: user._id
   });
 
-  await Watchlist.create({
-    userId: user._id,
-    coins: []
-  });
-
-  res.status(201).json({
-    message: "Registration successful. Please check your email to verify your account.",
-    email: user.email
-  });
+  res.status(201).json(buildAuthResponse(user));
 };
 
 const loginUser = async (req, res) => {
@@ -90,13 +183,6 @@ const loginUser = async (req, res) => {
     return res.status(401).json({ message: "Invalid email or password" });
   }
 
-  if (!user.isVerified) {
-    return res.status(401).json({
-      message: "Please verify your email before logging in.",
-      needsVerification: true
-    });
-  }
-
   if (user?.password && (await bcrypt.compare(password, user.password))) {
     res.json(buildAuthResponse(user));
   } else {
@@ -106,91 +192,15 @@ const loginUser = async (req, res) => {
 
 const googleAuth = async (req, res) => {
   try {
-    const { code } = req.body;
-
-    console.log("Google code exists:", Boolean(code));
-    console.log("GOOGLE_CLIENT_ID exists:", Boolean(process.env.GOOGLE_CLIENT_ID));
-    console.log("GOOGLE_CLIENT_SECRET exists:", Boolean(process.env.GOOGLE_CLIENT_SECRET));
-
-    if (!code) {
-      return res.status(400).json({
-        message: "Google authorization code is missing"
-      });
-    }
-
-    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-      return res.status(500).json({
-        message: "Google OAuth backend environment variables are missing"
-      });
-    }
-
-    const oauth2Client = createGoogleOAuthClient();
-    const { tokens } = await oauth2Client.getToken(code);
-
-    if (!tokens.id_token) {
-      return res.status(400).json({
-        message: "Google id_token is missing"
-      });
-    }
-
-    const ticket = await oauth2Client.verifyIdToken({
-      idToken: tokens.id_token,
-      audience: process.env.GOOGLE_CLIENT_ID
-    });
-
-    const payload = ticket.getPayload();
-    const googleId = payload?.sub;
-    const email = payload?.email;
-    const name = payload?.name;
-    const picture = payload?.picture;
-
-    console.log("Google payload email:", email);
-
-    if (!email) {
-      return res.status(400).json({
-        message: "Google email is missing"
-      });
-    }
-
-    if (!googleId) {
-      return res.status(400).json({
-        message: "Google account id is missing"
-      });
-    }
-
-    let user = await User.findOne({ email });
-
-    if (user) {
-      if (!user.googleId) user.googleId = googleId;
-      if (!user.avatar && picture) user.avatar = picture;
-      if (!user.provider) user.provider = "google";
-      if (!user.isVerified) user.isVerified = true;
-      await user.save();
-    } else {
-      user = await User.create({
-        name: name || email.split("@")[0],
-        email,
-        googleId,
-        avatar: picture || "",
-        provider: "google",
-        isVerified: true
-      });
-
-      await Setting.create({
-        userId: user._id
-      });
-
-      await Watchlist.create({
-        userId: user._id,
-        coins: []
-      });
-    }
+    const { code, credential } = req.body;
+    const payload = await getGooglePayload({ code, credential });
+    const user = await findOrCreateGoogleUser(payload);
 
     return res.json(buildAuthResponse(user));
   } catch (error) {
     console.error("Google auth backend error:", error);
 
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       message: "Google authentication failed",
       error: error.message
     });
@@ -253,4 +263,36 @@ const resendVerificationOTP = async (req, res) => {
   res.json({ message: "Verification code sent. Please check your inbox." });
 };
 
-export { registerUser, loginUser, googleAuth, getGoogleClientId, verifyOTP, resendVerificationOTP };
+const deleteAccount = async (req, res) => {
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ message: "Not authorized, no user" });
+  }
+
+  const user = await User.findById(userId).select("_id");
+
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+
+  await Promise.all([
+    Setting.deleteMany({ userId }),
+    Watchlist.deleteMany({ userId })
+  ]);
+
+  await User.findByIdAndDelete(userId);
+
+  return res.json({ message: "Account deleted successfully" });
+};
+
+export {
+  registerUser,
+  loginUser,
+  googleAuth,
+  getGoogleClientId,
+  getCurrentUser,
+  verifyOTP,
+  resendVerificationOTP,
+  deleteAccount
+};

@@ -5,8 +5,9 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon server.js",
-    "start": "node server.js"
+    "dev": "node server.js",
+    "start": "node server.js",
+    "watchlist:migrate": "node scripts/mergeWatchlists.js"
   },
   "keywords": [],
   "author": "",

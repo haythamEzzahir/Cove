@@ -1,8 +1,10 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 const AuthContext = createContext(null);
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const TOKEN_KEY = 'token';
 
 function getInitials(name = '') {
   return name
@@ -12,6 +14,25 @@ function getInitials(name = '') {
     .join('')
     .toUpperCase()
     .slice(0, 2) || 'U';
+}
+
+function normalizeAuthUser(data = {}) {
+  const email = data.email || '';
+  const name = data.name?.trim() || email.split('@')[0] || 'User';
+
+  return {
+    _id: data._id || data.id || '',
+    name,
+    email,
+    avatar: data.avatar || '',
+    bio: data.bio || '',
+    provider: data.provider || 'local',
+    role: data.role || 'user',
+    isVerified: data.isVerified,
+    createdAt: data.createdAt,
+    updatedAt: data.updatedAt,
+    initials: getInitials(name),
+  };
 }
 
 async function getJson(response) {
@@ -52,15 +73,127 @@ function getCoinId(coin) {
   return coin?.coinId || coin?.id;
 }
 
+function normalizeWatchlistCoinPayload(coin) {
+  const coinId = getCoinId(coin)?.trim().toLowerCase();
+
+  if (!coinId) return null;
+
+  if (typeof coin === 'string') {
+    return { coinId };
+  }
+
+  const hasCurrentPrice = (
+    coin?.current_price !== undefined
+    && coin?.current_price !== null
+    && coin?.current_price !== ''
+  );
+  const currentPrice = Number(coin?.current_price);
+
+  return {
+    coinId,
+    symbol: String(coin?.symbol || coin?.ticker || '').trim().toLowerCase(),
+    name: String(coin?.name || coinId).trim(),
+    image: coin?.image || '',
+    current_price: hasCurrentPrice && Number.isFinite(currentPrice) ? currentPrice : null,
+  };
+}
+
+function clearStoredAuth() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem('fintracker_user');
+  localStorage.removeItem('fintracker_watchlist');
+  localStorage.removeItem('user');
+}
+
+function getStoredToken() {
+  const savedToken = localStorage.getItem(TOKEN_KEY);
+
+  if (savedToken) return savedToken;
+
+  try {
+    const legacyUser = JSON.parse(localStorage.getItem('fintracker_user') || '{}');
+    return legacyUser.token || '';
+  } catch {
+    return '';
+  }
+}
+
 export function AuthProvider({ children }) {
+  const [token, setToken] = useState(getStoredToken);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [watchlist, setWatchlist] = useState([]);
 
-  const loadWatchlist = useCallback(async (tokenOverride) => {
-    const token = tokenOverride || user?.token;
+  const clearAuth = useCallback(() => {
+    setToken('');
+    setUser(null);
+    setWatchlist([]);
+    clearStoredAuth();
+  }, []);
 
-    if (!token) {
+  const persistToken = useCallback((nextToken) => {
+    setToken(nextToken);
+    localStorage.setItem(TOKEN_KEY, nextToken);
+    localStorage.removeItem('fintracker_user');
+    localStorage.removeItem('user');
+  }, []);
+
+  const refreshUser = useCallback(async (tokenOverride) => {
+    const authToken = tokenOverride || token;
+
+    if (!authToken) {
+      setUser(null);
+      return {
+        success: false,
+        error: 'Please login to view your profile',
+      };
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/me`, {
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+
+      const data = await getJson(response);
+
+      if (response.status === 401) {
+        clearAuth();
+        return {
+          success: false,
+          error: data.message || 'Session expired',
+          unauthorized: true,
+        };
+      }
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || 'Failed to load profile',
+        };
+      }
+
+      const userData = normalizeAuthUser(data);
+      setUser(userData);
+
+      return { success: true, user: userData };
+    } catch {
+      return {
+        success: false,
+        error: 'Server error',
+      };
+    }
+  }, [clearAuth, token]);
+
+  const updateCurrentUser = useCallback((updates) => {
+    setUser(normalizeAuthUser(updates));
+  }, []);
+
+  const loadWatchlist = useCallback(async (tokenOverride) => {
+    const authToken = tokenOverride || token;
+
+    if (!authToken) {
       setWatchlist([]);
       return {
         success: false,
@@ -71,7 +204,7 @@ export function AuthProvider({ children }) {
     try {
       const response = await fetch(`${API_URL}/api/watchlist`, {
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${authToken}`,
         },
       });
 
@@ -94,28 +227,39 @@ export function AuthProvider({ children }) {
         error: 'Server error',
       };
     }
-  }, [user?.token]);
+  }, [token]);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('fintracker_user');
+    let ignore = false;
 
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
+    async function hydrateUser() {
+      localStorage.removeItem('fintracker_user');
+      localStorage.removeItem('fintracker_watchlist');
+      localStorage.removeItem('user');
+
+      if (!token) {
+        if (!ignore) setLoading(false);
+        return;
+      }
+
+      localStorage.setItem(TOKEN_KEY, token);
+      const result = await refreshUser(token);
+
+      if (result.success && !ignore) {
+        await loadWatchlist(token);
+      }
+
+      if (!ignore) {
+        setLoading(false);
+      }
     }
 
-    localStorage.removeItem('fintracker_watchlist');
-    setLoading(false);
-  }, []);
+    hydrateUser();
 
-  useEffect(() => {
-    if (loading) return;
-
-    if (user?.token) {
-      loadWatchlist(user.token);
-    } else {
-      setWatchlist([]);
-    }
-  }, [loading, user?.token, loadWatchlist]);
+    return () => {
+      ignore = true;
+    };
+  }, [loadWatchlist, refreshUser, token]);
 
   const login = async (email, password) => {
     try {
@@ -137,24 +281,15 @@ export function AuthProvider({ children }) {
         };
       }
 
-      if (data.isVerified === false) {
+      if (!data.token) {
         return {
           success: false,
-          error: 'Please verify your email before logging in.',
-          needsVerification: true,
+          error: 'Authentication token missing',
         };
       }
 
-      const userData = {
-        _id: data._id,
-        name: data.name,
-        email: data.email,
-        token: data.token,
-        initials: getInitials(data.name),
-      };
-
-      setUser(userData);
-      localStorage.setItem('fintracker_user', JSON.stringify(userData));
+      persistToken(data.token);
+      await refreshUser(data.token);
       await loadWatchlist(data.token);
 
       return { success: true };
@@ -185,6 +320,17 @@ export function AuthProvider({ children }) {
         };
       }
 
+      if (!data.token) {
+        return {
+          success: false,
+          error: 'Authentication token missing',
+        };
+      }
+
+      persistToken(data.token);
+      await refreshUser(data.token);
+      await loadWatchlist(data.token);
+
       return {
         success: true,
         message: data.message,
@@ -197,12 +343,19 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const googleLogin = async (code) => {
+  const googleLogin = async (googleResponse) => {
     try {
-      if (!code) {
+      const payload = typeof googleResponse === 'string'
+        ? { code: googleResponse }
+        : {
+          code: googleResponse?.code,
+          credential: googleResponse?.credential,
+        };
+
+      if (!payload.code && !payload.credential) {
         return {
           success: false,
-          error: 'Google authorization code missing',
+          error: 'Google authorization code or credential missing',
         };
       }
 
@@ -211,12 +364,10 @@ export function AuthProvider({ children }) {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify(payload),
       });
 
       const data = await getJson(response);
-
-      console.log('Google auth response:', data);
 
       if (!response.ok) {
         return {
@@ -225,22 +376,16 @@ export function AuthProvider({ children }) {
         };
       }
 
-      const userData = {
-        _id: data._id,
-        name: data.name,
-        email: data.email,
-        avatar: data.avatar || '',
-        provider: data.provider || 'google',
-        token: data.token,
-        initials: getInitials(data.name),
-      };
-
-      setUser(userData);
-      localStorage.setItem('fintracker_user', JSON.stringify(userData));
-
-      if (data.token && typeof loadWatchlist === 'function') {
-        await loadWatchlist(data.token);
+      if (!data.token) {
+        return {
+          success: false,
+          error: 'Authentication token missing',
+        };
       }
+
+      persistToken(data.token);
+      await refreshUser(data.token);
+      await loadWatchlist(data.token);
 
       return { success: true };
     } catch (error) {
@@ -254,21 +399,19 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    setUser(null);
-    setWatchlist([]);
-    localStorage.removeItem('fintracker_user');
-    localStorage.removeItem('fintracker_watchlist');
+    clearAuth();
   };
 
   const addToWatchlist = async (coin) => {
-    if (!user?.token) {
+    if (!token) {
       return {
         success: false,
         error: 'Please login to add to watchlist',
       };
     }
 
-    const coinId = getCoinId(coin)?.trim().toLowerCase();
+    const coinPayload = normalizeWatchlistCoinPayload(coin);
+    const coinId = coinPayload?.coinId;
 
     if (!coinId) {
       return {
@@ -282,9 +425,9 @@ export function AuthProvider({ children }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`,
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ coinId }),
+        body: JSON.stringify(coinPayload),
       });
 
       const data = await getJson(response);
@@ -311,7 +454,7 @@ export function AuthProvider({ children }) {
   };
 
   const removeFromWatchlist = async (coinId) => {
-    if (!user?.token) {
+    if (!token) {
       return {
         success: false,
         error: 'Please login to remove from watchlist',
@@ -331,7 +474,7 @@ export function AuthProvider({ children }) {
       const response = await fetch(`${API_URL}/api/watchlist/${encodeURIComponent(normalizedCoinId)}`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Bearer ${user.token}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -373,11 +516,15 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{
         user,
+        token,
         loading,
         login,
         signup,
+        register: signup,
         googleLogin,
         logout,
+        refreshUser,
+        updateCurrentUser,
         watchlist,
         watchlistItems: watchlist,
         loadWatchlist,

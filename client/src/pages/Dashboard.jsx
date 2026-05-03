@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useMarketData } from '../hooks/useMarketData';
 import { useAuth } from '../context/AuthContext';
 import MetricCard from '../components/dashboard/MetricCard';
@@ -54,9 +54,8 @@ const FILTER_OPTIONS = [
 
 export default function Dashboard() {
   const { metrics, chartData, featuredCoin, assets, fetchChartData, selectCoin } = useMarketData();
-  const { user, addToWatchlist, removeFromWatchlist, isInWatchlist } = useAuth();
+  const { token, addToWatchlist, removeFromWatchlist, isInWatchlist } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredAssets, setFilteredAssets] = useState([]);
   const [visibleColumns, setVisibleColumns] = useState(() => AVAILABLE_COLUMNS.filter(c => c.default).map(c => c.key));
   const [showColumnMenu, setShowColumnMenu] = useState(false);
   const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -69,10 +68,9 @@ export default function Dashboard() {
     }
   }, [featuredCoin?.coinId]);
 
-  useEffect(() => {
+  const filteredAssets = useMemo(() => {
     let result = assets;
-    
-    // Apply search filter
+
     if (searchQuery.trim() !== '') {
       const query = searchQuery.toLowerCase();
       result = result.filter(asset => 
@@ -91,15 +89,15 @@ export default function Dashboard() {
     } else if (activeFilter === 'new') {
       result = result.filter(a => a.marketCapRank <= 50).sort((a, b) => a.marketCapRank - b.marketCapRank);
     }
-    
-    setFilteredAssets(result);
-    setCurrentPage(1);
+
+    return result;
   }, [searchQuery, assets, activeFilter]);
 
-  const totalPages = Math.ceil(filteredAssets.length / ITEMS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(filteredAssets.length / ITEMS_PER_PAGE));
+  const activePage = Math.min(currentPage, totalPages);
   const paginatedAssets = filteredAssets.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+    (activePage - 1) * ITEMS_PER_PAGE,
+    activePage * ITEMS_PER_PAGE
   );
 
   const toggleColumn = (key) => {
@@ -112,7 +110,7 @@ export default function Dashboard() {
 
   const handleWatchlistToggle = async (e, asset) => {
     e.stopPropagation();
-    if (!user?.token) {
+    if (!token) {
       alert('Please login to add coins to your watchlist');
       return;
     }
@@ -126,7 +124,7 @@ export default function Dashboard() {
 
     const result = isInWatchlist(coinId)
       ? await removeFromWatchlist(coinId)
-      : await addToWatchlist(coinId);
+      : await addToWatchlist(asset);
 
     if (!result.success) {
       alert(result.error);
@@ -254,7 +252,10 @@ export default function Dashboard() {
             type="text"
             placeholder="Search cryptocurrency (e.g BTC ETH)..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             className="flex-1 bg-transparent border-none outline-none text-sm text-primary placeholder:text-muted min-w-0"
           />
         </div>
@@ -275,7 +276,11 @@ export default function Dashboard() {
                 {FILTER_OPTIONS.map((filter) => (
                   <button
                     key={filter.key}
-                    onClick={() => { setActiveFilter(filter.key); setShowFilterMenu(false); }}
+                    onClick={() => {
+                      setActiveFilter(filter.key);
+                      setCurrentPage(1);
+                      setShowFilterMenu(false);
+                    }}
                     className={`w-full flex items-center gap-2 text-left px-2 py-1.5 text-xs rounded cursor-pointer ${activeFilter === filter.key ? 'bg-accent text-white' : 'text-primary hover:bg-overlay'}`}
                   >
                     <span className="w-3">{filter.key !== 'all' && '•'}</span>
@@ -392,12 +397,12 @@ export default function Dashboard() {
         {totalPages > 1 && (
           <div className="flex items-center justify-between px-3 py-2.5 border-t border-default bg-overlay">
             <span className="text-xs text-muted">
-              Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredAssets.length)} of {filteredAssets.length}
+              Showing {(activePage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(activePage * ITEMS_PER_PAGE, filteredAssets.length)} of {filteredAssets.length}
             </span>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
+                disabled={activePage === 1}
                 className="px-2 py-1 text-xs rounded border border-default bg-surface text-primary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-overlay"
               >
                 Prev
@@ -406,18 +411,18 @@ export default function Dashboard() {
                 let pageNum;
                 if (totalPages <= 5) {
                   pageNum = i + 1;
-                } else if (currentPage <= 3) {
+                } else if (activePage <= 3) {
                   pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
+                } else if (activePage >= totalPages - 2) {
                   pageNum = totalPages - 4 + i;
                 } else {
-                  pageNum = currentPage - 2 + i;
+                  pageNum = activePage - 2 + i;
                 }
                 return (
                   <button
                     key={pageNum}
                     onClick={() => setCurrentPage(pageNum)}
-                    className={`px-2 py-1 text-xs rounded border ${pageNum === currentPage ? 'bg-accent text-white border-accent' : 'bg-surface text-primary border-default hover:bg-overlay'}`}
+                    className={`px-2 py-1 text-xs rounded border ${pageNum === activePage ? 'bg-accent text-white border-accent' : 'bg-surface text-primary border-default hover:bg-overlay'}`}
                   >
                     {pageNum}
                   </button>
@@ -425,7 +430,7 @@ export default function Dashboard() {
               })}
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                disabled={currentPage === totalPages}
+                disabled={activePage === totalPages}
                 className="px-2 py-1 text-xs rounded border border-default bg-surface text-primary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-overlay"
               >
                 Next
