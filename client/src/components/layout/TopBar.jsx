@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useCurrency } from '../../context/CurrencyContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -10,6 +11,7 @@ export default function TopBar({
   onShowAuth,
 }) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const { currency, setCurrency, currencies, currencyData } = useCurrency();
   const { toggleTheme, isDark } = useTheme();
   const [showCurrencyMenu, setShowCurrencyMenu] = useState(false);
@@ -100,16 +102,20 @@ export default function TopBar({
         </button>
 
         {user ? (
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-semibold text-white">
-              {user.initials}
-            </div>
+          <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate('/settings/profile')}>
+            {user.avatar ? (
+              <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full object-cover" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-xs font-semibold text-white">
+                {user.initials || 'U'}
+              </div>
+            )}
             <div className="hidden sm:block">
-              <p className="text-sm font-medium text-primary leading-tight">{user.name}</p>
+              <p className="text-sm font-medium text-primary leading-tight">{user.name || user.email || 'User'}</p>
               <p className="text-xs text-muted leading-tight">Pro Trader</p>
             </div>
             <button 
-              onClick={logout}
+              onClick={(e) => { e.stopPropagation(); logout(); }}
               className="text-xs text-muted hover:text-danger bg-transparent border-none cursor-pointer"
               title="Sign out"
             >

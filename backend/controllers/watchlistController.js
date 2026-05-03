@@ -1,111 +1,127 @@
-import Watchlist from "../models/watchlist.js";
+import mongoose from "mongoose";
+import Watchlist, { mergeCoins, normalizeStoredCoin } from "../models/watchlist.js";
 
-const normalizeCoinIds = (coins = []) => {
-  const coinIds = coins
-    .map((coinId) => String(coinId || "").trim().toLowerCase())
-    .filter(Boolean);
+const getUserId = (req) => req.user?.id;
 
-  return [...new Set(coinIds)];
+const getUserObjectId = (req) => {
+  const userId = getUserId(req);
+
+  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+    return null;
+  }
+
+  return new mongoose.Types.ObjectId(userId);
 };
 
-const getOrCreateWatchlist = async (userId) => {
-  let watchlist = await Watchlist.findOne({ userId });
+const getPlainCoins = (watchlist) => {
+  if (!watchlist) return [];
 
+  if (typeof watchlist.toObject === "function") {
+    return watchlist.toObject().coins || [];
+  }
+
+  return watchlist.coins || [];
+};
+
+const cleanWatchlistCoins = async (watchlist, { deleteIfEmpty = false } = {}) => {
   if (!watchlist) {
-    watchlist = await Watchlist.create({
-      userId,
+    return {
+      watchlist: null,
       coins: []
-    });
+    };
   }
 
-  return watchlist;
-};
+  const storedCoins = getPlainCoins(watchlist);
+  const coins = mergeCoins(storedCoins);
 
-const fetchCoinDetails = async (coinIds, currency = "usd") => {
-  const coins = normalizeCoinIds(coinIds);
+  if (coins.length === 0 && deleteIfEmpty) {
+    await Watchlist.deleteOne({ _id: watchlist._id });
 
-  if (coins.length === 0) {
-    return [];
+    return {
+      watchlist: null,
+      coins: []
+    };
   }
 
-  try {
-    const headers = process.env.CG_API_KEY
-      ? { "x-cg-demo-api-key": process.env.CG_API_KEY }
-      : {};
+  const hasChanges = JSON.stringify(storedCoins) !== JSON.stringify(coins);
 
-    const response = await fetch(
-      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${encodeURIComponent(currency)}&ids=${encodeURIComponent(coins.join(","))}&order=market_cap_desc&per_page=${coins.length}&page=1&sparkline=true&price_change_percentage=1h%2C7d`,
-      {
-        method: "GET",
-        headers
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`CoinGecko request failed with status ${response.status}`);
-    }
-
-    const data = await response.json();
-    return Array.isArray(data) ? data : [];
-  } catch (error) {
-    console.error("Fetch watchlist coin details error:", error.message);
-    return [];
+  if (hasChanges) {
+    watchlist.coins = coins;
+    await watchlist.save();
   }
-};
-
-const buildWatchlistResponse = async (watchlist, currency) => {
-  const coins = normalizeCoinIds(watchlist.coins);
-  const items = await fetchCoinDetails(coins, currency);
 
   return {
-    _id: watchlist._id,
-    userId: watchlist.userId,
+    watchlist,
+    coins
+  };
+};
+
+const buildResponse = (watchlist, message = "", coins = mergeCoins(watchlist?.coins || [])) => {
+
+  return {
+    message,
+    _id: watchlist?._id,
+    userId: watchlist?.userId,
     coins,
-    items,
-    createdAt: watchlist.createdAt,
-    updatedAt: watchlist.updatedAt
+    createdAt: watchlist?.createdAt,
+    updatedAt: watchlist?.updatedAt
   };
 };
 
 const getMyWatchlist = async (req, res) => {
   try {
-    const watchlist = await getOrCreateWatchlist(req.user._id);
-    const response = await buildWatchlistResponse(
-      watchlist,
-      req.query.currency || "usd"
-    );
+    const userId = getUserObjectId(req);
 
-    res.json(response);
+    if (!userId) {
+      return res.status(401).json({ message: "Not authorized, no user" });
+    }
+
+    const watchlist = await Watchlist.findOne({ userId });
+
+    if (!watchlist) {
+      return res.json([]);
+    }
+
+    const cleaned = await cleanWatchlistCoins(watchlist, { deleteIfEmpty: true });
+
+    return res.json(cleaned.coins);
   } catch (error) {
     console.error("Get watchlist error:", error.message);
-    res.status(500).json({ message: "Server error" });
+    return res.status(500).json({ message: "Server error" });
   }
 };
 
 const addWatchlistItem = async (req, res) => {
-  const coinId = String(req.body?.coinId || "").trim().toLowerCase();
-
   try {
-    if (!coinId) {
+    const userId = getUserObjectId(req);
+
+    if (!userId) {
+      return res.status(401).json({ message: "Not authorized, no user" });
+    }
+
+    const coin = normalizeStoredCoin(req.body);
+
+    if (!coin) {
       return res.status(400).json({ message: "coinId is required" });
     }
 
-    const watchlist = await Watchlist.findOneAndUpdate(
-      { userId: req.user._id },
-      { $addToSet: { coins: coinId } },
-      {
-        returnDocument: 'after',
-        upsert: true,
-        setDefaultsOnInsert: true
-      }
-    );
+    let watchlist = await Watchlist.findOne({ userId });
 
-    const response = await buildWatchlistResponse(
-      watchlist,
-      req.query.currency || "usd"
-    );
+    if (!watchlist) {
+      watchlist = await Watchlist.create({ userId, coins: [coin] });
+    } else {
+      const storedCoins = getPlainCoins(watchlist);
+      const mergedCoins = mergeCoins([...storedCoins, coin]);
 
-    return res.status(201).json(response);
+      watchlist.coins = mergedCoins;
+      await watchlist.save();
+    }
+
+    const cleaned = await cleanWatchlistCoins(watchlist);
+
+    return res.status(201).json(
+      buildResponse(cleaned.watchlist, "Coin added to watchlist", cleaned.coins)
+    );
   } catch (error) {
     console.error("Add watchlist item error:", error.message);
     return res.status(500).json({ message: "Server error" });
@@ -114,31 +130,44 @@ const addWatchlistItem = async (req, res) => {
 
 const removeWatchlistItem = async (req, res) => {
   try {
+    const userId = getUserObjectId(req);
+
+    if (!userId) {
+      return res.status(401).json({ message: "Not authorized, no user" });
+    }
+
     const coinId = String(req.params.coinId || "").trim().toLowerCase();
 
     if (!coinId) {
       return res.status(400).json({ message: "coinId is required" });
     }
 
-    let watchlist = await Watchlist.findOneAndUpdate(
-      { userId: req.user._id },
-      { $pull: { coins: coinId } },
-      { returnDocument: 'after' }
+    const watchlist = await Watchlist.findOneAndUpdate(
+      { userId },
+      {
+        $pull: {
+          coins: { coinId }
+        }
+      },
+      {
+        new: true,
+        returnDocument: "after"
+      }
     );
 
     if (!watchlist) {
-      watchlist = await Watchlist.create({
-        userId: req.user._id,
-        coins: []
-      });
+      return res.json([]);
     }
 
-    const response = await buildWatchlistResponse(
-      watchlist,
-      req.query.currency || "usd"
-    );
+    const cleaned = await cleanWatchlistCoins(watchlist, { deleteIfEmpty: true });
 
-    return res.json(response);
+    if (!cleaned.watchlist) {
+      return res.json([]);
+    }
+
+    return res.json(
+      buildResponse(cleaned.watchlist, "Coin removed from watchlist", cleaned.coins)
+    );
   } catch (error) {
     console.error("Remove watchlist item error:", error.message);
     return res.status(500).json({ message: "Server error" });

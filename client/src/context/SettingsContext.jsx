@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 
 const DEFAULT_SETTINGS = {
-  darkMode:         true,
   compactView:      false,
   priceAlerts:      true,
   marketNews:       false,
@@ -15,19 +14,16 @@ export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(() => {
     try {
       const saved = localStorage.getItem('fintracker_settings');
-      return saved ? { ...DEFAULT_SETTINGS, ...JSON.parse(saved) } : DEFAULT_SETTINGS;
+      if (!saved) return DEFAULT_SETTINGS;
+
+      const savedSettings = JSON.parse(saved);
+      delete savedSettings.darkMode;
+
+      return { ...DEFAULT_SETTINGS, ...savedSettings };
     } catch {
       return DEFAULT_SETTINGS;
     }
   });
-
-  useEffect(() => {
-    if (settings.darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [settings.darkMode]);
 
   useEffect(() => {
     document.body.classList.toggle('compact-mode', settings.compactView);

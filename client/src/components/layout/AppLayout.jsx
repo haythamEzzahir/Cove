@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { useSettings } from '../../context/SettingsContext';
 import { useAuth } from '../../context/AuthContext';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
@@ -26,7 +25,6 @@ function getCurrentPath(location) {
 
 export default function AppLayout() {
   const location = useLocation();
-  const { settings, updateSetting } = useSettings();
   const { user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -57,34 +55,24 @@ export default function AppLayout() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    if (!isMobile && sidebarOpen) {
-      setSidebarOpen(false);
-    }
-  }, [isMobile]);
-
   const { title, subtitle } = PAGE_DATA[location.pathname] || { title: 'Dashboard', subtitle: '' };
 
-  const handleToggleTheme = () => {
-    updateSetting('darkMode', !settings.darkMode);
-  };
-
   const requiresAuth = PROTECTED_ROUTES.some(route => location.pathname.startsWith(route));
+  const currentPath = getCurrentPath(location);
+  const shouldShowProtectedAuth = !loading && requiresAuth && !user;
+  const isAuthModalOpen = showAuthModal || shouldShowProtectedAuth;
+  const activeAuthRedirectTo = shouldShowProtectedAuth ? currentPath : authRedirectTo;
+  const activeAuthModalMode = shouldShowProtectedAuth ? 'login' : authModalMode;
 
   useEffect(() => {
-    if (!loading && requiresAuth && !user) {
-      const requestedPath = getCurrentPath(location);
-      sessionStorage.setItem(AUTH_REDIRECT_KEY, requestedPath);
-      setAuthRedirectTo(requestedPath);
-      setAuthModalMode('login');
-      setShowAuthModal(true);
+    if (shouldShowProtectedAuth) {
+      sessionStorage.setItem(AUTH_REDIRECT_KEY, currentPath);
     }
-  }, [loading, location, requiresAuth, user]);
+  }, [currentPath, shouldShowProtectedAuth]);
 
   const handleShowAuth = (mode = 'login') => {
-    const requestedPath = getCurrentPath(location);
-    sessionStorage.setItem(AUTH_REDIRECT_KEY, requestedPath);
-    setAuthRedirectTo(requestedPath);
+    sessionStorage.setItem(AUTH_REDIRECT_KEY, currentPath);
+    setAuthRedirectTo(currentPath);
     setShowAuthModal(true);
     setAuthModalMode(mode);
   };
@@ -139,12 +127,14 @@ export default function AppLayout() {
         </div>
       </div>
 
-      <AuthModal 
-        isOpen={showAuthModal} 
-        onClose={() => setShowAuthModal(false)} 
-        initialMode={authModalMode}
-        redirectTo={authRedirectTo}
-      />
+      {isAuthModalOpen && (
+        <AuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setShowAuthModal(false)}
+          initialMode={activeAuthModalMode}
+          redirectTo={activeAuthRedirectTo}
+        />
+      )}
     </div>
   );
 }

@@ -190,7 +190,7 @@ function AddModal({ onClose, onAdd, existing = [], currency }) {
       return;
     }
 
-    const result = await onAdd(coinId);
+    const result = await onAdd(coin);
 
     if (result?.success) {
       setAdded((prev) => [...prev, coinId]);
@@ -430,7 +430,8 @@ export default function Watchlist() {
           const triggered = (alert.condition === 'above' && price >= alert.targetPrice) || (alert.condition === 'below' && price <= alert.targetPrice);
           if (triggered) {
             setAlerts(a => {
-              const next = { ...a, [coinId]: { ...alert, triggered: true } };
+              const existing = a[coinId] || {};
+              const next = { ...a, [coinId]: { ...existing, triggered: true, triggeredAt: Date.now() } };
               localStorage.setItem('fintracker_alerts', JSON.stringify(next));
               return next;
             });
@@ -659,9 +660,9 @@ export default function Watchlist() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const paginated = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  const handleAddCoin = async (coinId) => {
+  const handleAddCoin = async (coin) => {
     setPageError("");
-    const result = await addToWatchlist(coinId);
+    const result = await addToWatchlist(coin);
 
     if (!result.success) {
       setPageError(result.error);
@@ -692,8 +693,18 @@ export default function Watchlist() {
         return next;
       });
     } else {
+      const target = watchlist.find(c => c.coinId === coinId || c.id === coinId);
       setAlerts(prev => {
-        const next = { ...prev, [coinId]: { ...alertData, triggered: false } };
+        const next = {
+          ...prev,
+          [coinId]: {
+            ...alertData,
+            triggered: false,
+            name: target?.name || coinId,
+            ticker: target?.ticker || coinId.toUpperCase(),
+            createdAt: prev[coinId]?.createdAt || Date.now(),
+          }
+        };
         localStorage.setItem('fintracker_alerts', JSON.stringify(next));
         return next;
       });
