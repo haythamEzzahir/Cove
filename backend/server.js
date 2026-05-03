@@ -2,7 +2,6 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
-import dns from "dns";
 
 import authRoutes from "./routes/authRoutes.js";
 import settingRoutes from "./routes/settingRoutes.js";
@@ -14,7 +13,6 @@ import User from "./models/user.js";
 import { protect } from "./middleware/authMiddleware.js";
 
 dotenv.config();
-dns.setDefaultResultOrder("ipv4first");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -216,11 +214,9 @@ mongoose
   .then(async () => {
     console.log("MongoDB connected");
     await ensureWatchlistIndexes();
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
   })
   .catch((err) => {
     console.error("MongoDB connection error:", err.message);
-    process.exit(1);
   });
+
+export default app;
