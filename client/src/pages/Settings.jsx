@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import ProfileCard from '../components/settings/ProfileCard';
@@ -7,13 +8,9 @@ import SettingItem from '../components/settings/SettingItem';
 import ToggleSwitch from '../components/settings/ToggleSwitch';
 import CurrencySelect from '../components/settings/CurrencySelect';
 
-const USER = {
-  name: 'Ali Karim',
-  email: 'ali@cryptowatch.io',
-};
-
 function Settings() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { settings, updateSetting } = useSettings();
   const { isDark, toggleTheme } = useTheme();
 
@@ -23,8 +20,8 @@ function Settings() {
 
       <SettingsSection title="Profile">
         <ProfileCard
-          name={USER.name}
-          email={USER.email}
+          name={user?.name || 'User'}
+          email={user?.email || 'No email available'}
           onViewProfile={() => navigate('/settings/profile')}
         />
       </SettingsSection>

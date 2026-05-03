@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -10,28 +10,37 @@ function getSafeRedirectPath(path) {
   return path && path.startsWith('/') && !path.startsWith('//') ? path : '/';
 }
 
+function getInitialEmail(search) {
+  const params = new URLSearchParams(search);
+  return params.get('msg') === 'verify' ? params.get('email') || '' : '';
+}
+
+function getSuccessMessage(search) {
+  const params = new URLSearchParams(search);
+  const msg = params.get('msg');
+
+  if (msg === 'verify') {
+    return 'Account created! Please verify your email before logging in.';
+  }
+
+  if (msg === 'verified') {
+    return 'Email verified! You can now log in.';
+  }
+
+  return '';
+}
+
 export default function Login() {
   const location = useLocation();
-  const [email, setEmail] = useState('');
+  const navigate = useNavigate();
+  const [email, setEmail] = useState(() => getInitialEmail(location.search));
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const success = getSuccessMessage(location.search);
   const [loading, setLoading] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
   const { login, googleLogin } = useAuth();
-
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const msg = params.get('msg');
-    if (msg === 'verify') {
-      const emailParam = params.get('email');
-      if (emailParam) setEmail(emailParam);
-      setSuccess('Account created! Please verify your email before logging in.');
-    } else if (msg === 'verified') {
-      setSuccess('Email verified! You can now log in.');
-    }
-  }, [location.search]);
 
   const getRedirectPath = () => {
     const params = new URLSearchParams(location.search);
@@ -43,7 +52,7 @@ export default function Login() {
   const redirectAfterAuth = () => {
     const target = getRedirectPath();
     sessionStorage.removeItem(AUTH_REDIRECT_KEY);
-    window.location.href = target;
+    navigate(target, { replace: true });
   };
 
   const googleLoginHandler = useGoogleLogin({
@@ -52,31 +61,39 @@ export default function Login() {
     onSuccess: async (codeResponse) => {
       try {
         setError('');
+        setLoading(true);
 
         if (!codeResponse.code) {
           setError('Google authorization code missing');
+          setLoading(false);
           return;
         }
 
-        const result = await googleLogin(codeResponse.code);
+        const result = await googleLogin({ code: codeResponse.code });
 
         if (result.success) {
           redirectAfterAuth();
-        } else {
-          setError(result.error || 'Google authentication failed');
+          return;
         }
+
+        setError(result.error || 'Google authentication failed');
       } catch (error) {
         console.error('Google login handler error:', error);
         setError('Google authentication failed');
       }
+
+      setLoading(false);
     },
     onError: () => {
       setError('Google login failed');
+      setLoading(false);
     },
   });
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loading) return;
+
     setError('');
     setLoading(true);
     
@@ -84,6 +101,7 @@ export default function Login() {
     
     if (result.success) {
       redirectAfterAuth();
+      return;
     } else {
       if (result.needsVerification) {
         setNeedsVerification(true);
@@ -110,7 +128,7 @@ export default function Login() {
       } else {
         setError(data.message);
       }
-    } catch (error) {
+    } catch {
       setError('Failed to resend verification email');
     }
   };
@@ -187,9 +205,10 @@ export default function Login() {
           <button
             type="button"
             onClick={() => googleLoginHandler()}
-            className="h-10 rounded-lg border border-default bg-base text-sm font-semibold text-primary cursor-pointer hover:bg-overlay transition-colors"
+            disabled={loading}
+            className="h-10 rounded-lg border border-default bg-base text-sm font-semibold text-primary cursor-pointer hover:bg-overlay transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Continue with Google
+            {loading ? 'Connecting...' : 'Continue with Google'}
           </button>
         </form>
 

@@ -59,8 +59,6 @@ function GoogleProviderWrapper({ children }) {
         const response = await fetch(`${API_URL}/api/auth/google/client-id`);
         const data = await response.json();
 
-        console.log('Google client id response:', data);
-
         if (!response.ok) {
           throw new Error(data.message || 'Failed to load Google Client ID');
         }
