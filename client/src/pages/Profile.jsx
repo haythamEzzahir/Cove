@@ -50,7 +50,7 @@ export default function Profile() {
 
   return (
     <div className="flex flex-col h-full bg-[#0d1117] text-[#e6edf3]">
-      <div className="flex-1 overflow-y-auto p-9">
+      <div className="flex-1 overflow-y-auto p-9 flex flex-col">
         <section className="mb-8">
           <div className="flex items-start gap-2.5 mb-3.5">
             <span className="text-blue-500 mt-0.5">
@@ -265,7 +265,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <footer className="text-center text-xs text-[#7d8590] py-4 border-t border-[#21262d] flex justify-center gap-5">
+      <footer className="flex-shrink-0 text-center text-xs text-[#7d8590] py-4 border-t border-[#21262d] flex justify-center gap-5">
         <span>© 2024 FinTracker Inc. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>

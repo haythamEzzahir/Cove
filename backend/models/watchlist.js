@@ -5,8 +5,7 @@ const watchlistSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
-      unique: true
+      required: true
     },
     coins: {
       type: [String],
@@ -31,7 +30,10 @@ const ensureWatchlistIndexes = async () => {
     }
 
     const obsoleteIndexes = indexes.filter((index) => (
-      index.name !== "_id_" && Object.keys(index.key || {}).includes("coinId")
+      index.name !== "_id_" && (
+        Object.keys(index.key || {}).includes("coinId") ||
+        (index.name === "userId_1" && index.unique === true)
+      )
     ));
 
     for (const index of obsoleteIndexes) {
@@ -40,7 +42,7 @@ const ensureWatchlistIndexes = async () => {
 
     await Watchlist.collection.createIndex(
       { userId: 1 },
-      { unique: true, name: "userId_1" }
+      { name: "userId_1" }
     );
   } catch (error) {
     console.warn("Watchlist index warning:", error.message);

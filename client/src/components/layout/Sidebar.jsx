@@ -112,7 +112,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
         )}
 
         <div 
-          className="mx-2 mt-3 bg-gradient-to-r from-blue-700 to-blue-500 rounded-lg p-2.5 text-center transition-all duration-150 overflow-hidden"
+          className="mx-2 mt-3 mb-4 bg-gradient-to-r from-blue-700 to-blue-500 rounded-lg p-2.5 text-center transition-all duration-150 overflow-hidden"
           style={{ 
             opacity: collapsed ? 0 : 1, 
             height: collapsed ? 0 : 'auto',

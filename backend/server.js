@@ -9,6 +9,9 @@ import settingRoutes from "./routes/settingRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import watchlistRoutes from "./routes/watchlistRoutes.js";
 import { ensureWatchlistIndexes } from "./models/watchlist.js";
+import { sendPriceAlertEmail } from "./utils/sendEmail.js";
+import User from "./models/user.js";
+import { protect } from "./middleware/authMiddleware.js";
 
 dotenv.config();
 dns.setDefaultResultOrder("ipv4first");
@@ -54,22 +57,6 @@ app.get("/coins", async (req, res) => {
   }
 });
 
-mongoose
-  .connect(process.env.MONGO_URI, {
-    serverSelectionTimeoutMS: 10000
-  })
-  .then(async () => {
-    console.log("MongoDB connected");
-    await ensureWatchlistIndexes();
-    app.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error("MongoDB connection error:", err.message);
-    process.exit(1);
-  });
-
 app.get("/chart/:coinId", async (req, res) => {
   try {
     const { coinId } = req.params;
@@ -98,6 +85,44 @@ app.get("/chart/:coinId", async (req, res) => {
   }
 });
 
+app.post("/api/alerts/trigger", protect, async (req, res) => {
+  try {
+    const { coinName, condition, targetPrice, currentPrice, currencySymbol } = req.body;
+    await sendPriceAlertEmail(
+      req.user.email,
+      req.user.name,
+      coinName,
+      condition,
+      targetPrice,
+      currentPrice,
+      currencySymbol || "$"
+    );
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Alert email error:", error);
+    res.status(500).json({ error: "Failed to send alert email" });
+  }
+});
+
+app.get("/coins/exchange-rates", async (req, res) => {
+  try {
+    const response = await fetch(
+      `https://api.coingecko.com/api/v3/exchange_rates`,
+      {
+        method: "GET",
+        headers: {
+          "x-cg-demo-api-key": process.env.CG_API_KEY,
+        },
+      }
+    );
+
+    const data = await response.json();
+    res.json(data.rates);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Failed to fetch exchange rates" });
+  }
+});
 
 app.get("/search", async (req, res) => {
   try {
@@ -120,3 +145,18 @@ app.get("/search", async (req, res) => {
   }
 });
 
+mongoose
+  .connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 10000
+  })
+  .then(async () => {
+    console.log("MongoDB connected");
+    await ensureWatchlistIndexes();
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  })
+  .catch((err) => {
+    console.error("MongoDB connection error:", err.message);
+    process.exit(1);
+  });

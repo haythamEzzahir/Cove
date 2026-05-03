@@ -1,6 +1,6 @@
 import { useTheme } from '../../context/ThemeContext';
 
-export default function MetricCard({ label, value, change, badge }) {
+export default function MetricCard({ label, value, change, badge, className = '' }) {
   const { isDark } = useTheme();
   
   const isFearGreed = label?.includes('Fear');
@@ -31,7 +31,7 @@ export default function MetricCard({ label, value, change, badge }) {
 
   return (
     <div 
-      className="rounded-2xl p-3 min-w-[140px] flex-shrink-0"
+      className={`rounded-2xl p-3 flex-1 min-w-[160px] ${className}`}
       style={{ background: cardBg, border: `1px solid ${borderColor}` }}
     >
       <div className="flex justify-between items-start mb-2">
