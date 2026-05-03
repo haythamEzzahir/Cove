@@ -57,6 +57,7 @@ function profileFromUser(user) {
     lastName,
     email: user?.email || '',
     bio: user?.bio || '',
+    avatar: user?.avatar || '',
   };
 }
 

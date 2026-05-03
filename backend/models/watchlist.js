@@ -36,9 +36,7 @@ const watchlistSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
-      unique: true,
-      index: true
+      required: true
     },
     coins: {
       type: [coinSchema],
@@ -47,8 +45,6 @@ const watchlistSchema = new mongoose.Schema(
   },
   { timestamps: true, autoIndex: false }
 );
-
-watchlistSchema.index({ userId: 1 }, { unique: true, name: "userId_1" });
 
 const Watchlist = mongoose.model("Watchlist", watchlistSchema);
 
@@ -222,9 +218,9 @@ const ensureWatchlistIndexes = async () => {
       const isCoinIndex = keys.some((key) => (
         key === "coinId" || key.endsWith(".coinId")
       ));
-      const isNonUniqueUserIndex = index.key?.userId === 1 && !index.unique;
+      const isUniqueUserIndex = index.key?.userId === 1 && index.unique === true;
 
-      return isCoinIndex || isNonUniqueUserIndex;
+      return isCoinIndex || isUniqueUserIndex;
     });
 
     for (const index of obsoleteIndexes) {
@@ -233,7 +229,7 @@ const ensureWatchlistIndexes = async () => {
 
     await Watchlist.collection.createIndex(
       { userId: 1 },
-      { unique: true, name: "userId_1" }
+      { name: "userId_1" }
     );
 
     return cleanupSummary;

@@ -12,6 +12,7 @@ import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import Watchlist from './pages/Watchlist';
 import Portfolio from './pages/Portfolio';
+import Alerts from './pages/Alerts';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import VerifyPending from './pages/VerifyPending';
@@ -40,7 +41,7 @@ const router = createBrowserRouter([
       { path: 'markets', element: <Dashboard /> },
       { path: 'watchlist', element: <Watchlist /> },
       { path: 'portfolio', element: <Portfolio /> },
-      { path: 'alerts', element: <Dashboard /> },
+      { path: 'alerts', element: <Alerts /> },
       { path: 'news', element: <Dashboard /> },
       { path: 'settings', element: <Settings /> },
       { path: 'settings/profile', element: <Profile /> },

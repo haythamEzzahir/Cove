@@ -219,7 +219,7 @@ export default function Portfolio() {
   };
 
   return (
-    <main className="p-4 sm:p-6 flex flex-col gap-4">
+    <main className="p-4 sm:p-6 flex flex-col gap-4 min-h-full">
       <header className="flex gap-2">
         <button className="flex items-center gap-1.5 bg-transparent border border-default rounded-lg px-3 py-2 text-sm text-primary cursor-pointer font-medium hover:bg-overlay">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -322,7 +322,7 @@ export default function Portfolio() {
         ))}
       </div>
 
-      <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5">
+      <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-auto">
         <span>© 2024 FinTracker Inc. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>

@@ -15,7 +15,7 @@ function Settings() {
   const { isDark, toggleTheme } = useTheme();
 
   return (
-    <div className="settings-wrapper">
+    <div className="settings-wrapper flex flex-col min-h-full">
       <p className="text-sm text-secondary mb-6">Manage your preferences and account settings.</p>
 
       <SettingsSection title="Profile">
@@ -95,7 +95,7 @@ function Settings() {
         />
       </SettingsSection>
 
-      <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-6">
+      <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-auto">
         <span>© 2024 FinTracker Inc. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>

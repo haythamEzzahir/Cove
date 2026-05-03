@@ -222,7 +222,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <main className="p-3 sm:p-5 flex flex-col gap-3">
+    <main className="p-3 sm:p-5 flex flex-col gap-3 min-h-full">
       <div className="flex flex-col lg:flex-row gap-3">
         <div className="lg:w-[65%]">
           <PriceChart coin={featuredCoin} data={chartData} onTabChange={fetchChartData} />
@@ -440,7 +440,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5">
+      <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-auto">
         <span>© 2024 FinTracker Inc. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>
