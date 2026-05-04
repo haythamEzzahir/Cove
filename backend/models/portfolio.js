@@ -73,8 +73,7 @@ const portfolioSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      unique: true,
-      index: true
+      unique: true
     },
     holdings: {
       type: [holdingSchema],
@@ -90,4 +89,16 @@ const portfolioSchema = new mongoose.Schema(
 
 const Portfolio = mongoose.model("Portfolio", portfolioSchema);
 
+const ensurePortfolioIndexes = async () => {
+  try {
+    await Portfolio.collection.createIndex(
+      { userId: 1 },
+      { unique: true, name: "userId_1" }
+    );
+  } catch (error) {
+    console.error("Portfolio index error:", error.message);
+  }
+};
+
+export { ensurePortfolioIndexes };
 export default Portfolio;

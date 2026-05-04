@@ -8,6 +8,7 @@ import portfolioRoutes from "./routes/portfolioRoutes.js";
 import settingRoutes from "./routes/settingRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import watchlistRoutes from "./routes/watchlistRoutes.js";
+import { ensurePortfolioIndexes } from "./models/portfolio.js";
 import { ensureWatchlistIndexes } from "./models/watchlist.js";
 import { sendPriceAlertEmail } from "./utils/sendEmail.js";
 import User from "./models/user.js";
@@ -215,6 +216,7 @@ mongoose
   })
   .then(async () => {
     console.log("MongoDB connected");
+    await ensurePortfolioIndexes();
     await ensureWatchlistIndexes();
   })
   .catch((err) => {

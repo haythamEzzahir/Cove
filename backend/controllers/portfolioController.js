@@ -169,6 +169,27 @@ const dedupePortfolioHoldings = async (portfolio) => {
   return portfolio;
 };
 
+const findOrCreateUserPortfolio = async (userId) => {
+  const existingPortfolio = await Portfolio.findOne({ userId });
+
+  if (existingPortfolio) return existingPortfolio;
+
+  try {
+    return await Portfolio.create({
+      userId,
+      holdings: [],
+      chartData: []
+    });
+  } catch (error) {
+    if (error?.code === 11000) {
+      const portfolio = await Portfolio.findOne({ userId });
+      if (portfolio) return portfolio;
+    }
+
+    throw error;
+  }
+};
+
 const getEmptyPortfolioResponse = () => ({
   totalBalance: 0,
   investedAmount: 0,
@@ -366,11 +387,8 @@ const getMyPortfolio = async (req, res) => {
       return res.status(401).json({ message: "Not authorized, no user" });
     }
 
-    const portfolio = await Portfolio.findOne({ userId });
-
-    if (portfolio) {
-      await dedupePortfolioHoldings(portfolio);
-    }
+    const portfolio = await findOrCreateUserPortfolio(userId);
+    await dedupePortfolioHoldings(portfolio);
 
     const responseData = await buildPortfolioResponse(portfolio);
 
@@ -420,7 +438,7 @@ const addPortfolioAsset = async (req, res) => {
       return res.status(400).json({ message: "averageBuyPrice must be greater than 0" });
     }
 
-    let portfolio = await Portfolio.findOne({ userId });
+    const portfolio = await findOrCreateUserPortfolio(userId);
     const newHolding = {
       coinId,
       symbol,
@@ -431,38 +449,34 @@ const addPortfolioAsset = async (req, res) => {
       image: req.body.image || ""
     };
 
-    if (!portfolio) {
-      portfolio = await Portfolio.create({ userId, holdings: [newHolding] });
+    portfolio.holdings = mergeDuplicateHoldings(portfolio.holdings || []);
+
+    const existingHolding = portfolio.holdings.find((holding) => (
+      holding.coinId === coinId
+      || String(holding.symbol || "").toLowerCase() === symbol.toLowerCase()
+    ));
+
+    if (existingHolding) {
+      const oldQuantity = toNumber(existingHolding.quantity);
+      const oldAverageBuyPrice = toNumber(existingHolding.averageBuyPrice, currentPrice);
+      const mergedQuantity = oldQuantity + quantity;
+      const mergedInvested = (
+        (oldQuantity * oldAverageBuyPrice)
+        + (quantity * averageBuyPrice)
+      );
+
+      existingHolding.quantity = mergedQuantity;
+      existingHolding.averageBuyPrice = mergedQuantity > 0 ? mergedInvested / mergedQuantity : 0;
+      existingHolding.currentPrice = currentPrice;
+      existingHolding.symbol = newHolding.symbol || existingHolding.symbol;
+      existingHolding.name = newHolding.name || existingHolding.name;
+      existingHolding.image = newHolding.image || existingHolding.image;
     } else {
-      portfolio.holdings = mergeDuplicateHoldings(portfolio.holdings || []);
-
-      const existingHolding = portfolio.holdings.find((holding) => (
-        holding.coinId === coinId
-        || String(holding.symbol || "").toLowerCase() === symbol.toLowerCase()
-      ));
-
-      if (existingHolding) {
-        const oldQuantity = toNumber(existingHolding.quantity);
-        const oldAverageBuyPrice = toNumber(existingHolding.averageBuyPrice, currentPrice);
-        const mergedQuantity = oldQuantity + quantity;
-        const mergedInvested = (
-          (oldQuantity * oldAverageBuyPrice)
-          + (quantity * averageBuyPrice)
-        );
-
-        existingHolding.quantity = mergedQuantity;
-        existingHolding.averageBuyPrice = mergedQuantity > 0 ? mergedInvested / mergedQuantity : 0;
-        existingHolding.currentPrice = currentPrice;
-        existingHolding.symbol = newHolding.symbol || existingHolding.symbol;
-        existingHolding.name = newHolding.name || existingHolding.name;
-        existingHolding.image = newHolding.image || existingHolding.image;
-      } else {
-        portfolio.holdings.push(newHolding);
-      }
-
-      portfolio.holdings = mergeDuplicateHoldings(portfolio.holdings || []);
-      await portfolio.save();
+      portfolio.holdings.push(newHolding);
     }
+
+    portfolio.holdings = mergeDuplicateHoldings(portfolio.holdings || []);
+    await portfolio.save();
 
     const responseData = await buildPortfolioResponse(portfolio);
 
@@ -479,6 +493,7 @@ export {
   addPortfolioAsset,
   addPortfolioHolding,
   buildPortfolioResponse,
+  findOrCreateUserPortfolio,
   getMyPortfolio,
   mergeDuplicateHoldings
 };

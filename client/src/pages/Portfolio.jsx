@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { jsPDF } from 'jspdf';
 import { PieChart, Pie, Cell } from 'recharts';
 import MetricCard from '../components/dashboard/MetricCard';
 import PriceChart from '../components/dashboard/PriceChart';
@@ -117,6 +118,291 @@ function normalizePortfolioData(data = {}) {
     chartData,
     holdings,
   };
+}
+
+const PORTFOLIO_EXPORT_COLUMNS = [
+  'Coin',
+  'Symbol',
+  'Quantity',
+  'Average Buy Price',
+  'Current Price',
+  'Total Value',
+  'Invested Amount',
+  'Profit/Loss',
+  'Profit/Loss %',
+];
+
+function escapeCsvValue(value) {
+  return `"${String(value ?? '').replace(/"/g, '""')}"`;
+}
+
+function formatCsvNumber(value) {
+  const number = toNumber(value);
+  return number.toLocaleString('en-US', {
+    maximumFractionDigits: 12,
+    useGrouping: false,
+  });
+}
+
+function formatReportCurrency(value) {
+  return `$${toNumber(value).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
+function formatReportPercent(value) {
+  const number = toNumber(value);
+  return `${number >= 0 ? '+' : ''}${number.toFixed(2)}%`;
+}
+
+function buildHoldingExportRows(holdings) {
+  return holdings.map((holding) => {
+    const quantity = toNumber(holding.amount);
+    const averageBuyPrice = toNumber(holding.avgBuy);
+    const currentPrice = toNumber(holding.currentPrice);
+    const totalValue = quantity * currentPrice;
+    const investedAmount = quantity * averageBuyPrice;
+    const profitLoss = totalValue - investedAmount;
+    const profitLossPercent = investedAmount > 0
+      ? (profitLoss / investedAmount) * 100
+      : 0;
+
+    return {
+      coin: holding.name,
+      symbol: holding.ticker,
+      quantity,
+      averageBuyPrice,
+      currentPrice,
+      totalValue,
+      investedAmount,
+      profitLoss,
+      profitLossPercent,
+    };
+  });
+}
+
+function buildPortfolioCsv(holdings) {
+  const rows = buildHoldingExportRows(holdings).map((holding) => [
+    holding.coin,
+    holding.symbol,
+    formatCsvNumber(holding.quantity),
+    holding.averageBuyPrice.toFixed(2),
+    holding.currentPrice.toFixed(2),
+    holding.totalValue.toFixed(2),
+    holding.investedAmount.toFixed(2),
+    holding.profitLoss.toFixed(2),
+    holding.profitLossPercent.toFixed(2),
+  ]);
+
+  return [PORTFOLIO_EXPORT_COLUMNS, ...rows]
+    .map((row) => row.map(escapeCsvValue).join(','))
+    .join('\n');
+}
+
+function downloadCsv(filename, csv) {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function addPdfFooter(doc, pageNumber) {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+
+  doc.setDrawColor(226, 232, 240);
+  doc.line(40, pageHeight - 34, pageWidth - 40, pageHeight - 34);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(100, 116, 139);
+  doc.text('FinTracker Portfolio Report', 40, pageHeight - 18);
+  doc.text(`Page ${pageNumber}`, pageWidth - 40, pageHeight - 18, { align: 'right' });
+}
+
+function createPortfolioReportPdf({ portfolioData, holdings, user }) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 40;
+  const exportDate = new Date();
+  const exportDateLabel = exportDate.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+  });
+  let pageNumber = 1;
+  let cursorY = 44;
+
+  const addPage = () => {
+    addPdfFooter(doc, pageNumber);
+    doc.addPage();
+    pageNumber += 1;
+    cursorY = 44;
+  };
+
+  doc.setFillColor(17, 24, 39);
+  doc.rect(0, 0, pageWidth, 86, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.setTextColor(255, 255, 255);
+  doc.text('FinTracker', margin, 38);
+  doc.setFontSize(14);
+  doc.text('Portfolio Report', margin, 62);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.setTextColor(203, 213, 225);
+  doc.text(`Export date: ${exportDateLabel}`, pageWidth - margin, 38, { align: 'right' });
+  doc.text(`User: ${user?.name || user?.email || 'Connected user'}`, pageWidth - margin, 58, { align: 'right' });
+
+  cursorY = 112;
+
+  const summaryCards = [
+    ['Total Balance', formatReportCurrency(portfolioData.totalBalance)],
+    ['24H Profit/Loss', `${portfolioData.profitLoss24h >= 0 ? '+' : '-'}${formatReportCurrency(Math.abs(portfolioData.profitLoss24h))} (${formatReportPercent(portfolioData.profitLoss24hPercent)})`],
+    ['All-Time Profit', `${portfolioData.allTimeProfit >= 0 ? '+' : '-'}${formatReportCurrency(Math.abs(portfolioData.allTimeProfit))} (${formatReportPercent(portfolioData.allTimeProfitPercent)})`],
+  ];
+  const cardWidth = (pageWidth - (margin * 2) - 24) / 3;
+
+  summaryCards.forEach(([label, value], index) => {
+    const x = margin + (index * (cardWidth + 12));
+
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(x, cursorY, cardWidth, 62, 6, 6, 'FD');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text(label, x + 14, cursorY + 20);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(15, 23, 42);
+    doc.text(value, x + 14, cursorY + 44);
+  });
+
+  cursorY += 92;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(12);
+  doc.setTextColor(15, 23, 42);
+  doc.text('Asset Allocation', margin, cursorY);
+  cursorY += 18;
+
+  if (portfolioData.assetAllocation.length > 0) {
+    portfolioData.assetAllocation.forEach((allocation) => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(51, 65, 85);
+      doc.text(`${allocation.name} (${allocation.ticker || 'N/A'})`, margin, cursorY);
+      doc.text(
+        `${formatReportCurrency(allocation.amount)} - ${toNumber(allocation.value).toFixed(2)}%`,
+        pageWidth - margin,
+        cursorY,
+        { align: 'right' }
+      );
+      cursorY += 14;
+    });
+  } else {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.text('No allocation data available.', margin, cursorY);
+    cursorY += 14;
+  }
+
+  cursorY += 18;
+
+  const columns = [
+    { label: 'Coin', key: 'coin', width: 112 },
+    { label: 'Symbol', key: 'symbol', width: 54 },
+    { label: 'Quantity', key: 'quantity', width: 76 },
+    { label: 'Avg Buy', key: 'averageBuyPrice', width: 82 },
+    { label: 'Current', key: 'currentPrice', width: 82 },
+    { label: 'Total Value', key: 'totalValue', width: 94 },
+    { label: 'P/L', key: 'profitLoss', width: 84 },
+    { label: 'P/L %', key: 'profitLossPercent', width: 58 },
+  ];
+  const tableWidth = columns.reduce((sum, column) => sum + column.width, 0);
+  const tableX = margin;
+  const tableHeaderHeight = 24;
+  const rows = buildHoldingExportRows(holdings);
+
+  const drawTableHeader = () => {
+    if (cursorY + tableHeaderHeight > pageHeight - 54) addPage();
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.setTextColor(15, 23, 42);
+    doc.text('Holdings', margin, cursorY);
+    cursorY += 14;
+
+    doc.setFillColor(30, 41, 59);
+    doc.rect(tableX, cursorY, tableWidth, tableHeaderHeight, 'F');
+    doc.setFontSize(8);
+    doc.setTextColor(255, 255, 255);
+
+    let x = tableX;
+    columns.forEach((column) => {
+      doc.text(column.label, x + 6, cursorY + 16);
+      x += column.width;
+    });
+
+    cursorY += tableHeaderHeight;
+  };
+
+  drawTableHeader();
+
+  rows.forEach((row, index) => {
+    const coinLines = doc.splitTextToSize(row.coin || 'Asset', columns[0].width - 12);
+    const rowHeight = Math.max(26, (coinLines.length * 10) + 12);
+
+    if (cursorY + rowHeight > pageHeight - 54) {
+      addPage();
+      drawTableHeader();
+    }
+
+    doc.setFillColor(index % 2 === 0 ? 255 : 248, index % 2 === 0 ? 255 : 250, index % 2 === 0 ? 255 : 252);
+    doc.rect(tableX, cursorY, tableWidth, rowHeight, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.line(tableX, cursorY + rowHeight, tableX + tableWidth, cursorY + rowHeight);
+
+    let x = tableX;
+    const y = cursorY + 16;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(30, 41, 59);
+    doc.text(coinLines, x + 6, y);
+    x += columns[0].width;
+    doc.text(row.symbol || '', x + 6, y);
+    x += columns[1].width;
+    doc.text(formatCsvNumber(row.quantity), x + columns[2].width - 6, y, { align: 'right' });
+    x += columns[2].width;
+    doc.text(formatReportCurrency(row.averageBuyPrice), x + columns[3].width - 6, y, { align: 'right' });
+    x += columns[3].width;
+    doc.text(formatReportCurrency(row.currentPrice), x + columns[4].width - 6, y, { align: 'right' });
+    x += columns[4].width;
+    doc.text(formatReportCurrency(row.totalValue), x + columns[5].width - 6, y, { align: 'right' });
+    x += columns[5].width;
+    doc.setTextColor(row.profitLoss >= 0 ? 22 : 220, row.profitLoss >= 0 ? 163 : 38, row.profitLoss >= 0 ? 74 : 38);
+    doc.text(`${row.profitLoss >= 0 ? '+' : '-'}${formatReportCurrency(Math.abs(row.profitLoss))}`, x + columns[6].width - 6, y, { align: 'right' });
+    x += columns[6].width;
+    doc.text(formatReportPercent(row.profitLossPercent), x + columns[7].width - 6, y, { align: 'right' });
+
+    cursorY += rowHeight;
+  });
+
+  addPdfFooter(doc, pageNumber);
+
+  const filenameDate = exportDate.toISOString().slice(0, 10);
+  doc.save(`portfolio-report-${filenameDate}.pdf`);
 }
 
 function DonutLabel({ cx, cy, total }) {
@@ -348,8 +634,9 @@ function AddAssetModal({ onClose, onAdd }) {
 }
 
 export default function Portfolio() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [portfolioData, setPortfolioData] = useState(EMPTY_PORTFOLIO);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -452,6 +739,54 @@ export default function Portfolio() {
   const holdingsList = portfolioData.holdings;
   const isEmpty = !loading && !error && holdingsList.length === 0;
 
+  const canExportPortfolio = useCallback(() => {
+    if (!token) {
+      setError('Please login to export your portfolio');
+      return false;
+    }
+
+    if (loading) {
+      setError('Portfolio is still loading');
+      return false;
+    }
+
+    if (holdingsList.length === 0) {
+      setError(error || 'No portfolio data to export');
+      return false;
+    }
+
+    return true;
+  }, [error, holdingsList.length, loading, token]);
+
+  const handleExportCsv = useCallback(() => {
+    if (!canExportPortfolio()) {
+      setShowExportMenu(false);
+      return;
+    }
+
+    const exportDate = new Date().toISOString().slice(0, 10);
+    const csv = buildPortfolioCsv(holdingsList);
+
+    downloadCsv(`portfolio-export-${exportDate}.csv`, csv);
+    setShowExportMenu(false);
+    setError('');
+  }, [canExportPortfolio, holdingsList]);
+
+  const handleExportPdf = useCallback(() => {
+    if (!canExportPortfolio()) {
+      setShowExportMenu(false);
+      return;
+    }
+
+    createPortfolioReportPdf({
+      portfolioData,
+      holdings: holdingsList,
+      user,
+    });
+    setShowExportMenu(false);
+    setError('');
+  }, [canExportPortfolio, holdingsList, portfolioData, user]);
+
   const portfolioMetrics = [
     { label: 'Total Balance', value: fmt(totalBalance), change: dayPnlPct, sub: 'vs yesterday' },
     { label: '24h Profit/Loss', value: fmtSigned(dayPnl), change: dayPnlPct, sub: 'since open' },
@@ -504,14 +839,26 @@ export default function Portfolio() {
   return (
     <main className="p-4 sm:p-6 flex flex-col gap-4 min-h-full">
       <header className="flex gap-2">
-        <button className="flex items-center gap-1.5 bg-transparent border border-default rounded-lg px-3 py-2 text-sm text-primary cursor-pointer font-medium hover:bg-overlay">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-            <polyline points="7 10 12 15 17 10" />
-            <line x1="12" y1="15" x2="12" y2="3" />
-          </svg>
-          Export
-        </button>
+        <div className="relative">
+          <button className="flex items-center gap-1.5 bg-transparent border border-default rounded-lg px-3 py-2 text-sm text-primary cursor-pointer font-medium hover:bg-overlay" onClick={() => setShowExportMenu((current) => !current)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Export
+          </button>
+          {showExportMenu && (
+            <div className="absolute left-0 top-full mt-2 z-20 min-w-[140px] bg-surface border border-default rounded-lg shadow-lg overflow-hidden">
+              <button type="button" className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-overlay" onClick={handleExportPdf}>
+                Export PDF
+              </button>
+              <button type="button" className="w-full text-left px-3 py-2 text-sm text-primary hover:bg-overlay" onClick={handleExportCsv}>
+                Export CSV
+              </button>
+            </div>
+          )}
+        </div>
         <button className="flex items-center gap-1.5 bg-accent border-none rounded-lg px-3 py-2 text-sm text-white cursor-pointer font-semibold hover:opacity-90" onClick={() => setShowAddModal(true)}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
