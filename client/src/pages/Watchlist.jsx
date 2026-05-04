@@ -1,23 +1,67 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import CoinLogo from "../components/shared/CoinLogo";
 import Badge from "../components/shared/Badge";
 import TabBar from "../components/shared/TabBar";
 import MetricCard from "../components/dashboard/MetricCard";
 import { useAuth } from "../context/AuthContext";
 import { useCurrency } from "../context/CurrencyContext";
+import { useTheme } from "../context/ThemeContext";
+import { useBinanceWebSocket } from "../hooks/useBinanceWebSocket";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+const AVAILABLE_COLUMNS = [
+  { key: 'rank', label: '#', default: true },
+  { key: 'name', label: 'Coin', default: true },
+  { key: 'price', label: 'Price', default: true },
+  { key: 'change1h', label: '1h %', default: true },
+  { key: 'change7d', label: '7d %', default: true },
+  { key: 'change24h', label: '24h %', default: true },
+  { key: 'marketCap', label: 'Market Cap', default: true },
+  { key: 'volume', label: 'Volume', default: true },
+  { key: 'high24h', label: '24h High', default: false },
+  { key: 'low24h', label: '24h Low', default: false },
+  { key: 'ath', label: 'ATH', default: false },
+  { key: 'athChange', label: 'ATH Change %', default: false },
+  { key: 'atl', label: 'ATL', default: false },
+  { key: 'sparkline', label: 'Last 7d', default: true },
+  { key: 'alert', label: 'Alert', default: true },
+  { key: 'actions', label: '', default: true },
+];
+
+const COLUMN_WIDTHS = {
+  rank: '50px',
+  name: 'minmax(140px, 1.5fr)',
+  price: 'minmax(100px, 1fr)',
+  change1h: 'minmax(65px, 0.65fr)',
+  change7d: 'minmax(65px, 0.65fr)',
+  change24h: 'minmax(75px, 0.75fr)',
+  marketCap: 'minmax(110px, 1fr)',
+  volume: 'minmax(90px, 0.9fr)',
+  high24h: 'minmax(85px, 0.85fr)',
+  low24h: 'minmax(85px, 0.85fr)',
+  ath: 'minmax(85px, 0.85fr)',
+  athChange: 'minmax(90px, 0.9fr)',
+  atl: 'minmax(85px, 0.85fr)',
+  sparkline: '140px',
+  alert: '80px',
+  actions: '50px',
+};
+
+function getColumnWidth(key) {
+  return COLUMN_WIDTHS[key] || '1fr';
+}
+
 function SortIcon({ col, sortKey, sortDir }) {
   return (
-    <span className="ml-1 opacity-30 text-[10px]">
+    <span className="ml-1 opacity-100 text-primary text-[10px]">
       {sortKey === col ? (sortDir === "asc" ? "^" : "v") : "<>"}
     </span>
   );
 }
 
-function Sparkline({ data, positive, width = 80, height = 28 }) {
-  if (!data || data.length < 2) return null;
+function Sparkline({ data, positive, width = 120, height = 32 }) {
+  if (!data || data.length < 2) return <span className="text-muted text-xs">-</span>;
 
   const min = Math.min(...data);
   const max = Math.max(...data);
@@ -31,7 +75,7 @@ function Sparkline({ data, positive, width = 80, height = 28 }) {
 
   return (
     <svg width={width} height={height} style={{ overflow: "visible" }}>
-      <polyline points={pts.join(" ")} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity={0.85} />
+      <polyline points={pts.join(" ")} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -61,11 +105,18 @@ function toWatchlistCoin(coin) {
     ticker: coin.symbol?.toUpperCase() || "",
     image: coin.image || "",
     price: coin.current_price ?? null,
+    change1h: coin.price_change_percentage_1h_in_currency ?? null,
+    change7d: coin.price_change_percentage_7d_in_currency ?? null,
     change24h: coin.price_change_percentage_24h ?? 0,
     marketCap: coin.market_cap ?? null,
-    volume24h: coin.total_volume ?? null,
+    volume: coin.total_volume ?? null,
+    high24h: coin.high_24h ?? null,
+    low24h: coin.low_24h ?? null,
+    ath: coin.ath ?? null,
+    athChange: coin.ath_change_percentage ?? null,
+    atl: coin.atl ?? null,
     marketCapRank: coin.market_cap_rank ?? null,
-    sparkline: [],
+    sparkline: coin.sparkline_in_7d?.price || [],
   };
 }
 
@@ -216,8 +267,118 @@ function RemoveModal({ coin, onConfirm, onCancel }) {
   );
 }
 
+function AlertModal({ coin, currentPrice, currencySymbol, existingAlert, onSave, onCancel }) {
+  const [targetPrice, setTargetPrice] = useState(existingAlert?.targetPrice ?? currentPrice ?? '');
+  const [condition, setCondition] = useState(existingAlert?.condition ?? 'above');
+  const [saved, setSaved] = useState(false);
+  const [editing, setEditing] = useState(!existingAlert);
+
+  const handleSave = () => {
+    const price = parseFloat(targetPrice);
+    if (!isNaN(price) && price > 0) {
+      onSave(coin.coinId || coin.id, { targetPrice: price, condition });
+      setSaved(true);
+    }
+  };
+
+  const handleEdit = () => {
+    setEditing(true);
+    setSaved(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center" onClick={onCancel}>
+        <div className="bg-surface border border-default rounded-xl p-7 w-[380px]" onClick={e => e.stopPropagation()}>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-base font-semibold text-primary flex items-center gap-2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+              </svg>
+              {existingAlert ? 'Edit Alert' : 'New Alert'} — {coin.name}
+            </h2>
+            <button className="text-secondary hover:text-primary cursor-pointer" onClick={onCancel}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            </button>
+          </div>
+          <p className="text-xs text-secondary mb-4">Current price: <strong className="text-primary">{formatPrice(currentPrice, currencySymbol)}</strong></p>
+          {existingAlert && (
+            <div className="mb-3 p-2.5 rounded-lg bg-base border border-default">
+              <p className="text-xs text-muted mb-0.5">Existing alert:</p>
+              <p className="text-xs text-primary">Price {existingAlert.condition} {currencySymbol}{existingAlert.targetPrice.toLocaleString()}</p>
+            </div>
+          )}
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <button className={`flex-1 py-2 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${condition === 'above' ? 'bg-success/15 border-success/30 text-success' : 'bg-base border-default text-secondary'}`} onClick={() => setCondition('above')}>Goes Above</button>
+              <button className={`flex-1 py-2 rounded-lg text-xs font-medium border cursor-pointer transition-colors ${condition === 'below' ? 'bg-danger/15 border-danger/30 text-danger' : 'bg-base border-default text-secondary'}`} onClick={() => setCondition('below')}>Goes Below</button>
+            </div>
+            <div className="flex items-center gap-2 bg-base border border-default rounded-lg p-2.5">
+              <span className="text-xs text-muted">{currencySymbol}</span>
+              <input type="number" value={targetPrice} onChange={e => setTargetPrice(e.target.value)} placeholder="Target price" className="flex-1 bg-transparent border-none outline-none text-sm text-primary" />
+            </div>
+            <button className="w-full py-2.5 bg-accent text-white border-none rounded-lg text-sm font-semibold cursor-pointer hover:opacity-90" onClick={handleSave}>{existingAlert ? 'Update Alert' : 'Set Alert'}</button>
+            <button className="w-full py-2 bg-base border border-default rounded-lg text-xs font-medium text-secondary cursor-pointer hover:text-primary" onClick={onCancel}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (saved) {
+    return (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center" onClick={onCancel}>
+        <div className="bg-surface border border-default rounded-xl p-7 w-[380px]" onClick={e => e.stopPropagation()}>
+          <div className="text-center py-4">
+            <div className="w-11 h-11 rounded-full bg-success/15 flex items-center justify-center mx-auto mb-3">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12" /></svg>
+            </div>
+            <p className="text-sm font-medium text-primary mb-1">Alert {existingAlert ? 'Updated' : 'Set'}!</p>
+            <p className="text-xs text-secondary mb-4">You'll be notified when price {condition === 'above' ? 'goes above' : 'drops below'} {currencySymbol}{parseFloat(targetPrice).toLocaleString()}</p>
+            <div className="flex gap-2">
+              <button className="flex-1 py-2 bg-accent text-white border-none rounded-lg text-sm font-medium cursor-pointer hover:opacity-90" onClick={handleEdit}>Edit Alert</button>
+              <button className="flex-1 py-2 bg-base border border-default rounded-lg text-sm font-medium text-primary cursor-pointer hover:text-primary" onClick={onCancel}>Done</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center" onClick={onCancel}>
+      <div className="bg-surface border border-default rounded-xl p-7 w-[380px]" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-base font-semibold text-primary flex items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" />
+            </svg>
+            {coin.name} Alert
+          </h2>
+          <button className="text-secondary hover:text-primary cursor-pointer" onClick={onCancel}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          </button>
+        </div>
+        <p className="text-xs text-secondary mb-4">Current price: <strong className="text-primary">{formatPrice(currentPrice, currencySymbol)}</strong></p>
+        {existingAlert && !existingAlert.triggered && (
+          <div className="mb-4 p-3 rounded-lg bg-base border border-default">
+            <p className="text-xs text-muted mb-0.5">Active alert:</p>
+            <p className="text-sm text-primary font-medium">Price {existingAlert.condition} {currencySymbol}{existingAlert.targetPrice.toLocaleString()}</p>
+          </div>
+        )}
+        <div className="space-y-2">
+          <button className="w-full py-2.5 bg-accent text-white border-none rounded-lg text-sm font-semibold cursor-pointer hover:opacity-90" onClick={handleEdit}>{existingAlert ? 'Edit Alert' : 'Create Alert'}</button>
+          {existingAlert && (
+            <button className="w-full py-2 bg-base border border-default rounded-lg text-xs font-medium text-danger cursor-pointer hover:bg-danger/10" onClick={() => { onSave(coin.coinId || coin.id, null); setSaved(true); }}>Delete Alert</button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Watchlist() {
-  const { token, watchlistItems, loadWatchlist, addToWatchlist, removeFromWatchlist } = useAuth();
+  const { user, token, watchlistItems, loadWatchlist, addToWatchlist, removeFromWatchlist } = useAuth();
   const { currency, currencyData } = useCurrency();
   const [coins, setCoins] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -229,10 +390,83 @@ export default function Watchlist() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageError, setPageError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState(() => AVAILABLE_COLUMNS.filter(c => c.default).map(c => c.key));
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+  const [priceFlash, setPriceFlash] = useState({});
+  const [alerts, setAlerts] = useState(() => {
+    try {
+      const saved = localStorage.getItem('fintracker_alerts');
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
+  const [alertTarget, setAlertTarget] = useState(null);
+  const alertsRef = useRef(alerts);
+
+  useEffect(() => {
+    alertsRef.current = alerts;
+  }, [alerts]);
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   const ITEMS_PER_PAGE = 8;
   const tabs = ["All", "Gainers", "Losers"];
   const currencySymbol = currencyData?.symbol || "$";
+  const livePricesRef = useRef({});
+
+  const handlePriceUpdate = useCallback((coinId, price) => {
+    setCoins(prev => {
+      const coin = prev.find(c => c.id === coinId || c.coinId === coinId);
+      const oldPrice = coin?.current_price ?? null;
+      if (oldPrice !== null && oldPrice !== price) {
+        setPriceFlash(pf => ({ ...pf, [coinId]: price > oldPrice ? 'up' : 'down' }));
+        setTimeout(() => setPriceFlash(pf => ({ ...pf, [coinId]: null })), 600);
+
+        const alert = alertsRef.current[coinId];
+        if (alert && !alert.triggered) {
+          const triggered = (alert.condition === 'above' && price >= alert.targetPrice) || (alert.condition === 'below' && price <= alert.targetPrice);
+          if (triggered) {
+            setAlerts(a => {
+              const existing = a[coinId] || {};
+              const next = { ...a, [coinId]: { ...existing, triggered: true, triggeredAt: Date.now() } };
+              localStorage.setItem('fintracker_alerts', JSON.stringify(next));
+              return next;
+            });
+
+            fetch(`${API_URL}/api/alerts/trigger`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                coinName: coin?.name || coinId,
+                condition: alert.condition,
+                targetPrice: alert.targetPrice,
+                currentPrice: price,
+                currencySymbol,
+              }),
+            }).catch(e => console.error('Alert email failed:', e));
+
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(`🔔 ${coin?.name || coinId} Alert!`, {
+                body: `Price ${alert.condition} ${currencySymbol}${alert.targetPrice.toLocaleString()} — Now: ${currencySymbol}${price.toLocaleString()}`,
+                icon: '/vite.svg',
+              });
+            }
+          }
+        }
+      }
+      livePricesRef.current = { ...livePricesRef.current, [coinId]: price };
+      return prev.map(c => (c.id === coinId || c.coinId === coinId) ? { ...c, current_price: price } : c);
+    });
+  }, [currencySymbol, token]);
+
+  const { isConnected } = useBinanceWebSocket(watchlistItems, handlePriceUpdate, currency);
+
   const watchlist = coins.map(toWatchlistCoin);
 
   useEffect(() => {
@@ -302,10 +536,113 @@ export default function Watchlist() {
   const totalValue = watchlist.reduce((sum, c) => sum + (c.price || 0), 0);
   const gainers = watchlist.filter(c => c.change24h > 0).length;
   const losers = watchlist.filter(c => c.change24h < 0).length;
+  const bestPerformer = watchlist.length ? watchlist.reduce((best, c) => (c.change24h > (best?.change24h ?? -Infinity) ? c : best), null) : null;
+  const lowestPerformer = watchlist.length ? watchlist.reduce((worst, c) => (c.change24h < (worst?.change24h ?? Infinity) ? c : worst), null) : null;
 
   const handleSort = (key) => {
     if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
     else { setSortKey(key); setSortDir("asc"); }
+  };
+
+  const toggleColumn = (key) => {
+    if (visibleColumns.includes(key)) {
+      setVisibleColumns(visibleColumns.filter(c => c !== key));
+    } else {
+      setVisibleColumns([...visibleColumns, key]);
+    }
+  };
+
+  const renderCell = (coin, key) => {
+    switch (key) {
+      case 'rank':
+        return <span className="text-xs text-muted w-6">{coin.marketCapRank ?? "-"}</span>;
+      case 'name':
+        return (
+          <div className="flex items-center gap-2 min-w-0">
+            <CoinLogo ticker={coin.ticker} image={coin.image} size={20} />
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-primary truncate">{coin.name}</div>
+              <div className="text-xs text-muted">{coin.ticker}</div>
+            </div>
+          </div>
+        );
+      case 'price': {
+        const cid = coin.coinId || coin.id;
+        const flash = priceFlash[cid];
+        const flashClass = flash === 'up' ? 'text-success' : flash === 'down' ? 'text-danger' : 'text-primary';
+        const arrow = flash === 'up' ? '↑ ' : flash === 'down' ? '↓ ' : '';
+        return <span className={`text-sm font-semibold whitespace-nowrap transition-colors duration-300 ${flashClass}`}>{arrow}{formatPrice(coin.price, currencySymbol)}</span>;
+      }
+      case 'change1h':
+        return coin.change1h !== null ? (
+          <span className={`text-xs font-medium whitespace-nowrap ${coin.change1h >= 0 ? 'text-success' : 'text-danger'}`}>
+            {coin.change1h >= 0 ? '+' : ''}{coin.change1h.toFixed(2)}%
+          </span>
+        ) : <span className="text-xs text-muted">-</span>;
+      case 'change7d':
+        return coin.change7d !== null ? (
+          <span className={`text-xs font-medium whitespace-nowrap ${coin.change7d >= 0 ? 'text-success' : 'text-danger'}`}>
+            {coin.change7d >= 0 ? '+' : ''}{coin.change7d.toFixed(2)}%
+          </span>
+        ) : <span className="text-xs text-muted">-</span>;
+      case 'change24h':
+        return (
+          <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${coin.change24h >= 0 ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'}`}>
+            {coin.change24h >= 0 ? '+' : ''}{coin.change24h.toFixed(2)}%
+          </span>
+        );
+      case 'marketCap':
+        return <span className="text-xs text-secondary whitespace-nowrap">{formatMarketCap(coin.marketCap, currencySymbol)}</span>;
+      case 'volume':
+        return <span className="text-xs text-secondary whitespace-nowrap">{formatMarketCap(coin.volume, currencySymbol)}</span>;
+      case 'high24h':
+        return <span className="text-xs text-secondary whitespace-nowrap">{coin.high24h !== null ? formatPrice(coin.high24h, currencySymbol) : '-'}</span>;
+      case 'low24h':
+        return <span className="text-xs text-secondary whitespace-nowrap">{coin.low24h !== null ? formatPrice(coin.low24h, currencySymbol) : '-'}</span>;
+      case 'ath':
+        return <span className="text-xs text-secondary whitespace-nowrap">{coin.ath !== null ? formatPrice(coin.ath, currencySymbol) : '-'}</span>;
+      case 'athChange':
+        return coin.athChange !== null ? (
+          <span className={`inline-flex px-1.5 py-0.5 rounded text-xs font-medium whitespace-nowrap ${coin.athChange >= 0 ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'}`}>
+            {coin.athChange >= 0 ? '+' : ''}{coin.athChange.toFixed(2)}%
+          </span>
+        ) : <span className="text-xs text-muted">-</span>;
+      case 'atl':
+        return <span className="text-xs text-secondary whitespace-nowrap">{coin.atl !== null ? formatPrice(coin.atl, currencySymbol) : '-'}</span>;
+      case 'sparkline':
+        return <Sparkline data={coin.sparkline} positive={coin.change7d !== null ? coin.change7d >= 0 : coin.change24h >= 0} width={120} height={32} />;
+      case 'alert': {
+        const cid = coin.coinId || coin.id;
+        const alert = alerts[cid];
+        const hasAlert = alert && !alert.triggered;
+        const isTriggered = alert?.triggered;
+        return (
+          <div className="flex items-center justify-center">
+            <button 
+              className={`cursor-pointer p-1.5 rounded-lg border-none transition-colors ${isTriggered ? 'bg-warning/15 text-warning hover:bg-warning/25' : hasAlert ? 'bg-accent/15 text-accent hover:bg-accent/25' : 'text-muted hover:text-primary hover:bg-overlay'}`}
+              title={isTriggered ? 'Alert triggered!' : hasAlert ? `Set ${alert.condition} ${formatPrice(alert.targetPrice, currencySymbol)}` : 'Set price alert'}
+              onClick={e => { e.stopPropagation(); setAlertTarget(coin); }}
+            >
+              {isTriggered ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+              )}
+            </button>
+          </div>
+        );
+      }
+      case 'actions':
+        return (
+          <button className="cursor-pointer text-muted hover:text-danger transition-colors" title="Remove from watchlist" onClick={e => { e.stopPropagation(); setRemoveTarget(coin); }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" />
+            </svg>
+          </button>
+        );
+      default:
+        return null;
+    }
   };
 
   const filtered = watchlist
@@ -334,8 +671,6 @@ export default function Watchlist() {
     return result;
   };
 
-  const handleRemove = (coin) => setRemoveTarget(coin);
-
   const confirmRemove = async () => {
     if (!removeTarget) return;
 
@@ -349,133 +684,237 @@ export default function Watchlist() {
     setRemoveTarget(null);
   };
 
+  const handleSaveAlert = (coinId, alertData) => {
+    if (alertData === null) {
+      setAlerts(prev => {
+        const next = { ...prev };
+        delete next[coinId];
+        localStorage.setItem('fintracker_alerts', JSON.stringify(next));
+        return next;
+      });
+    } else {
+      const target = watchlist.find(c => c.coinId === coinId || c.id === coinId);
+      setAlerts(prev => {
+        const next = {
+          ...prev,
+          [coinId]: {
+            ...alertData,
+            triggered: false,
+            name: target?.name || coinId,
+            ticker: target?.ticker || coinId.toUpperCase(),
+            createdAt: prev[coinId]?.createdAt || Date.now(),
+          }
+        };
+        localStorage.setItem('fintracker_alerts', JSON.stringify(next));
+        return next;
+      });
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+    setTimeout(() => setAlertTarget(null), 800);
+  };
+
   return (
-    <div className="p-7 min-h-full bg-base text-primary">
+    <div className="p-3 sm:p-5 flex flex-col gap-3 min-h-full">
       <div className="flex items-center gap-1.5 text-xs text-secondary mb-1.5">
         <span>Active Tracking</span>
         <span>&gt;</span>
-        <span className="text-accent font-medium">
-          <span className="inline-block w-1.5 h-1.5 rounded-full bg-success mr-1 animate-pulse" />
-          V3.4 LIVE
+        <span className={`font-medium ${isConnected ? 'text-success' : 'text-muted'}`}>
+          <span className={`inline-block w-1.5 h-1.5 rounded-full mr-1 ${isConnected ? 'bg-success animate-pulse' : 'bg-muted'}`} />
+          {isConnected ? 'LIVE' : 'Connecting...'}
         </span>
       </div>
 
-      <p className="text-sm text-secondary mb-6">Monitor your selected assets with real-time price feeds and trend analysis.</p>
-      {pageError && <p className="text-sm text-danger mb-4">{pageError}</p>}
+      <p className="text-sm text-secondary mb-4">Monitor your selected assets with real-time price feeds and trend analysis.</p>
+      {pageError && <p className="text-sm text-danger mb-2">{pageError}</p>}
 
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex overflow-x-auto gap-2 pb-2">
         <MetricCard label="Tracked Assets" value={watchlistItems.length} change={null} />
         <MetricCard label="Total Value (est.)" value={formatMarketCap(totalValue * 1e6, currencySymbol)} change={null} />
-        <MetricCard label="Top Gainer (24h)" value={watchlist.reduce((best, c) => (c.change24h > (best?.change24h ?? -Infinity) ? c : best), null)?.name ?? "-"} change={null} />
+        <MetricCard label="Best Performer" value={bestPerformer?.name ?? "-"} change={bestPerformer?.change24h ?? null} badge={bestPerformer?.change24h != null ? `${bestPerformer.change24h >= 0 ? '+' : ''}${bestPerformer.change24h.toFixed(2)}%` : undefined} />
+        <MetricCard label="Lowest Performer" value={lowestPerformer?.name ?? "-"} change={lowestPerformer?.change24h ?? null} badge={lowestPerformer?.change24h != null ? `${lowestPerformer.change24h >= 0 ? '+' : ''}${lowestPerformer.change24h.toFixed(2)}%` : undefined} />
         <MetricCard label="Gainers / Losers" value={`${gainers} / ${losers}`} change={null} />
       </div>
 
-      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-        <div className="flex items-center gap-3">
+      {/* Search and Actions Bar */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
           <TabBar tabs={tabs} active={activeTab} onChange={t => { setActiveTab(t); setCurrentPage(1); }} size="sm" />
-          <div className="flex items-center gap-2 bg-surface border border-default rounded-lg p-2.5 min-w-[220px]">
+          <div className="flex items-center gap-2 bg-surface border border-default rounded-lg p-2 min-w-[200px] flex-1 max-w-[400px]">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
-            <input placeholder="Filter your list..." value={filterText} onChange={e => { setFilterText(e.target.value); setCurrentPage(1); }} className="bg-transparent border-none outline-none text-primary text-sm flex-1" />
+            <input placeholder="Filter your list..." value={filterText} onChange={e => { setFilterText(e.target.value); setCurrentPage(1); }} className="bg-transparent border-none outline-none text-sm text-primary placeholder:text-muted flex-1" />
           </div>
         </div>
-        <button className="flex items-center gap-1.5 bg-accent text-white border-none rounded-lg py-2 px-4.5 text-sm font-semibold cursor-pointer hover:opacity-90" onClick={() => setShowAddModal(true)}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Add Asset
-        </button>
-      </div>
-
-      <div className="bg-surface border border-default rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] border-collapse">
-          <thead className="border-b border-default">
-            <tr>
-              <th className="text-left p-2.5 text-xs font-semibold text-muted uppercase tracking-wider w-8"></th>
-              <th className="text-left p-2.5 text-xs font-semibold text-muted uppercase tracking-wider cursor-pointer" onClick={() => handleSort("name")}>Asset <SortIcon col="name" sortKey={sortKey} sortDir={sortDir} /></th>
-              <th className="text-right p-2.5 text-xs font-semibold text-muted uppercase tracking-wider cursor-pointer" onClick={() => handleSort("price")}>Price <SortIcon col="price" sortKey={sortKey} sortDir={sortDir} /></th>
-              <th className="text-right p-2.5 text-xs font-semibold text-muted uppercase tracking-wider cursor-pointer" onClick={() => handleSort("change24h")}>24h % <SortIcon col="change24h" sortKey={sortKey} sortDir={sortDir} /></th>
-              <th className="text-right p-2.5 text-xs font-semibold text-muted uppercase tracking-wider cursor-pointer" onClick={() => handleSort("marketCap")}>Market Cap <SortIcon col="marketCap" sortKey={sortKey} sortDir={sortDir} /></th>
-              <th className="text-right p-2.5 text-xs font-semibold text-muted uppercase tracking-wider">Last 24h</th>
-              <th className="text-right p-2.5 text-xs font-semibold text-muted uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={7} className="text-center py-15 text-secondary">Loading watchlist...</td>
-              </tr>
-            ) : paginated.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="text-center py-15 text-secondary">
-                  <div className="text-[2.5rem] mb-2">-</div>
-                  <div className="font-semibold mb-1 text-primary">{filterText ? "No matching assets" : "Your watchlist is empty"}</div>
-                  <div className="text-xs">{filterText ? "Try a different search term" : "Star coins from the dashboard to add them here"}</div>
-                </td>
-              </tr>
-            ) : (
-              paginated.map(coin => (
-                <tr key={coin.coinId} className="border-b border-default hover:bg-surface transition-colors">
-                  <td className="p-3">
-                    <button className="cursor-pointer text-amber-500 hover:text-primary" onClick={() => handleRemove(coin)}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" strokeWidth="2">
-                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                      </svg>
-                    </button>
-                  </td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-2.5">
-                      <CoinLogo ticker={coin.ticker} image={coin.image} size={34} />
-                      <div>
-                        <div className="text-sm font-semibold text-primary">{coin.name}</div>
-                        <div className="text-xs text-secondary">{coin.ticker}</div>
-                        <div className="text-[10px] text-muted">Rank #{coin.marketCapRank ?? "-"}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-3 text-right font-semibold">{formatPrice(coin.price, currencySymbol)}</td>
-                  <td className="p-3 text-right"><Badge variant={coin.change24h >= 0 ? "green" : "red"}>{coin.change24h >= 0 ? "+" : ""}{coin.change24h.toFixed(2)}%</Badge></td>
-                  <td className="p-3 text-right text-secondary">{formatMarketCap(coin.marketCap, currencySymbol)}</td>
-                  <td className="p-3 text-right"><div className="flex justify-end"><Sparkline data={coin.sparkline} positive={coin.change24h >= 0} /></div></td>
-                  <td className="p-3 text-right">
-                    <div className="flex justify-end gap-1">
-                      <button className="cursor-pointer text-muted hover:text-primary p-1" title="View details">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                      </button>
-                      <button className="cursor-pointer text-muted hover:text-primary p-1" title="Set alert">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
-                      </button>
-                      <button className="cursor-pointer text-muted hover:text-primary p-1" title="Remove from watchlist" onClick={() => handleRemove(coin)}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /><path d="M9 6V4h6v2" /></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+        
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <button
+              onClick={() => setShowColumnMenu(!showColumnMenu)}
+              className="flex items-center gap-1.5 bg-surface border border-default rounded-lg px-2.5 py-1.5 text-xs text-primary cursor-pointer hover:bg-overlay"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="4" y1="6" x2="20" y2="6" />
+                <line x1="8" y1="12" x2="16" y2="12" />
+                <line x1="11" y1="18" x2="13" y2="18" />
+              </svg>
+              Columns
+            </button>
+            {showColumnMenu && (
+              <div className="absolute top-full right-0 mt-1 bg-surface border border-default rounded-lg p-1 min-w-[150px] z-50 shadow-lg">
+                {AVAILABLE_COLUMNS.map((col) => (
+                  <label
+                    key={col.key}
+                    className="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-overlay rounded text-xs text-primary"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={visibleColumns.includes(col.key)}
+                      onChange={() => toggleColumn(col.key)}
+                      className="accent-accent"
+                    />
+                    {col.label}
+                  </label>
+                ))}
+              </div>
             )}
-          </tbody>
-        </table>
+          </div>
+          
+          <button className="flex items-center gap-1.5 bg-accent text-white border-none rounded-lg py-2 px-4.5 text-sm font-semibold cursor-pointer hover:opacity-90" onClick={() => setShowAddModal(true)}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Add Asset
+          </button>
         </div>
       </div>
 
-      <div className="flex items-center justify-between mt-4 gap-3">
-        <span className="text-sm text-secondary">Showing {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, filtered.length)}-{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length} tracked asset{filtered.length !== 1 ? "s" : ""}</span>
-        <div className="flex gap-2">
-          <button className="px-3.5 py-1.5 bg-surface border border-default rounded-lg text-sm text-primary cursor-pointer disabled:opacity-40 disabled:cursor-default" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</button>
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(pg => (
-            <button key={pg} className={`px-3.5 py-1.5 rounded-lg text-sm cursor-pointer ${pg === currentPage ? "bg-accent text-white border-accent" : "bg-surface border border-default text-primary"}`} onClick={() => setCurrentPage(pg)}>{pg}</button>
-          ))}
-          <button className="px-3.5 py-1.5 bg-surface border border-default rounded-lg text-sm text-primary cursor-pointer disabled:opacity-40 disabled:cursor-default" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
+      {/* Market Table */}
+      <div className="bg-surface border border-default rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-default">
+          <span className="text-xs font-semibold text-muted uppercase">Watchlist</span>
+          <span className="text-xs text-muted">{filtered.length} coins</span>
         </div>
+        
+        <div className="overflow-x-auto">
+          <div 
+            className="w-full border-collapse" 
+            style={{ display: 'grid', gridTemplateColumns: visibleColumns.map(getColumnWidth).join(' '), gap: '0' }}
+          >
+            {visibleColumns.map((colKey) => {
+              const col = AVAILABLE_COLUMNS.find(c => c.key === colKey);
+              const isLeftAligned = colKey === 'name' || colKey === 'price';
+              return (
+                <div 
+                  key={colKey} 
+                  className="sticky top-0 z-10 bg-surface border-b border-default px-2 py-2 text-xs font-semibold text-muted uppercase"
+                  style={{ 
+                    display: 'flex',
+                    textAlign: isLeftAligned ? 'left' : 'right',
+                    justifyContent: isLeftAligned ? 'flex-start' : 'flex-end',
+                    alignItems: 'center'
+                  }}
+                >
+                  <span className="cursor-pointer" onClick={() => handleSort(colKey)}>
+                    {col?.label}{colKey !== 'actions' ? <SortIcon col={colKey} sortKey={sortKey} sortDir={sortDir} /> : ''}
+                  </span>
+                </div>
+              );
+            })}
+            
+            {loading ? (
+              <div className="col-span-full text-center py-15 text-secondary">Loading watchlist...</div>
+            ) : paginated.length === 0 ? (
+              <div className="col-span-full text-center py-15 text-secondary">
+                <div className="text-[2.5rem] mb-2">-</div>
+                <div className="font-semibold mb-1 text-primary">{filterText ? "No matching assets" : "Your watchlist is empty"}</div>
+                <div className="text-xs">{filterText ? "Try a different search term" : "Add coins to start tracking"}</div>
+              </div>
+            ) : (
+              paginated.map(coin => 
+                visibleColumns.map((colKey) => (
+                  <div 
+                    key={`${coin.coinId}-${colKey}`}
+                    className="border-b border-subtle hover:bg-overlay cursor-pointer transition-colors px-2 py-2"
+                    style={{ 
+                      display: 'flex',
+                      textAlign: (colKey === 'name' || colKey === 'price') ? 'left' : 'right',
+                      justifyContent: (colKey === 'name' || colKey === 'price') ? 'flex-start' : 'flex-end',
+                      alignItems: 'center'
+                    }}
+                  >
+                    {renderCell(coin, colKey)}
+                  </div>
+                ))
+              )
+            )}
+          </div>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-3 py-2.5 border-t border-default bg-overlay">
+            <span className="text-xs text-muted">
+              Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-2 py-1 text-xs rounded border border-default bg-surface text-primary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-overlay"
+              >
+                Prev
+              </button>
+              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                let pageNum;
+                if (totalPages <= 5) {
+                  pageNum = i + 1;
+                } else if (currentPage <= 3) {
+                  pageNum = i + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNum = totalPages - 4 + i;
+                } else {
+                  pageNum = currentPage - 2 + i;
+                }
+                return (
+                  <button
+                    key={pageNum}
+                    onClick={() => setCurrentPage(pageNum)}
+                    className={`px-2 py-1 text-xs rounded border ${pageNum === currentPage ? 'bg-accent text-white border-accent' : 'bg-surface text-primary border-default hover:bg-overlay'}`}
+                  >
+                    {pageNum}
+                  </button>
+                );
+              })}
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-2 py-1 text-xs rounded border border-default bg-surface text-primary cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed hover:bg-overlay"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {showAddModal && <AddModal onClose={() => setShowAddModal(false)} onAdd={handleAddCoin} existing={watchlistItems} currency={currency} />}
       {removeTarget && <RemoveModal coin={removeTarget} onConfirm={confirmRemove} onCancel={() => setRemoveTarget(null)} />}
+      {alertTarget && (
+        <AlertModal 
+          coin={alertTarget} 
+          currentPrice={alertTarget.price} 
+          currencySymbol={currencySymbol} 
+          existingAlert={alerts[alertTarget.coinId || alertTarget.id]} 
+          onSave={handleSaveAlert} 
+          onCancel={() => setAlertTarget(null)} 
+        />
+      )}
 
-      <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-6">
-        <span>(c) 2024 FinTracker Inc. All rights reserved.</span>
+      <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-auto">
+        <span>© 2024 FinTracker Inc. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>
           <a href="#" className="text-inherit no-underline">Privacy</a>

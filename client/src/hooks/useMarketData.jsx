@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useCurrency } from '../context/CurrencyContext';
 import { useBinanceWebSocket } from './useBinanceWebSocket';
 
-const API_URL = 'http://localhost:5000/coins';
-const CHART_API_URL = 'http://localhost:5000/chart';
+const API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/coins` : 'http://localhost:5000/coins';
+const CHART_API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/chart` : 'http://localhost:5000/chart';
 
 const TIME_PERIOD_MAP = {
   '1D': '1',

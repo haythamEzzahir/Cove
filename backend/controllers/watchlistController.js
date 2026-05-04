@@ -68,69 +68,6 @@ const buildResponse = (watchlist, message = "", coins = mergeCoins(watchlist?.co
   };
 };
 
-const buildAddCoinPipeline = (userId, coin) => [
-  {
-    $set: {
-      userId,
-      coins: {
-        $let: {
-          vars: {
-            currentCoins: {
-              $cond: [
-                { $isArray: "$coins" },
-                "$coins",
-                []
-              ]
-            }
-          },
-          in: {
-            $cond: [
-              {
-                $in: [
-                  coin.coinId,
-                  {
-                    $map: {
-                      input: "$$currentCoins",
-                      as: "coin",
-                      in: {
-                        $toLower: {
-                          $ifNull: [
-                            "$$coin.coinId",
-                            {
-                              $ifNull: [
-                                "$$coin.id",
-                                ""
-                              ]
-                            }
-                          ]
-                        }
-                      }
-                    }
-                  }
-                ]
-              },
-              "$$currentCoins",
-              {
-                $concatArrays: [
-                  "$$currentCoins",
-                  [coin]
-                ]
-              }
-            ]
-          }
-        }
-      },
-      createdAt: {
-        $ifNull: [
-          "$createdAt",
-          "$$NOW"
-        ]
-      },
-      updatedAt: "$$NOW"
-    }
-  }
-];
-
 const getMyWatchlist = async (req, res) => {
   try {
     const userId = getUserObjectId(req);
@@ -168,16 +105,18 @@ const addWatchlistItem = async (req, res) => {
       return res.status(400).json({ message: "coinId is required" });
     }
 
-    const watchlist = await Watchlist.findOneAndUpdate(
-      { userId },
-      buildAddCoinPipeline(userId, coin),
-      {
-        upsert: true,
-        new: true,
-        returnDocument: "after",
-        setDefaultsOnInsert: true
-      }
-    );
+    let watchlist = await Watchlist.findOne({ userId });
+
+    if (!watchlist) {
+      watchlist = await Watchlist.create({ userId, coins: [coin] });
+    } else {
+      const storedCoins = getPlainCoins(watchlist);
+      const mergedCoins = mergeCoins([...storedCoins, coin]);
+
+      watchlist.coins = mergedCoins;
+      await watchlist.save();
+    }
+
     const cleaned = await cleanWatchlistCoins(watchlist);
 
     return res.status(201).json(
