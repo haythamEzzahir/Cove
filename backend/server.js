@@ -4,9 +4,11 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 
 import authRoutes from "./routes/authRoutes.js";
+import portfolioRoutes from "./routes/portfolioRoutes.js";
 import settingRoutes from "./routes/settingRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import watchlistRoutes from "./routes/watchlistRoutes.js";
+import { ensurePortfolioIndexes } from "./models/portfolio.js";
 import { ensureWatchlistIndexes } from "./models/watchlist.js";
 import { sendPriceAlertEmail } from "./utils/sendEmail.js";
 import User from "./models/user.js";
@@ -39,6 +41,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/portfolio", portfolioRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/settings", settingRoutes);
 app.use("/api/watchlist", watchlistRoutes);
@@ -213,10 +216,16 @@ mongoose
   })
   .then(async () => {
     console.log("MongoDB connected");
+    await ensurePortfolioIndexes();
     await ensureWatchlistIndexes();
   })
   .catch((err) => {
     console.error("MongoDB connection error:", err.message);
   });
 
+const server = app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
+export { app, server };
 export default app;

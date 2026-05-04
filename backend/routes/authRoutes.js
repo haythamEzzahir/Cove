@@ -16,6 +16,7 @@ const router = express.Router();
 router.post("/register", registerUser);
 router.post("/login", loginUser);
 router.get("/me", protect, getCurrentUser);
+router.get("/google/config", getGoogleClientId);
 router.get("/google/client-id", getGoogleClientId);
 router.post("/google", googleAuth);
 router.post("/verify-otp", verifyOTP);
