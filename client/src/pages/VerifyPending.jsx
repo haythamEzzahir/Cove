@@ -1,5 +1,7 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { API_URL } from '../config';
+import { getJson } from '../config';
 
 export default function VerifyPending() {
   const navigate = useNavigate();
@@ -12,9 +14,8 @@ export default function VerifyPending() {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendDisabled, setResendDisabled] = useState(false);
+  const [attemptsRemaining, setAttemptsRemaining] = useState(null);
   const inputRefs = useRef([]);
-
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   useEffect(() => {
     inputRefs.current[0]?.focus();
@@ -69,13 +70,16 @@ export default function VerifyPending() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp: code }),
       });
-      const data = await response.json();
+      const data = await getJson(response);
 
       if (response.ok) {
         setSuccess('Email verified! Redirecting to login...');
         setTimeout(() => navigate('/login?msg=verified'), 1500);
       } else {
         setError(data.message || 'Invalid code');
+        if (data.attemptsRemaining != null) {
+          setAttemptsRemaining(data.attemptsRemaining);
+        }
         setOtp(['', '', '', '', '', '']);
         inputRefs.current[0]?.focus();
       }
@@ -86,9 +90,10 @@ export default function VerifyPending() {
     setLoading(false);
   };
 
-  const handleResend = async () => {
+  const handleResend = useCallback(async () => {
     setError('');
     setResendDisabled(true);
+    setAttemptsRemaining(null);
 
     try {
       const response = await fetch(`${API_URL}/api/auth/resend-otp`, {
@@ -96,7 +101,7 @@ export default function VerifyPending() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      const data = await response.json();
+      const data = await getJson(response);
 
       if (response.ok) {
         setSuccess('New code sent! Check your inbox.');
@@ -109,7 +114,7 @@ export default function VerifyPending() {
     }
 
     setTimeout(() => setResendDisabled(false), 60000);
-  };
+  }, [email]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-base">
@@ -141,6 +146,9 @@ export default function VerifyPending() {
           {error && (
             <div className="w-full bg-danger/15 border border-danger/30 rounded-lg p-3 text-sm text-danger">
               {error}
+              {attemptsRemaining != null && attemptsRemaining > 0 && (
+                <span className="block mt-1">{attemptsRemaining} attempts remaining</span>
+              )}
             </div>
           )}
 

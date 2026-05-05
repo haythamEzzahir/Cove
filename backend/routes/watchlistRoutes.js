@@ -5,15 +5,12 @@ import {
   removeWatchlistItem
 } from "../controllers/watchlistController.js";
 import { protect } from "../middleware/authMiddleware.js";
+import { validateWatchlistItem, handleValidationErrors } from "../utils/validators.js";
 
 const router = express.Router();
 
 router.get("/", protect, getMyWatchlist);
-router.post("/", protect, addWatchlistItem);
-
-router.get("/me", protect, getMyWatchlist);
-router.post("/me", protect, addWatchlistItem);
-
+router.post("/", protect, validateWatchlistItem, handleValidationErrors, addWatchlistItem);
 router.delete("/:coinId", protect, removeWatchlistItem);
 
 export default router;

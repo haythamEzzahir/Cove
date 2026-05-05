@@ -381,12 +381,7 @@ const buildPortfolioResponse = async (portfolio) => {
 
 const getMyPortfolio = async (req, res) => {
   try {
-    const userId = getUserObjectId(req);
-
-    if (!userId) {
-      return res.status(401).json({ message: "Not authorized, no user" });
-    }
-
+    const userId = req.user._id;
     const portfolio = await findOrCreateUserPortfolio(userId);
     await dedupePortfolioHoldings(portfolio);
 
@@ -401,11 +396,7 @@ const getMyPortfolio = async (req, res) => {
 
 const addPortfolioAsset = async (req, res) => {
   try {
-    const userId = getUserObjectId(req);
-
-    if (!userId) {
-      return res.status(401).json({ message: "Not authorized, no user" });
-    }
+    const userId = req.user._id;
 
     const coinId = String(req.body.coinId || req.body.id || "").trim().toLowerCase();
     const name = String(req.body.name || "").trim();
@@ -487,13 +478,7 @@ const addPortfolioAsset = async (req, res) => {
   }
 };
 
-const addPortfolioHolding = addPortfolioAsset;
-
 export {
   addPortfolioAsset,
-  addPortfolioHolding,
-  buildPortfolioResponse,
-  findOrCreateUserPortfolio,
-  getMyPortfolio,
-  mergeDuplicateHoldings
+  getMyPortfolio
 };

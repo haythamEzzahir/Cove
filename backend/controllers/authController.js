@@ -3,8 +3,11 @@ import { OAuth2Client } from "google-auth-library";
 import User from "../models/user.js";
 import Setting from "../models/setting.js";
 import Watchlist from "../models/watchlist.js";
+import Portfolio from "../models/portfolio.js";
 import generateToken from "../utils/generateToken.js";
 import { sendVerificationEmail } from "../utils/sendEmail.js";
+
+const MAX_OTP_ATTEMPTS = 5;
 
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -79,11 +82,12 @@ const findOrCreateGoogleUser = async (payload) => {
   let user = await User.findOne({ email });
 
   if (user) {
-    if (!user.googleId) user.googleId = googleId;
-    if (!user.avatar && picture) user.avatar = picture;
-    if (!user.provider) user.provider = "google";
-    if (!user.isVerified) user.isVerified = true;
-    await user.save();
+    let changed = false;
+    if (!user.googleId) { user.googleId = googleId; changed = true; }
+    if (!user.avatar && picture) { user.avatar = picture; changed = true; }
+    if (!user.provider) { user.provider = "google"; changed = true; }
+    if (!user.isVerified) { user.isVerified = true; changed = true; }
+    if (changed) await user.save();
     return user;
   }
 
@@ -115,7 +119,7 @@ const buildAuthResponse = (user) => ({
 const getGoogleClientId = (req, res) => {
   if (!process.env.GOOGLE_CLIENT_ID) {
     return res.status(500).json({
-      message: "GOOGLE_CLIENT_ID is missing in backend .env"
+      message: "Google configuration is not available"
     });
   }
 
@@ -135,58 +139,100 @@ const getCurrentUser = async (req, res) => {
 };
 
 const registerUser = async (req, res) => {
-  const { name, email, password } = req.body;
-
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: "Please fill all fields" });
-  }
-
-  const userExists = await User.findOne({ email });
-
-  if (userExists) {
-    return res.status(400).json({ message: "User already exists" });
-  }
-
-  const salt = await bcrypt.genSalt(10);
-  const hashedPassword = await bcrypt.hash(password, salt);
-  const otp = generateOTP();
-  const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
-
-  const user = await User.create({
-    name,
-    email,
-    password: hashedPassword,
-    isVerified: true,
-    verificationOTP: otp,
-    otpExpiry
-  });
-
   try {
-    await sendVerificationEmail(email, name, otp);
+    const { name, email, password } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Please fill all fields" });
+    }
+
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim().toLowerCase();
+
+    if (trimmedName.length < 1 || trimmedName.length > 100) {
+      return res.status(400).json({ message: "Name must be 1-100 characters" });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({ message: "Password must be at least 8 characters" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      return res.status(400).json({ message: "Please enter a valid email address" });
+    }
+
+    const userExists = await User.findOne({ email: trimmedEmail });
+
+    if (userExists) {
+      return res.status(400).json({ message: "User already exists" });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    const otp = generateOTP();
+    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+    const user = await User.create({
+      name: trimmedName,
+      email: trimmedEmail,
+      password: hashedPassword,
+      isVerified: false,
+      verificationOTP: otp,
+      otpExpiry
+    });
+
+    try {
+      await sendVerificationEmail(trimmedEmail, trimmedName, otp);
+    } catch (error) {
+      console.error("Verification email error:", error.message);
+    }
+
+    await Setting.create({
+      userId: user._id
+    });
+
+    res.status(201).json(buildAuthResponse(user));
   } catch (error) {
-    console.error("Verification email error:", error.message);
+    console.error("Register error:", error.message);
+    res.status(500).json({ message: "Server error during registration" });
   }
-
-  await Setting.create({
-    userId: user._id
-  });
-
-  res.status(201).json(buildAuthResponse(user));
 };
 
 const loginUser = async (req, res) => {
-  const { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-  const user = await User.findOne({ email });
+    if (!email || !password) {
+      return res.status(400).json({ message: "Please provide email and password" });
+    }
 
-  if (!user) {
-    return res.status(401).json({ message: "Invalid email or password" });
-  }
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
 
-  if (user?.password && (await bcrypt.compare(password, user.password))) {
+    if (!user) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    if (user.provider !== "local" || !user.password) {
+      return res.status(401).json({ message: "Please sign in with Google" });
+    }
+
+    if (!(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    if (!user.isVerified) {
+      return res.status(403).json({
+        message: "Please verify your email first",
+        needsVerification: true,
+        email: user.email
+      });
+    }
+
     res.json(buildAuthResponse(user));
-  } else {
-    res.status(401).json({ message: "Invalid email or password" });
+  } catch (error) {
+    console.error("Login error:", error.message);
+    res.status(500).json({ message: "Server error during login" });
   }
 };
 
@@ -201,73 +247,104 @@ const googleAuth = async (req, res) => {
     console.error("Google auth backend error:", error);
 
     return res.status(error.statusCode || 500).json({
-      message: "Google authentication failed",
-      error: error.message
+      message: "Google authentication failed"
     });
   }
 };
 
 const verifyOTP = async (req, res) => {
-  const { email, otp } = req.body;
+  try {
+    const { email, otp } = req.body;
 
-  if (!email || !otp) {
-    return res.status(400).json({ message: "Email and OTP are required" });
+    if (!email || !otp) {
+      return res.status(400).json({ message: "Email and OTP are required" });
+    }
+
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid verification request" });
+    }
+
+    if (user.isVerified) {
+      return res.json({ message: "Email already verified. You can now log in." });
+    }
+
+    const attempts = user.otpAttempts || 0;
+    if (attempts >= MAX_OTP_ATTEMPTS) {
+      return res.status(429).json({
+        message: "Too many failed attempts. Please request a new code."
+      });
+    }
+
+    if (user.verificationOTP !== otp || !user.otpExpiry || new Date() > user.otpExpiry) {
+      user.otpAttempts = attempts + 1;
+      await user.save();
+
+      const remaining = MAX_OTP_ATTEMPTS - (attempts + 1);
+      if (remaining <= 0) {
+        return res.status(429).json({
+          message: "Too many failed attempts. Please request a new code."
+        });
+      }
+
+      return res.status(400).json({
+        message: "Invalid or expired code",
+        attemptsRemaining: remaining
+      });
+    }
+
+    user.isVerified = true;
+    user.verificationOTP = "";
+    user.otpExpiry = null;
+    user.otpAttempts = 0;
+    await user.save();
+
+    res.json({ message: "Email verified successfully. You can now log in." });
+  } catch (error) {
+    console.error("OTP verification error:", error.message);
+    res.status(500).json({ message: "Server error during verification" });
   }
-
-  const user = await User.findOne({ email });
-
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
-  }
-
-  if (user.isVerified) {
-    return res.json({ message: "Email already verified. You can now log in." });
-  }
-
-  if (user.verificationOTP !== otp) {
-    return res.status(400).json({ message: "Invalid OTP code" });
-  }
-
-  if (user.otpExpiry && new Date() > user.otpExpiry) {
-    return res.status(400).json({ message: "OTP has expired. Please request a new code." });
-  }
-
-  user.isVerified = true;
-  user.verificationOTP = "";
-  user.otpExpiry = null;
-  await user.save();
-
-  res.json({ message: "Email verified successfully. You can now log in." });
 };
 
 const resendVerificationOTP = async (req, res) => {
-  const { email } = req.body;
+  try {
+    const { email } = req.body;
 
-  const user = await User.findOne({ email });
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
 
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
+    const user = await User.findOne({ email: email.trim().toLowerCase() });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid request" });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ message: "Email is already verified" });
+    }
+
+    const otp = generateOTP();
+    user.verificationOTP = otp;
+    user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    user.otpAttempts = 0;
+    await user.save();
+
+    await sendVerificationEmail(user.email, user.name, otp);
+
+    res.json({ message: "Verification code sent. Please check your inbox." });
+  } catch (error) {
+    console.error("Resend OTP error:", error.message);
+    res.status(500).json({ message: "Server error" });
   }
-
-  if (user.isVerified) {
-    return res.status(400).json({ message: "Email is already verified" });
-  }
-
-  const otp = generateOTP();
-  user.verificationOTP = otp;
-  user.otpExpiry = new Date(Date.now() + 10 * 60 * 1000);
-  await user.save();
-
-  await sendVerificationEmail(email, user.name, otp);
-
-  res.json({ message: "Verification code sent. Please check your inbox." });
 };
 
 const deleteAccount = async (req, res) => {
   const userId = req.user?.id;
 
   if (!userId) {
-    return res.status(401).json({ message: "Not authorized, no user" });
+    return res.status(401).json({ message: "Not authorized" });
   }
 
   const user = await User.findById(userId).select("_id");
@@ -278,7 +355,8 @@ const deleteAccount = async (req, res) => {
 
   await Promise.all([
     Setting.deleteMany({ userId }),
-    Watchlist.deleteMany({ userId })
+    Watchlist.deleteMany({ userId }),
+    Portfolio.deleteMany({ userId })
   ]);
 
   await User.findByIdAndDelete(userId);

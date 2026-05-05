@@ -1,17 +1,4 @@
-import mongoose from "mongoose";
 import Watchlist, { mergeCoins, normalizeStoredCoin } from "../models/watchlist.js";
-
-const getUserId = (req) => req.user?.id;
-
-const getUserObjectId = (req) => {
-  const userId = getUserId(req);
-
-  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-    return null;
-  }
-
-  return new mongoose.Types.ObjectId(userId);
-};
 
 const getPlainCoins = (watchlist) => {
   if (!watchlist) return [];
@@ -70,11 +57,7 @@ const buildResponse = (watchlist, message = "", coins = mergeCoins(watchlist?.co
 
 const getMyWatchlist = async (req, res) => {
   try {
-    const userId = getUserObjectId(req);
-
-    if (!userId) {
-      return res.status(401).json({ message: "Not authorized, no user" });
-    }
+    const userId = req.user._id;
 
     const watchlist = await Watchlist.findOne({ userId });
 
@@ -93,11 +76,7 @@ const getMyWatchlist = async (req, res) => {
 
 const addWatchlistItem = async (req, res) => {
   try {
-    const userId = getUserObjectId(req);
-
-    if (!userId) {
-      return res.status(401).json({ message: "Not authorized, no user" });
-    }
+    const userId = req.user._id;
 
     const coin = normalizeStoredCoin(req.body);
 
@@ -130,11 +109,7 @@ const addWatchlistItem = async (req, res) => {
 
 const removeWatchlistItem = async (req, res) => {
   try {
-    const userId = getUserObjectId(req);
-
-    if (!userId) {
-      return res.status(401).json({ message: "Not authorized, no user" });
-    }
+    const userId = req.user._id;
 
     const coinId = String(req.params.coinId || "").trim().toLowerCase();
 
@@ -150,7 +125,6 @@ const removeWatchlistItem = async (req, res) => {
         }
       },
       {
-        new: true,
         returnDocument: "after"
       }
     );

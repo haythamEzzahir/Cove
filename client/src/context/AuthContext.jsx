@@ -1,20 +1,8 @@
-/* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { API_URL, getInitials, getStoredToken, getJson, clearStoredAuth } from '../config';
 
 const AuthContext = createContext(null);
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const TOKEN_KEY = 'token';
-
-function getInitials(name = '') {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) || 'U';
-}
 
 function normalizeAuthUser(data = {}) {
   const email = data.email || '';
@@ -33,14 +21,6 @@ function normalizeAuthUser(data = {}) {
     updatedAt: data.updatedAt,
     initials: getInitials(name),
   };
-}
-
-async function getJson(response) {
-  try {
-    return await response.json();
-  } catch {
-    return {};
-  }
 }
 
 function normalizeCoinIds(data) {
@@ -96,26 +76,6 @@ function normalizeWatchlistCoinPayload(coin) {
     image: coin?.image || '',
     current_price: hasCurrentPrice && Number.isFinite(currentPrice) ? currentPrice : null,
   };
-}
-
-function clearStoredAuth() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem('fintracker_user');
-  localStorage.removeItem('fintracker_watchlist');
-  localStorage.removeItem('user');
-}
-
-function getStoredToken() {
-  const savedToken = localStorage.getItem(TOKEN_KEY);
-
-  if (savedToken) return savedToken;
-
-  try {
-    const legacyUser = JSON.parse(localStorage.getItem('fintracker_user') || '{}');
-    return legacyUser.token || '';
-  } catch {
-    return '';
-  }
 }
 
 export function AuthProvider({ children }) {
@@ -278,6 +238,7 @@ export function AuthProvider({ children }) {
           success: false,
           error: data.message || 'Invalid email or password',
           needsVerification: data.needsVerification || false,
+          email: data.email || '',
         };
       }
 
@@ -372,7 +333,7 @@ export function AuthProvider({ children }) {
       if (!response.ok) {
         return {
           success: false,
-          error: data.message || data.error || 'Google authentication failed',
+          error: data.message || 'Google authentication failed',
         };
       }
 
@@ -389,11 +350,11 @@ export function AuthProvider({ children }) {
 
       return { success: true };
     } catch (error) {
-      console.error('Google login frontend error:', error);
+      console.error('Google login error:', error);
 
       return {
         success: false,
-        error: error.message || 'Google authentication failed',
+        error: 'Google authentication failed',
       };
     }
   };

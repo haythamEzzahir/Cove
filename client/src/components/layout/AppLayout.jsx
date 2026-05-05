@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import Sidebar from './Sidebar';
 import TopBar from './TopBar';
@@ -17,7 +17,7 @@ const PAGE_DATA = {
 };
 
 const PROTECTED_ROUTES = ['/watchlist', '/portfolio', '/alerts', '/news', '/settings', '/settings/profile'];
-const AUTH_REDIRECT_KEY = 'fintracker_auth_redirect';
+const VERIFY_PATH = '/verify-pending';
 
 function getCurrentPath(location) {
   return `${location.pathname}${location.search}${location.hash}`;
@@ -25,6 +25,7 @@ function getCurrentPath(location) {
 
 export default function AppLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, loading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -33,7 +34,7 @@ export default function AppLayout() {
     }
     return false;
   });
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState('login');
   const [authRedirectTo, setAuthRedirectTo] = useState('/');
@@ -55,6 +56,12 @@ export default function AppLayout() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  useEffect(() => {
+    if (!loading && user && user.isVerified === false && location.pathname !== VERIFY_PATH) {
+      navigate(VERIFY_PATH, { replace: true });
+    }
+  }, [loading, user, location.pathname, navigate]);
+
   const { title, subtitle } = PAGE_DATA[location.pathname] || { title: 'Dashboard', subtitle: '' };
 
   const requiresAuth = PROTECTED_ROUTES.some(route => location.pathname.startsWith(route));
@@ -64,18 +71,11 @@ export default function AppLayout() {
   const activeAuthRedirectTo = shouldShowProtectedAuth ? currentPath : authRedirectTo;
   const activeAuthModalMode = shouldShowProtectedAuth ? 'login' : authModalMode;
 
-  useEffect(() => {
-    if (shouldShowProtectedAuth) {
-      sessionStorage.setItem(AUTH_REDIRECT_KEY, currentPath);
-    }
-  }, [currentPath, shouldShowProtectedAuth]);
-
-  const handleShowAuth = (mode = 'login') => {
-    sessionStorage.setItem(AUTH_REDIRECT_KEY, currentPath);
+  const handleShowAuth = useCallback((mode = 'login') => {
     setAuthRedirectTo(currentPath);
     setShowAuthModal(true);
     setAuthModalMode(mode);
-  };
+  }, [currentPath]);
 
   if (loading) {
     return null;
@@ -83,36 +83,32 @@ export default function AppLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-base font-sans">
-      {/* Sidebar */}
       {!isMobile && (
-        <Sidebar 
-          isOpen={sidebarOpen} 
-          onClose={() => setSidebarOpen(false)} 
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
           collapsed={sidebarCollapsed}
           onToggleCollapse={toggleSidebar}
         />
       )}
-      
-      {/* Mobile sidebar */}
+
       {isMobile && sidebarOpen && (
-        <Sidebar 
-          isOpen={sidebarOpen} 
-          onClose={() => setSidebarOpen(false)} 
+        <Sidebar
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
           collapsed={false}
           onToggleCollapse={toggleSidebar}
         />
       )}
-      
-      {/* Mobile sidebar overlay */}
+
       {isMobile && sidebarOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/50 z-30"
           onClick={() => setSidebarOpen(false)}
         />
       )}
-      
-      {/* Main content */}
-      <div 
+
+      <div
         className="flex-1 flex flex-col min-w-0 overflow-hidden"
         style={{ marginLeft: isMobile ? 0 : (sidebarCollapsed ? '56px' : '220px') }}
       >

@@ -408,8 +408,8 @@ function createPortfolioReportPdf({ portfolioData, holdings, user }) {
 function DonutLabel({ cx, cy, total }) {
   return (
     <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
-      <tspan x={cx} dy="-8" className="text-[10px] fill-secondary">Total</tspan>
-      <tspan x={cx} dy="18" className="text-xs font-bold fill-primary">{fmt(total)}</tspan>
+      <tspan x={cx} dy="-8" className="text-[10px]" fill="rgb(var(--text-secondary))">Total</tspan>
+      <tspan x={cx} dy="18" className="text-xs font-bold" fill="rgb(var(--text-primary))">{fmt(total)}</tspan>
     </text>
   );
 }

@@ -2,12 +2,6 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const AUTH_REDIRECT_KEY = 'fintracker_auth_redirect';
-
-function getSafeRedirectPath(path) {
-  return path && path.startsWith('/') && !path.startsWith('//') ? path : '/';
-}
-
 export default function Signup() {
   const location = useLocation();
   const [name, setName] = useState('');
@@ -23,8 +17,8 @@ export default function Signup() {
     setError('');
     setLoading(true);
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters');
       setLoading(false);
       return;
     }
@@ -32,11 +26,7 @@ export default function Signup() {
     const result = await signup(name, email, password);
 
     if (result.success) {
-      const params = new URLSearchParams(location.search);
-      const redirectParam = params.get('redirect');
-      const savedRedirect = sessionStorage.getItem(AUTH_REDIRECT_KEY);
-      sessionStorage.removeItem(AUTH_REDIRECT_KEY);
-      navigate(getSafeRedirectPath(redirectParam || savedRedirect), { replace: true });
+      navigate(`/verify-pending?email=${encodeURIComponent(email)}`, { replace: true });
     } else {
       setError(result.error);
     }
@@ -66,6 +56,7 @@ export default function Signup() {
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter your name"
               required
+              maxLength={100}
               className="h-10 px-3.5 rounded-lg border border-default bg-base text-sm text-primary outline-none focus:border-accent transition-colors"
             />
           </div>
@@ -78,6 +69,7 @@ export default function Signup() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
               required
+              maxLength={255}
               className="h-10 px-3.5 rounded-lg border border-default bg-base text-sm text-primary outline-none focus:border-accent transition-colors"
             />
           </div>
@@ -88,8 +80,10 @@ export default function Signup() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Create a password"
+              placeholder="Create a password (min 8 characters)"
               required
+              minLength={8}
+              maxLength={128}
               className="h-10 px-3.5 rounded-lg border border-default bg-base text-sm text-primary outline-none focus:border-accent transition-colors"
             />
           </div>

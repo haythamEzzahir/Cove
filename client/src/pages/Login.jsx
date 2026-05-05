@@ -2,13 +2,7 @@ import { useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const AUTH_REDIRECT_KEY = 'fintracker_auth_redirect';
-
-function getSafeRedirectPath(path) {
-  return path && path.startsWith('/') && !path.startsWith('//') ? path : '/';
-}
+import { API_URL, getSafeRedirectPath, AUTH_REDIRECT_KEY } from '../config';
 
 function getInitialEmail(search) {
   const params = new URLSearchParams(search);
@@ -77,8 +71,7 @@ export default function Login() {
         }
 
         setError(result.error || 'Google authentication failed');
-      } catch (error) {
-        console.error('Google login handler error:', error);
+      } catch {
         setError('Google authentication failed');
       }
 
@@ -96,20 +89,18 @@ export default function Login() {
 
     setError('');
     setLoading(true);
-    
+
     const result = await login(email, password);
-    
+
     if (result.success) {
       redirectAfterAuth();
       return;
-    } else {
-      if (result.needsVerification) {
-        setNeedsVerification(true);
-        setError(result.error);
-      } else {
-        setError(result.error);
-      }
     }
+
+    if (result.needsVerification) {
+      setNeedsVerification(true);
+    }
+    setError(result.error);
     setLoading(false);
   };
 
@@ -121,7 +112,7 @@ export default function Login() {
         body: JSON.stringify({ email }),
       });
       const data = await response.json();
-      
+
       if (response.ok) {
         setVerificationSent(true);
         setError('');
@@ -169,7 +160,7 @@ export default function Login() {
               Verification email sent! Please check your inbox.
             </div>
           )}
-          
+
           <div className="flex flex-col gap-1.5">
             <label className="text-sm font-medium text-secondary">Email</label>
             <input
@@ -178,6 +169,7 @@ export default function Login() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
               required
+              maxLength={255}
               className="h-10 px-3.5 rounded-lg border border-default bg-base text-sm text-primary outline-none focus:border-accent transition-colors"
             />
           </div>
@@ -194,8 +186,8 @@ export default function Login() {
             />
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="h-10 bg-accent rounded-lg text-sm font-semibold text-white cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
