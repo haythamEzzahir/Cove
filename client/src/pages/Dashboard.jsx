@@ -54,7 +54,7 @@ const FILTER_OPTIONS = [
 
 export default function Dashboard() {
   const { metrics, chartData, featuredCoin, assets, fetchChartData, selectCoin } = useMarketData();
-  const { token, addToWatchlist, removeFromWatchlist, isInWatchlist } = useAuth();
+  const { user, addToWatchlist, removeFromWatchlist, isInWatchlist } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleColumns, setVisibleColumns] = useState(() => AVAILABLE_COLUMNS.filter(c => c.default).map(c => c.key));
   const [showColumnMenu, setShowColumnMenu] = useState(false);
@@ -110,7 +110,7 @@ export default function Dashboard() {
 
   const handleWatchlistToggle = async (e, asset) => {
     e.stopPropagation();
-    if (!token) {
+    if (!user) {
       alert('Please login to add coins to your watchlist');
       return;
     }

@@ -1,8 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { API_URL, getInitials, getStoredToken, getJson, clearStoredAuth } from '../config';
+import { API_URL, getInitials, getJson } from '../config';
 
 const AuthContext = createContext(null);
-const TOKEN_KEY = 'token';
 
 function normalizeAuthUser(data = {}) {
   const email = data.email || '';
@@ -78,60 +77,54 @@ function normalizeWatchlistCoinPayload(coin) {
   };
 }
 
+const authFetch = async (url, options = {}) => {
+  const { headers = {}, ...rest } = options;
+
+  return fetch(url, {
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...headers,
+    },
+    ...rest,
+  });
+};
+
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(getStoredToken);
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [watchlist, setWatchlist] = useState([]);
 
   const clearAuth = useCallback(() => {
-    setToken('');
     setUser(null);
     setWatchlist([]);
-    clearStoredAuth();
   }, []);
 
-  const persistToken = useCallback((nextToken) => {
-    setToken(nextToken);
-    localStorage.setItem(TOKEN_KEY, nextToken);
-    localStorage.removeItem('fintracker_user');
-    localStorage.removeItem('user');
-  }, []);
-
-  const refreshUser = useCallback(async (tokenOverride) => {
-    const authToken = tokenOverride || token;
-
-    if (!authToken) {
-      setUser(null);
-      return {
-        success: false,
-        error: 'Please login to view your profile',
-      };
-    }
-
+  const refreshUser = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/auth/me`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-
+      const response = await authFetch(`${API_URL}/api/auth/me`);
       const data = await getJson(response);
 
       if (response.status === 401) {
+        const refreshResponse = await authFetch(`${API_URL}/api/auth/refresh`, { method: 'POST' });
+
+        if (refreshResponse.ok) {
+          const meResponse = await authFetch(`${API_URL}/api/auth/me`);
+          const meData = await getJson(meResponse);
+
+          if (meResponse.ok) {
+            const userData = normalizeAuthUser(meData);
+            setUser(userData);
+            return { success: true, user: userData };
+          }
+        }
+
         clearAuth();
-        return {
-          success: false,
-          error: data.message || 'Session expired',
-          unauthorized: true,
-        };
+        return { success: false, error: 'Session expired', unauthorized: true };
       }
 
       if (!response.ok) {
-        return {
-          success: false,
-          error: data.message || 'Failed to load profile',
-        };
+        return { success: false, error: data.message || 'Failed to load profile' };
       }
 
       const userData = normalizeAuthUser(data);
@@ -139,42 +132,21 @@ export function AuthProvider({ children }) {
 
       return { success: true, user: userData };
     } catch {
-      return {
-        success: false,
-        error: 'Server error',
-      };
+      return { success: false, error: 'Server error' };
     }
-  }, [clearAuth, token]);
+  }, [clearAuth]);
 
   const updateCurrentUser = useCallback((updates) => {
     setUser(normalizeAuthUser(updates));
   }, []);
 
-  const loadWatchlist = useCallback(async (tokenOverride) => {
-    const authToken = tokenOverride || token;
-
-    if (!authToken) {
-      setWatchlist([]);
-      return {
-        success: false,
-        error: 'Please login to view your watchlist',
-      };
-    }
-
+  const loadWatchlist = useCallback(async () => {
     try {
-      const response = await fetch(`${API_URL}/api/watchlist`, {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-
+      const response = await authFetch(`${API_URL}/api/watchlist`);
       const data = await getJson(response);
 
       if (!response.ok) {
-        return {
-          success: false,
-          error: data.message || 'Failed to load watchlist',
-        };
+        return { success: false, error: data.message || 'Failed to load watchlist' };
       }
 
       const coinIds = normalizeCoinIds(data);
@@ -182,31 +154,18 @@ export function AuthProvider({ children }) {
 
       return { success: true, coinIds };
     } catch {
-      return {
-        success: false,
-        error: 'Server error',
-      };
+      return { success: false, error: 'Server error' };
     }
-  }, [token]);
+  }, []);
 
   useEffect(() => {
     let ignore = false;
 
     async function hydrateUser() {
-      localStorage.removeItem('fintracker_user');
-      localStorage.removeItem('fintracker_watchlist');
-      localStorage.removeItem('user');
-
-      if (!token) {
-        if (!ignore) setLoading(false);
-        return;
-      }
-
-      localStorage.setItem(TOKEN_KEY, token);
-      const result = await refreshUser(token);
+      const result = await refreshUser();
 
       if (result.success && !ignore) {
-        await loadWatchlist(token);
+        await loadWatchlist();
       }
 
       if (!ignore) {
@@ -219,15 +178,12 @@ export function AuthProvider({ children }) {
     return () => {
       ignore = true;
     };
-  }, [loadWatchlist, refreshUser, token]);
+  }, [loadWatchlist, refreshUser]);
 
   const login = async (email, password) => {
     try {
-      const response = await fetch(`${API_URL}/api/auth/login`, {
+      const response = await authFetch(`${API_URL}/api/auth/login`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ email, password }),
       });
 
@@ -242,65 +198,34 @@ export function AuthProvider({ children }) {
         };
       }
 
-      if (!data.token) {
-        return {
-          success: false,
-          error: 'Authentication token missing',
-        };
-      }
-
-      persistToken(data.token);
-      await refreshUser(data.token);
-      await loadWatchlist(data.token);
+      await refreshUser();
+      await loadWatchlist();
 
       return { success: true };
     } catch {
-      return {
-        success: false,
-        error: 'An error occurred. Please try again.',
-      };
+      return { success: false, error: 'An error occurred. Please try again.' };
     }
   };
 
   const signup = async (name, email, password) => {
     try {
-      const response = await fetch(`${API_URL}/api/auth/register`, {
+      const response = await authFetch(`${API_URL}/api/auth/register`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({ name, email, password }),
       });
 
       const data = await getJson(response);
 
       if (!response.ok) {
-        return {
-          success: false,
-          error: data.message || 'Signup failed',
-        };
+        return { success: false, error: data.message || 'Signup failed' };
       }
 
-      if (!data.token) {
-        return {
-          success: false,
-          error: 'Authentication token missing',
-        };
-      }
+      await refreshUser();
+      await loadWatchlist();
 
-      persistToken(data.token);
-      await refreshUser(data.token);
-      await loadWatchlist(data.token);
-
-      return {
-        success: true,
-        message: data.message,
-      };
+      return { success: true, message: data.message };
     } catch {
-      return {
-        success: false,
-        error: 'An error occurred. Please try again.',
-      };
+      return { success: false, error: 'An error occurred. Please try again.' };
     }
   };
 
@@ -308,96 +233,59 @@ export function AuthProvider({ children }) {
     try {
       const payload = typeof googleResponse === 'string'
         ? { code: googleResponse }
-        : {
-          code: googleResponse?.code,
-          credential: googleResponse?.credential,
-        };
+        : { code: googleResponse?.code, credential: googleResponse?.credential };
 
       if (!payload.code && !payload.credential) {
-        return {
-          success: false,
-          error: 'Google authorization code or credential missing',
-        };
+        return { success: false, error: 'Google authorization code or credential missing' };
       }
 
-      const response = await fetch(`${API_URL}/api/auth/google`, {
+      const response = await authFetch(`${API_URL}/api/auth/google`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(payload),
       });
 
       const data = await getJson(response);
 
       if (!response.ok) {
-        return {
-          success: false,
-          error: data.message || 'Google authentication failed',
-        };
+        return { success: false, error: data.message || 'Google authentication failed' };
       }
 
-      if (!data.token) {
-        return {
-          success: false,
-          error: 'Authentication token missing',
-        };
-      }
-
-      persistToken(data.token);
-      await refreshUser(data.token);
-      await loadWatchlist(data.token);
+      await refreshUser();
+      await loadWatchlist();
 
       return { success: true };
     } catch (error) {
       console.error('Google login error:', error);
-
-      return {
-        success: false,
-        error: 'Google authentication failed',
-      };
+      return { success: false, error: 'Google authentication failed' };
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await authFetch(`${API_URL}/api/auth/logout`, { method: 'POST' });
+    } catch {
+    }
     clearAuth();
   };
 
   const addToWatchlist = async (coin) => {
-    if (!token) {
-      return {
-        success: false,
-        error: 'Please login to add to watchlist',
-      };
-    }
-
     const coinPayload = normalizeWatchlistCoinPayload(coin);
     const coinId = coinPayload?.coinId;
 
     if (!coinId) {
-      return {
-        success: false,
-        error: 'coinId is required',
-      };
+      return { success: false, error: 'coinId is required' };
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/watchlist`, {
+      const response = await authFetch(`${API_URL}/api/watchlist`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify(coinPayload),
       });
 
       const data = await getJson(response);
 
       if (!response.ok) {
-        return {
-          success: false,
-          error: data.message || 'Failed to add coin',
-        };
+        return { success: false, error: data.message || 'Failed to add coin' };
       }
 
       const responseCoinIds = normalizeCoinIds(data);
@@ -407,45 +295,26 @@ export function AuthProvider({ children }) {
 
       return { success: true, coinIds: mergedCoinIds };
     } catch {
-      return {
-        success: false,
-        error: 'Server error',
-      };
+      return { success: false, error: 'Server error' };
     }
   };
 
   const removeFromWatchlist = async (coinId) => {
-    if (!token) {
-      return {
-        success: false,
-        error: 'Please login to remove from watchlist',
-      };
-    }
-
     const normalizedCoinId = getCoinId(coinId)?.trim().toLowerCase();
 
     if (!normalizedCoinId) {
-      return {
-        success: false,
-        error: 'coinId is required',
-      };
+      return { success: false, error: 'coinId is required' };
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/watchlist/${encodeURIComponent(normalizedCoinId)}`, {
+      const response = await authFetch(`${API_URL}/api/watchlist/${encodeURIComponent(normalizedCoinId)}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
 
       const data = await getJson(response);
 
       if (!response.ok) {
-        return {
-          success: false,
-          error: data.message || 'Failed to remove coin',
-        };
+        return { success: false, error: data.message || 'Failed to remove coin' };
       }
 
       const responseCoinIds = normalizeCoinIds(data);
@@ -461,10 +330,7 @@ export function AuthProvider({ children }) {
 
       return { success: true, coinIds: nextCoinIds };
     } catch {
-      return {
-        success: false,
-        error: 'Server error',
-      };
+      return { success: false, error: 'Server error' };
     }
   };
 
@@ -477,7 +343,6 @@ export function AuthProvider({ children }) {
     <AuthContext.Provider
       value={{
         user,
-        token,
         loading,
         login,
         signup,

@@ -12,17 +12,17 @@ export const validateLogin = [
 ];
 
 export const validateOTP = [
-  body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+  body("email").notEmpty().withMessage("Email is required"),
   body("otp").isLength({ min: 6, max: 6 }).matches(/^\d+$/).withMessage("OTP must be a 6-digit code"),
 ];
 
 export const validateResendOTP = [
-  body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+  body("email").notEmpty().withMessage("Email is required"),
 ];
 
 const isValidAvatar = (value) => {
-  if (!value || typeof value !== "string") return false;
-  if (value.startsWith("data:image/")) return value.length <= 500000;
+  if (!value || typeof value !== "string") return true;
+  if (value.startsWith("data:image/")) return true;
   try {
     new URL(value);
     return true;
@@ -35,7 +35,7 @@ export const validateProfileUpdate = [
   body("name").optional().trim().isLength({ min: 1, max: 100 }).withMessage("Name must be 1-100 characters"),
   body("email").optional().isEmail().normalizeEmail().isLength({ max: 255 }).withMessage("Valid email is required"),
   body("bio").optional().trim().isLength({ max: 500 }).withMessage("Bio must be under 500 characters"),
-  body("avatar").optional().custom(isValidAvatar).withMessage("Avatar must be a valid URL or base64 image"),
+  body("avatar").optional().custom(isValidAvatar).withMessage("Avatar must be a valid URL"),
   body("currentPassword").optional().notEmpty().withMessage("Current password is required"),
   body("newPassword").optional().isLength({ min: 8, max: 128 }).withMessage("Password must be 8-128 characters"),
   body("confirmPassword").optional().notEmpty().withMessage("Password confirmation is required"),
@@ -77,7 +77,9 @@ export const validateSettings = [
 export const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    return res.status(400).json({ message: "Validation failed", errors: errors.array().map((e) => `${e.path}: ${e.msg}`) });
+    const details = errors.array().map((e) => `${e.path}: ${e.msg}`).join("; ");
+    console.log("Validation errors:", details);
+    return res.status(400).json({ message: `Validation failed: ${details}` });
   }
   next();
 };

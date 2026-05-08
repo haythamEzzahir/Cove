@@ -97,7 +97,7 @@ function getInitialLastSaved(user) {
 }
 
 export default function Profile() {
-  const { user, token, loading, logout, updateCurrentUser } = useAuth();
+  const { user, loading, logout, updateCurrentUser } = useAuth();
 
   if (!loading && !user) {
     return (
@@ -114,14 +114,13 @@ export default function Profile() {
     <ProfileEditor
       key={user?._id || user?.email || 'loading'}
       user={user}
-      token={token}
       logout={logout}
       updateCurrentUser={updateCurrentUser}
     />
   );
 }
 
-function ProfileEditor({ user, token, logout, updateCurrentUser }) {
+function ProfileEditor({ user, logout, updateCurrentUser }) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState(() => profileFromUser(user));
   const [notifs, setNotifs]   = useState(INITIAL_NOTIFS);
@@ -141,11 +140,6 @@ function ProfileEditor({ user, token, logout, updateCurrentUser }) {
   const setN = (key, val) => setNotifs(n => ({ ...n, [key]: val }));
 
   const handleSave = async () => {
-    if (!token) {
-      setError('Please sign in to save your profile.');
-      return;
-    }
-
     if (!profile.email.trim()) {
       setError('Email is required.');
       return;
@@ -180,9 +174,9 @@ function ProfileEditor({ user, token, logout, updateCurrentUser }) {
     try {
       const response = await fetch(`${API_URL}/api/users/profile`, {
         method: 'PUT',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(payload),
       });
@@ -252,9 +246,7 @@ function ProfileEditor({ user, token, logout, updateCurrentUser }) {
   };
 
   const handleConfirmDelete = async () => {
-    const authToken = localStorage.getItem('token') || token;
-
-    if (!authToken) {
+    if (!user) {
       setDeleteError('Please sign in again before deleting your account.');
       return;
     }
@@ -266,9 +258,7 @@ function ProfileEditor({ user, token, logout, updateCurrentUser }) {
     try {
       const response = await fetch(`${API_URL}/api/auth/account`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
+        credentials: 'include',
       });
 
       const data = await getJson(response);
@@ -278,10 +268,6 @@ function ProfileEditor({ user, token, logout, updateCurrentUser }) {
         return;
       }
 
-      localStorage.removeItem('fintracker_user');
-      localStorage.removeItem('fintracker_watchlist');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
       logout();
       navigate('/login', { replace: true });
     } catch (deleteError) {

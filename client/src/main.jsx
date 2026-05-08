@@ -84,12 +84,8 @@ function GoogleProviderWrapper({ children }) {
     return <div>Loading...</div>;
   }
 
-  if (error) {
-    return (
-      <GoogleOAuthProvider clientId="">
-        {children}
-      </GoogleOAuthProvider>
-    );
+  if (error || !clientId) {
+    return <>{children}</>;
   }
 
   return (

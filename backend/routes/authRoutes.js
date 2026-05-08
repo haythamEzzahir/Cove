@@ -5,6 +5,8 @@ import {
   googleAuth,
   getGoogleClientId,
   getCurrentUser,
+  refreshAccessToken,
+  logoutUser,
   verifyOTP,
   resendVerificationOTP,
   deleteAccount
@@ -22,6 +24,8 @@ const router = express.Router();
 
 router.post("/register", validateRegistration, handleValidationErrors, registerUser);
 router.post("/login", validateLogin, handleValidationErrors, loginUser);
+router.post("/refresh", refreshAccessToken);
+router.post("/logout", logoutUser);
 router.get("/me", protect, getCurrentUser);
 router.get("/google/config", getGoogleClientId);
 router.get("/google/client-id", getGoogleClientId);

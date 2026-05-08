@@ -26,6 +26,7 @@ export default function Signup() {
     const result = await signup(name, email, password);
 
     if (result.success) {
+      sessionStorage.setItem('fintracker_verify_email', email);
       navigate(`/verify-pending?email=${encodeURIComponent(email)}`, { replace: true });
     } else {
       setError(result.error);

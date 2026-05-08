@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import User from "../models/user.js";
+import { uploadAvatar, deleteAvatar } from "../utils/uploadAvatar.js";
 
 const buildUserResponse = (user) => ({
   _id: user._id,
@@ -61,7 +62,22 @@ const updateProfile = async (req, res) => {
   }
 
   if (typeof avatar === "string") {
-    user.avatar = avatar.trim();
+    const trimmedAvatar = avatar.trim();
+
+    if (!trimmedAvatar) {
+      if (user.avatar && user.avatar.includes("cloudinary.com")) {
+        await deleteAvatar(user.avatar);
+      }
+      user.avatar = "";
+    } else if (trimmedAvatar.startsWith("data:image/")) {
+      const cloudUrl = await uploadAvatar(trimmedAvatar);
+      if (user.avatar && user.avatar.includes("cloudinary.com")) {
+        await deleteAvatar(user.avatar);
+      }
+      user.avatar = cloudUrl;
+    } else {
+      user.avatar = trimmedAvatar;
+    }
   }
 
   if (currentPassword || newPassword || confirmPassword) {

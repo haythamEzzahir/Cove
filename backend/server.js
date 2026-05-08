@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import compression from "compression";
+import cookieParser from "cookie-parser";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
 
@@ -20,9 +21,11 @@ import {
   authLimiter,
   otpLimiter,
   otpResendLimiter,
-  apiLimiter
+  apiLimiter,
+  publicProxyLimiter
 } from "./middleware/rateLimiter.js";
 import { validateCoinIdParam, validateChartQuery, handleValidationErrors } from "./utils/validators.js";
+import { getCache, setCache } from "./utils/cache.js";
 
 dotenv.config();
 
@@ -50,6 +53,7 @@ app.use(cors({
 }));
 app.use(compression());
 app.use(express.json({ limit: "500kb" }));
+app.use(cookieParser());
 app.use(globalLimiter);
 
 app.use((req, res, next) => {
@@ -77,19 +81,26 @@ const validateCoinGeckoId = (req, res, next) => {
   next();
 };
 
-app.get("/coins", async (req, res) => {
+const fetchCoinGecko = async (url) => {
+  return fetch(url, {
+    method: "GET",
+    headers: {
+      "x-cg-demo-api-key": process.env.CG_API_KEY,
+    },
+  });
+};
+
+// Public cached routes
+
+app.get("/api/public/coins", publicProxyLimiter, async (req, res) => {
+  const cacheKey = "coins_list_public";
+  const cached = await getCache(cacheKey);
+  if (cached) return res.json(cached);
+
   try {
     const currency = req.query.currency || "usd";
-    const ids = req.query.ids;
-    const idsParam = ids ? `&ids=${encodeURIComponent(ids)}` : "";
-    const response = await fetch(
-      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}${idsParam}&order=market_cap_desc&per_page=100&page=1&sparkline=true&price_change_percentage=1h%2C7d`,
-      {
-        method: "GET",
-        headers: {
-          "x-cg-demo-api-key": process.env.CG_API_KEY,
-        },
-      }
+    const response = await fetchCoinGecko(
+      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}&order=market_cap_desc&per_page=10&page=1`
     );
 
     if (!response.ok) {
@@ -98,6 +109,34 @@ app.get("/coins", async (req, res) => {
     }
 
     const data = await response.json();
+    await setCache(cacheKey, data, 60);
+    res.json(data);
+  } catch (error) {
+    console.error("Fetch public coins error:", error.message);
+    res.status(502).json({ error: "Failed to fetch coins" });
+  }
+});
+
+app.get("/coins", publicProxyLimiter, async (req, res) => {
+  const ids = req.query.ids;
+  const currency = req.query.currency || "usd";
+  const cacheKey = ids ? `coins_list_${ids}_${currency}` : `coins_list_${currency}`;
+  const cached = await getCache(cacheKey);
+  if (cached) return res.json(cached);
+
+  try {
+    const idsParam = ids ? `&ids=${encodeURIComponent(ids)}` : "";
+    const response = await fetchCoinGecko(
+      `https://api.coingecko.com/api/v3/coins/markets?vs_currency=${currency}${idsParam}&order=market_cap_desc&per_page=100&page=1&sparkline=true&price_change_percentage=1h%2C7d`
+    );
+
+    if (!response.ok) {
+      const status = response.status === 429 ? 429 : 502;
+      return res.status(status).json({ error: "Failed to fetch market data" });
+    }
+
+    const data = await response.json();
+    await setCache(cacheKey, data, ids ? 30 : 60);
     res.json(data);
   } catch (error) {
     console.error("Fetch coins error:", error.message);
@@ -105,18 +144,16 @@ app.get("/coins", async (req, res) => {
   }
 });
 
-app.get("/coins/:coinId", validateCoinGeckoId, async (req, res) => {
+app.get("/coins/:coinId", publicProxyLimiter, validateCoinGeckoId, async (req, res) => {
+  const { coinId } = req.params;
+  const currency = req.query.currency || "usd";
+  const cacheKey = `coin_${coinId}_${currency}`;
+  const cached = await getCache(cacheKey);
+  if (cached) return res.json(cached);
+
   try {
-    const { coinId } = req.params;
-    const currency = req.query.currency || "usd";
-    const response = await fetch(
-      `https://api.coingecko.com/api/v3/coins/${coinId}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=true`,
-      {
-        method: "GET",
-        headers: {
-          "x-cg-demo-api-key": process.env.CG_API_KEY,
-        },
-      }
+    const response = await fetchCoinGecko(
+      `https://api.coingecko.com/api/v3/coins/${coinId}?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=true`
     );
 
     if (!response.ok) {
@@ -130,7 +167,7 @@ app.get("/coins/:coinId", validateCoinGeckoId, async (req, res) => {
     const priceChange24h = marketData.price_change_percentage_24h;
     const normalizedChange24h = typeof priceChange24h === 'object' ? priceChange24h?.[currency] ?? null : priceChange24h;
 
-    res.json({
+    const result = {
       id: data.id,
       symbol: data.symbol,
       name: data.name,
@@ -148,27 +185,27 @@ app.get("/coins/:coinId", validateCoinGeckoId, async (req, res) => {
       atl: marketData.atl?.[currency] ?? null,
       sparkline_in_7d: marketData.sparkline_7d,
       market_cap_rank: data.market_cap_rank,
-    });
+    };
+
+    await setCache(cacheKey, result, 60);
+    res.json(result);
   } catch (error) {
     console.error("Get single coin error:", error.message);
     res.status(502).json({ error: "Failed to fetch coin" });
   }
 });
 
-app.get("/chart/:coinId", validateCoinGeckoId, validateChartQuery, handleValidationErrors, async (req, res) => {
-  try {
-    const { coinId } = req.params;
-    const currency = req.query.currency || "usd";
-    const days = Math.min(365, Math.max(1, parseInt(req.query.days) || 7));
+app.get("/chart/:coinId", publicProxyLimiter, validateCoinGeckoId, validateChartQuery, handleValidationErrors, async (req, res) => {
+  const { coinId } = req.params;
+  const currency = req.query.currency || "usd";
+  const days = Math.min(365, Math.max(1, parseInt(req.query.days) || 7));
+  const cacheKey = `chart_${coinId}_${days}_${currency}`;
+  const cached = await getCache(cacheKey);
+  if (cached) return res.json(cached);
 
-    const response = await fetch(
-      `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=${currency}&days=${days}`,
-      {
-        method: "GET",
-        headers: {
-          "x-cg-demo-api-key": process.env.CG_API_KEY,
-        },
-      }
+  try {
+    const response = await fetchCoinGecko(
+      `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=${currency}&days=${days}`
     );
 
     if (!response.ok) {
@@ -177,6 +214,7 @@ app.get("/chart/:coinId", validateCoinGeckoId, validateChartQuery, handleValidat
     }
 
     const data = await response.json();
+    await setCache(cacheKey, data, 300);
     res.json(data);
   } catch (error) {
     console.error("Chart data error:", error.message);
@@ -208,16 +246,14 @@ app.post("/api/alerts/trigger", protect, async (req, res) => {
   }
 });
 
-app.get("/coins/exchange-rates", async (req, res) => {
+app.get("/coins/exchange-rates", publicProxyLimiter, async (req, res) => {
+  const cacheKey = "exchange_rates";
+  const cached = await getCache(cacheKey);
+  if (cached) return res.json(cached);
+
   try {
-    const response = await fetch(
-      `https://api.coingecko.com/api/v3/exchange_rates`,
-      {
-        method: "GET",
-        headers: {
-          "x-cg-demo-api-key": process.env.CG_API_KEY,
-        },
-      }
+    const response = await fetchCoinGecko(
+      `https://api.coingecko.com/api/v3/exchange_rates`
     );
 
     if (!response.ok) {
@@ -226,6 +262,7 @@ app.get("/coins/exchange-rates", async (req, res) => {
     }
 
     const data = await response.json();
+    await setCache(cacheKey, data.rates, 3600);
     res.json(data.rates);
   } catch (error) {
     console.error("Exchange rates error:", error.message);
@@ -233,20 +270,18 @@ app.get("/coins/exchange-rates", async (req, res) => {
   }
 });
 
-app.get("/search", async (req, res) => {
+app.get("/search", publicProxyLimiter, async (req, res) => {
+  const query = (req.query.q || "").toLowerCase().trim();
+  const cacheKey = `search_${query}`;
+  const cached = await getCache(cacheKey);
+  if (cached) return res.json(cached);
+
   try {
-    const query = req.query.q || "";
     if (query.length > 100) {
       return res.status(400).json({ error: "Search query too long" });
     }
-    const response = await fetch(
-      `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`,
-      {
-        method: "GET",
-        headers: {
-          "x-cg-demo-api-key": process.env.CG_API_KEY,
-        },
-      }
+    const response = await fetchCoinGecko(
+      `https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(query)}`
     );
 
     if (!response.ok) {
@@ -255,6 +290,7 @@ app.get("/search", async (req, res) => {
     }
 
     const data = await response.json();
+    await setCache(cacheKey, data, 120);
     res.json(data);
   } catch (error) {
     console.error("Search coins error:", error.message);

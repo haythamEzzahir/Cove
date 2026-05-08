@@ -634,7 +634,7 @@ function AddAssetModal({ onClose, onAdd }) {
 }
 
 export default function Portfolio() {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [portfolioData, setPortfolioData] = useState(EMPTY_PORTFOLIO);
@@ -642,7 +642,7 @@ export default function Portfolio() {
   const [error, setError] = useState('');
 
   const fetchPortfolioData = useCallback(async () => {
-    if (!token) {
+    if (!user) {
       setPortfolioData(EMPTY_PORTFOLIO);
       setError('Please login to view your portfolio');
       setLoading(false);
@@ -654,9 +654,7 @@ export default function Portfolio() {
       setError('');
 
       const response = await fetch(`${API_URL}/api/portfolio/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
       const data = await getJson(response);
 
@@ -675,7 +673,7 @@ export default function Portfolio() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [user]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -683,7 +681,7 @@ export default function Portfolio() {
   }, [fetchPortfolioData]);
 
   const handleAddAsset = async (asset) => {
-    if (!token) {
+    if (!user) {
       return { success: false, error: 'Please login to add an asset' };
     }
 
@@ -699,9 +697,9 @@ export default function Portfolio() {
 
       const response = await fetch(`${API_URL}/api/portfolio/assets`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(body),
       });
@@ -740,7 +738,7 @@ export default function Portfolio() {
   const isEmpty = !loading && !error && holdingsList.length === 0;
 
   const canExportPortfolio = useCallback(() => {
-    if (!token) {
+    if (!user) {
       setError('Please login to export your portfolio');
       return false;
     }
@@ -756,7 +754,7 @@ export default function Portfolio() {
     }
 
     return true;
-  }, [error, holdingsList.length, loading, token]);
+  }, [error, holdingsList.length, loading, user]);
 
   const handleExportCsv = useCallback(() => {
     if (!canExportPortfolio()) {

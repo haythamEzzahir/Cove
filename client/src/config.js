@@ -1,7 +1,6 @@
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export const AUTH_REDIRECT_KEY = 'fintracker_auth_redirect';
-const TOKEN_KEY = 'token';
 
 export function getSafeRedirectPath(path) {
   if (!path || typeof path !== 'string') return '/';
@@ -36,18 +35,6 @@ export async function getJson(response) {
   }
 }
 
-export function getStoredToken() {
-  const savedToken = localStorage.getItem(TOKEN_KEY);
-  if (savedToken) return savedToken;
-
-  try {
-    const legacyUser = JSON.parse(localStorage.getItem('fintracker_user') || '{}');
-    return legacyUser.token || '';
-  } catch {
-    return '';
-  }
-}
-
 export function formatPrice(value, symbol = '$') {
   if (value == null || Number.isNaN(value)) return `${symbol}0.00`;
   const num = Number(value);
@@ -66,9 +53,31 @@ export function formatMarketCap(value) {
   return `$${num.toFixed(2)}`;
 }
 
-export function clearStoredAuth() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem('fintracker_user');
-  localStorage.removeItem('fintracker_watchlist');
-  localStorage.removeItem('user');
+export async function fetchWithAuth(url, options = {}) {
+  const { headers = {}, ...rest } = options;
+
+  const doFetch = (token) => fetch(url, {
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...headers,
+    },
+    ...rest,
+  });
+
+  let response = await doFetch();
+
+  if (response.status === 401) {
+    const refreshResponse = await fetch(`${API_URL}/api/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    if (refreshResponse.ok) {
+      response = await doFetch();
+    }
+  }
+
+  return response;
 }

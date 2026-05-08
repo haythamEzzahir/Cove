@@ -8,7 +8,11 @@ export default function VerifyPending() {
   const [searchParams] = useSearchParams();
   const emailParam = searchParams.get('email');
 
-  const [email, setEmail] = useState(emailParam || '');
+  const storedEmail = sessionStorage.getItem('fintracker_verify_email');
+  const initialEmail = emailParam || storedEmail || '';
+
+  const [email, setEmail] = useState(initialEmail);
+  const [showEmailInput, setShowEmailInput] = useState(!initialEmail);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -73,6 +77,7 @@ export default function VerifyPending() {
       const data = await getJson(response);
 
       if (response.ok) {
+        sessionStorage.removeItem('fintracker_verify_email');
         setSuccess('Email verified! Redirecting to login...');
         setTimeout(() => navigate('/login?msg=verified'), 1500);
       } else {
@@ -127,6 +132,31 @@ export default function VerifyPending() {
         <p className="text-sm font-medium text-primary mb-6">{email}</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col items-center gap-4">
+          {!email || showEmailInput ? (
+            <div className="w-full mb-2">
+              <label className="text-sm font-medium text-secondary mb-1 block text-left">Email address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter the email you signed up with"
+                required
+                className="w-full h-10 px-3.5 rounded-lg border border-default bg-base text-sm text-primary outline-none focus:border-accent transition-colors"
+              />
+            </div>
+          ) : (
+            <div className="mb-2">
+              <p className="text-sm font-medium text-primary">{email}</p>
+              <button
+                type="button"
+                onClick={() => setShowEmailInput(true)}
+                className="text-xs text-accent hover:underline cursor-pointer"
+              >
+                Change email
+              </button>
+            </div>
+          )}
+
           <div className="flex gap-2" onPaste={handlePaste}>
             {otp.map((digit, index) => (
               <input

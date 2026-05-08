@@ -1,9 +1,11 @@
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import User from "../models/user.js";
 import Setting from "../models/setting.js";
 import Watchlist from "../models/watchlist.js";
 import Portfolio from "../models/portfolio.js";
+import RefreshToken from "../models/refreshToken.js";
 import generateToken from "../utils/generateToken.js";
 import { sendVerificationEmail } from "../utils/sendEmail.js";
 
@@ -105,7 +107,48 @@ const findOrCreateGoogleUser = async (payload) => {
   return user;
 };
 
-const buildAuthResponse = (user) => ({
+const setAuthCookies = (res, accessToken, refreshToken) => {
+  const isProd = process.env.NODE_ENV === "production";
+
+  res.cookie("token", accessToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    maxAge: 15 * 60 * 1000,
+    path: "/"
+  });
+
+  res.cookie("refreshToken", refreshToken, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/"
+  });
+};
+
+const clearAuthCookies = (res) => {
+  const isProd = process.env.NODE_ENV === "production";
+
+  res.clearCookie("token", { httpOnly: true, secure: isProd, sameSite: isProd ? "none" : "lax", path: "/" });
+  res.clearCookie("refreshToken", { httpOnly: true, secure: isProd, sameSite: isProd ? "none" : "lax", path: "/" });
+};
+
+const createRefreshTokenPair = async (user, req) => {
+  const accessToken = generateToken(user._id, "15m");
+  const rawRefreshToken = crypto.randomBytes(40).toString("hex");
+  const tokenHash = crypto.createHash("sha256").update(rawRefreshToken).digest("hex");
+
+  await RefreshToken.create({
+    userId: user._id,
+    tokenHash,
+    userAgent: req?.headers["user-agent"] || ""
+  });
+
+  return { accessToken, refreshToken: rawRefreshToken };
+};
+
+const buildUserResponse = (user) => ({
   _id: user._id,
   name: user.name,
   email: user.email,
@@ -113,7 +156,9 @@ const buildAuthResponse = (user) => ({
   bio: user.bio || "",
   provider: user.provider || "local",
   isVerified: user.isVerified || false,
-  token: generateToken(user._id)
+  role: user.role || "user",
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt
 });
 
 const getGoogleClientId = (req, res) => {
@@ -192,7 +237,10 @@ const registerUser = async (req, res) => {
       userId: user._id
     });
 
-    res.status(201).json(buildAuthResponse(user));
+    const { accessToken, refreshToken } = await createRefreshTokenPair(user, req);
+    setAuthCookies(res, accessToken, refreshToken);
+
+    res.status(201).json(buildUserResponse(user));
   } catch (error) {
     console.error("Register error:", error.message);
     res.status(500).json({ message: "Server error during registration" });
@@ -229,7 +277,10 @@ const loginUser = async (req, res) => {
       });
     }
 
-    res.json(buildAuthResponse(user));
+    const { accessToken, refreshToken } = await createRefreshTokenPair(user, req);
+    setAuthCookies(res, accessToken, refreshToken);
+
+    res.json(buildUserResponse(user));
   } catch (error) {
     console.error("Login error:", error.message);
     res.status(500).json({ message: "Server error during login" });
@@ -242,7 +293,10 @@ const googleAuth = async (req, res) => {
     const payload = await getGooglePayload({ code, credential });
     const user = await findOrCreateGoogleUser(payload);
 
-    return res.json(buildAuthResponse(user));
+    const { accessToken, refreshToken } = await createRefreshTokenPair(user, req);
+    setAuthCookies(res, accessToken, refreshToken);
+
+    return res.json(buildUserResponse(user));
   } catch (error) {
     console.error("Google auth backend error:", error);
 
@@ -250,6 +304,56 @@ const googleAuth = async (req, res) => {
       message: "Google authentication failed"
     });
   }
+};
+
+const refreshAccessToken = async (req, res) => {
+  const incomingRefreshToken = req.cookies?.refreshToken;
+
+  if (!incomingRefreshToken) {
+    return res.status(401).json({ message: "Refresh token missing" });
+  }
+
+  const tokenHash = crypto.createHash("sha256").update(incomingRefreshToken).digest("hex");
+
+  try {
+    const storedToken = await RefreshToken.findOne({ tokenHash, isRevoked: false });
+
+    if (!storedToken) {
+      clearAuthCookies(res);
+      return res.status(403).json({ message: "Invalid or revoked refresh token" });
+    }
+
+    const user = await User.findById(storedToken.userId).select("-password");
+
+    if (!user || !user.isVerified) {
+      await RefreshToken.deleteOne({ _id: storedToken._id });
+      clearAuthCookies(res);
+      return res.status(403).json({ message: "User not found or not verified" });
+    }
+
+    const { accessToken, refreshToken: newRefreshToken } = await createRefreshTokenPair(user, req);
+
+    await RefreshToken.deleteOne({ _id: storedToken._id });
+
+    setAuthCookies(res, accessToken, newRefreshToken);
+
+    res.json(buildUserResponse(user));
+  } catch (error) {
+    clearAuthCookies(res);
+    return res.status(403).json({ message: "Invalid refresh token" });
+  }
+};
+
+const logoutUser = async (req, res) => {
+  const refreshToken = req.cookies?.refreshToken;
+
+  if (refreshToken) {
+    const tokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
+    await RefreshToken.deleteOne({ tokenHash });
+  }
+
+  clearAuthCookies(res);
+  return res.json({ message: "Logged out successfully" });
 };
 
 const verifyOTP = async (req, res) => {
@@ -354,12 +458,15 @@ const deleteAccount = async (req, res) => {
   }
 
   await Promise.all([
+    RefreshToken.deleteMany({ userId }),
     Setting.deleteMany({ userId }),
     Watchlist.deleteMany({ userId }),
     Portfolio.deleteMany({ userId })
   ]);
 
   await User.findByIdAndDelete(userId);
+
+  clearAuthCookies(res);
 
   return res.json({ message: "Account deleted successfully" });
 };
@@ -370,6 +477,8 @@ export {
   googleAuth,
   getGoogleClientId,
   getCurrentUser,
+  refreshAccessToken,
+  logoutUser,
   verifyOTP,
   resendVerificationOTP,
   deleteAccount
