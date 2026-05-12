@@ -95,7 +95,7 @@ export function useMarketData() {
     });
   }, [formatPrice]);
 
-  useBinanceWebSocket(data.assets, handlePriceUpdate);
+  useBinanceWebSocket(data.assets, handlePriceUpdate, currency);
 
   useEffect(() => {
     const fetchData = async () => {

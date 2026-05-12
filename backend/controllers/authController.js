@@ -108,30 +108,26 @@ const findOrCreateGoogleUser = async (payload) => {
 };
 
 const setAuthCookies = (res, accessToken, refreshToken) => {
-  const isProd = process.env.NODE_ENV === "production";
-
   res.cookie("token", accessToken, {
     httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
+    secure: true,
+    sameSite: "none",
     maxAge: 15 * 60 * 1000,
     path: "/"
   });
 
   res.cookie("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: isProd,
-    sameSite: isProd ? "none" : "lax",
+    secure: true,
+    sameSite: "none",
     maxAge: 7 * 24 * 60 * 60 * 1000,
     path: "/"
   });
 };
 
 const clearAuthCookies = (res) => {
-  const isProd = process.env.NODE_ENV === "production";
-
-  res.clearCookie("token", { httpOnly: true, secure: isProd, sameSite: isProd ? "none" : "lax", path: "/" });
-  res.clearCookie("refreshToken", { httpOnly: true, secure: isProd, sameSite: isProd ? "none" : "lax", path: "/" });
+  res.clearCookie("token", { httpOnly: true, secure: true, sameSite: "none", path: "/" });
+  res.clearCookie("refreshToken", { httpOnly: true, secure: true, sameSite: "none", path: "/" });
 };
 
 const createRefreshTokenPair = async (user, req) => {

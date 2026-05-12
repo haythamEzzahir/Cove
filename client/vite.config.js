@@ -13,4 +13,12 @@ export default defineConfig({
       },
     },
   },
+  server: {
+    proxy: {
+      '/api': { target: 'http://localhost:5000', changeOrigin: true },
+      '/coins': { target: 'http://localhost:5000', changeOrigin: true },
+      '/chart': { target: 'http://localhost:5000', changeOrigin: true },
+      '/search': { target: 'http://localhost:5000', changeOrigin: true },
+    },
+  },
 })

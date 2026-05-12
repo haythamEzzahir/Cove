@@ -41,6 +41,11 @@ export const validateProfileUpdate = [
   body("confirmPassword").optional().notEmpty().withMessage("Password confirmation is required"),
 ];
 
+export const validatePortfolioSell = [
+  body("coinId").trim().isLength({ min: 1, max: 100 }).matches(/^[a-z0-9-]+$/i).withMessage("Invalid coinId"),
+  body("quantity").isFloat({ min: 0.00000001 }).withMessage("Quantity must be greater than 0"),
+];
+
 export const validatePortfolioAsset = [
   body("coinId").trim().isLength({ min: 1, max: 100 }).matches(/^[a-z0-9-]+$/i).withMessage("Invalid coinId"),
   body("name").trim().isLength({ min: 1, max: 200 }).withMessage("Name is required"),
