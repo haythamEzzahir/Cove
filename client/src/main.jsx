@@ -6,6 +6,7 @@ import { SettingsProvider } from './context/SettingsContext';
 import { AuthProvider } from './context/AuthContext';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { API_URL } from './config';
 import AppLayout from './components/layout/AppLayout';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
@@ -18,7 +19,6 @@ import Signup from './pages/Signup';
 import VerifyPending from './pages/VerifyPending';
 import './index.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const GOOGLE_CONFIG_URL = `${API_URL}/api/auth/google/config`;
 
 const router = createBrowserRouter([
@@ -58,37 +58,20 @@ function GoogleProviderWrapper({ children }) {
   useEffect(() => {
     const loadClientId = async () => {
       try {
-        const response = await fetch(GOOGLE_CONFIG_URL, {
-          method: 'GET',
-          headers: {
-            Accept: 'application/json',
-          },
-        });
+        const response = await fetch(GOOGLE_CONFIG_URL);
         const contentType = response.headers.get('content-type') || '';
         const data = contentType.includes('application/json')
           ? await response.json()
-          : { message: await response.text() };
+          : {};
 
-        if (!response.ok) {
-          if (response.status === 404) {
-            throw new Error(`Google config route not found: GET ${GOOGLE_CONFIG_URL}`);
-          }
-
-          throw new Error(data.message || data.error || `Failed to load Google config (HTTP ${response.status})`);
-        }
-
-        if (!data.clientId) {
-          throw new Error('GOOGLE_CLIENT_ID is missing or empty in the backend .env');
+        if (!response.ok || !data.clientId) {
+          throw new Error('Google configuration unavailable');
         }
 
         setClientId(data.clientId);
       } catch (err) {
-        console.error('Failed to load Google Client ID:', err);
-        const message = err instanceof TypeError && err.message === 'Failed to fetch'
-          ? `Unable to reach backend at ${API_URL}. Start the backend on port 5000 and verify CORS allows ${window.location.origin}.`
-          : err.message || 'Unknown Google configuration error';
-
-        setError(message);
+        console.error('Google config error:', err);
+        setError('Google login is not available');
       } finally {
         setLoading(false);
       }
@@ -98,11 +81,11 @@ function GoogleProviderWrapper({ children }) {
   }, []);
 
   if (loading) {
-    return <div>Loading Google configuration...</div>;
+    return <div>Loading...</div>;
   }
 
-  if (error) {
-    return <div>Google configuration error: {error}</div>;
+  if (error || !clientId) {
+    return <>{children}</>;
   }
 
   return (

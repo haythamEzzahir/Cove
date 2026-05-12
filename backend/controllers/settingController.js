@@ -1,7 +1,12 @@
 import Setting from "../models/setting.js";
 
 const getMySettings = async (req, res) => {
-  const settings = await Setting.findOne({ userId: req.user._id });
+  let settings = await Setting.findOne({ userId: req.user._id });
+
+  if (!settings) {
+    settings = await Setting.create({ userId: req.user._id });
+  }
+
   res.json(settings);
 };
 
@@ -12,10 +17,18 @@ const updateMySettings = async (req, res) => {
     return res.status(404).json({ message: "Settings not found" });
   }
 
-  settings.theme = req.body.theme ?? settings.theme;
-  settings.compactView = req.body.compactView ?? settings.compactView;
-  settings.notifications = req.body.notifications ?? settings.notifications;
-  settings.language = req.body.language ?? settings.language;
+  if (typeof req.body.theme === "string" && ["dark", "light", "system"].includes(req.body.theme)) {
+    settings.theme = req.body.theme;
+  }
+  if (typeof req.body.language === "string" && ["en", "fr", "ar"].includes(req.body.language)) {
+    settings.language = req.body.language;
+  }
+  if (typeof req.body.compactView === "boolean") {
+    settings.compactView = req.body.compactView;
+  }
+  if (typeof req.body.notifications === "boolean") {
+    settings.notifications = req.body.notifications;
+  }
 
   const updated = await settings.save();
 

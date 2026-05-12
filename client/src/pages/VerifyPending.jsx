@@ -1,20 +1,25 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { API_URL } from '../config';
+import { getJson } from '../config';
 
 export default function VerifyPending() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const emailParam = searchParams.get('email');
 
-  const [email, setEmail] = useState(emailParam || '');
+  const storedEmail = sessionStorage.getItem('fintracker_verify_email');
+  const initialEmail = emailParam || storedEmail || '';
+
+  const [email, setEmail] = useState(initialEmail);
+  const [showEmailInput, setShowEmailInput] = useState(!initialEmail);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendDisabled, setResendDisabled] = useState(false);
+  const [attemptsRemaining, setAttemptsRemaining] = useState(null);
   const inputRefs = useRef([]);
-
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
   useEffect(() => {
     inputRefs.current[0]?.focus();
@@ -69,13 +74,17 @@ export default function VerifyPending() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, otp: code }),
       });
-      const data = await response.json();
+      const data = await getJson(response);
 
       if (response.ok) {
+        sessionStorage.removeItem('fintracker_verify_email');
         setSuccess('Email verified! Redirecting to login...');
         setTimeout(() => navigate('/login?msg=verified'), 1500);
       } else {
         setError(data.message || 'Invalid code');
+        if (data.attemptsRemaining != null) {
+          setAttemptsRemaining(data.attemptsRemaining);
+        }
         setOtp(['', '', '', '', '', '']);
         inputRefs.current[0]?.focus();
       }
@@ -86,9 +95,10 @@ export default function VerifyPending() {
     setLoading(false);
   };
 
-  const handleResend = async () => {
+  const handleResend = useCallback(async () => {
     setError('');
     setResendDisabled(true);
+    setAttemptsRemaining(null);
 
     try {
       const response = await fetch(`${API_URL}/api/auth/resend-otp`, {
@@ -96,7 +106,7 @@ export default function VerifyPending() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      const data = await response.json();
+      const data = await getJson(response);
 
       if (response.ok) {
         setSuccess('New code sent! Check your inbox.');
@@ -109,7 +119,7 @@ export default function VerifyPending() {
     }
 
     setTimeout(() => setResendDisabled(false), 60000);
-  };
+  }, [email]);
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 bg-base">
@@ -122,6 +132,31 @@ export default function VerifyPending() {
         <p className="text-sm font-medium text-primary mb-6">{email}</p>
 
         <form onSubmit={handleSubmit} className="flex flex-col items-center gap-4">
+          {!email || showEmailInput ? (
+            <div className="w-full mb-2">
+              <label className="text-sm font-medium text-secondary mb-1 block text-left">Email address</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter the email you signed up with"
+                required
+                className="w-full h-10 px-3.5 rounded-lg border border-default bg-base text-sm text-primary outline-none focus:border-accent transition-colors"
+              />
+            </div>
+          ) : (
+            <div className="mb-2">
+              <p className="text-sm font-medium text-primary">{email}</p>
+              <button
+                type="button"
+                onClick={() => setShowEmailInput(true)}
+                className="text-xs text-accent hover:underline cursor-pointer"
+              >
+                Change email
+              </button>
+            </div>
+          )}
+
           <div className="flex gap-2" onPaste={handlePaste}>
             {otp.map((digit, index) => (
               <input
@@ -141,6 +176,9 @@ export default function VerifyPending() {
           {error && (
             <div className="w-full bg-danger/15 border border-danger/30 rounded-lg p-3 text-sm text-danger">
               {error}
+              {attemptsRemaining != null && attemptsRemaining > 0 && (
+                <span className="block mt-1">{attemptsRemaining} attempts remaining</span>
+              )}
             </div>
           )}
 

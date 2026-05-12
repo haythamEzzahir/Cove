@@ -1,16 +1,19 @@
 import express from "express";
 import {
   addPortfolioAsset,
+  sellPortfolioAsset,
   getMyPortfolio
 } from "../controllers/portfolioController.js";
 import { protect } from "../middleware/authMiddleware.js";
+import { validatePortfolioAsset, validatePortfolioSell, handleValidationErrors } from "../utils/validators.js";
 
 const router = express.Router();
 
 router.get("/", protect, getMyPortfolio);
 router.get("/me", protect, getMyPortfolio);
-router.post("/", protect, addPortfolioAsset);
-router.post("/me", protect, addPortfolioAsset);
-router.post("/assets", protect, addPortfolioAsset);
+router.post("/", protect, validatePortfolioAsset, handleValidationErrors, addPortfolioAsset);
+router.post("/me", protect, validatePortfolioAsset, handleValidationErrors, addPortfolioAsset);
+router.post("/assets", protect, validatePortfolioAsset, handleValidationErrors, addPortfolioAsset);
+router.post("/sell", protect, validatePortfolioSell, handleValidationErrors, sellPortfolioAsset);
 
 export default router;

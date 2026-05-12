@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { jsPDF } from 'jspdf';
 import { PieChart, Pie, Cell } from 'recharts';
 import MetricCard from '../components/dashboard/MetricCard';
-import PriceChart from '../components/dashboard/PriceChart';
+import WalletChart from '../components/dashboard/WalletChart';
 import CoinLogo from '../components/shared/CoinLogo';
 import { useAuth } from '../context/AuthContext';
 
@@ -408,8 +408,8 @@ function createPortfolioReportPdf({ portfolioData, holdings, user }) {
 function DonutLabel({ cx, cy, total }) {
   return (
     <text x={cx} y={cy} textAnchor="middle" dominantBaseline="central">
-      <tspan x={cx} dy="-8" className="text-[10px] fill-secondary">Total</tspan>
-      <tspan x={cx} dy="18" className="text-xs font-bold fill-primary">{fmt(total)}</tspan>
+      <tspan x={cx} dy="-8" className="text-[10px]" fill="rgb(var(--text-secondary))">Total</tspan>
+      <tspan x={cx} dy="18" className="text-xs font-bold" fill="rgb(var(--text-primary))">{fmt(total)}</tspan>
     </text>
   );
 }
@@ -454,6 +454,59 @@ function AllocationCard({ total, allocationData }) {
         ) : (
           <p className="text-sm text-muted text-center py-3">No portfolio data yet</p>
         )}
+      </div>
+    </div>
+  );
+}
+
+function EmptyPortfolio({ onAddAsset }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 px-6">
+      <div className="w-24 h-24 rounded-full bg-accent/10 flex items-center justify-center mb-6">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-accent">
+          <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+          <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+          <path d="M18 12a2 2 0 0 0 0 4h4v-4h-4z" />
+        </svg>
+      </div>
+      <h3 className="text-lg font-semibold text-primary mb-2">Your portfolio is empty</h3>
+      <p className="text-sm text-secondary text-center max-w-sm mb-6 leading-relaxed">
+        Start tracking your crypto investments by adding your first asset. You can add coins, set buy prices, and monitor your portfolio performance.
+      </p>
+      <button
+        className="flex items-center gap-2 bg-accent border-none rounded-lg px-5 py-2.5 text-sm text-white font-semibold cursor-pointer hover:opacity-90 transition-opacity"
+        onClick={onAddAsset}
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+        Add Your First Asset
+      </button>
+      <div className="mt-10 grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-lg">
+        <div className="text-center">
+          <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center mx-auto mb-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-success">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          </div>
+          <p className="text-xs text-secondary">Track portfolio value</p>
+        </div>
+        <div className="text-center">
+          <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center mx-auto mb-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent">
+              <path d="M3 3v18h18" /><path d="M7 16l4-8 4 4 5-9" />
+            </svg>
+          </div>
+          <p className="text-xs text-secondary">Monitor profit & loss</p>
+        </div>
+        <div className="text-center">
+          <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center mx-auto mb-2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-500">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+          </div>
+          <p className="text-xs text-secondary">Secure & private</p>
+        </div>
       </div>
     </div>
   );
@@ -634,15 +687,17 @@ function AddAssetModal({ onClose, onAdd }) {
 }
 
 export default function Portfolio() {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSellModal, setShowSellModal] = useState(false);
+  const [sellTarget, setSellTarget] = useState(null);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const [portfolioData, setPortfolioData] = useState(EMPTY_PORTFOLIO);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const fetchPortfolioData = useCallback(async () => {
-    if (!token) {
+    if (!user) {
       setPortfolioData(EMPTY_PORTFOLIO);
       setError('Please login to view your portfolio');
       setLoading(false);
@@ -654,9 +709,7 @@ export default function Portfolio() {
       setError('');
 
       const response = await fetch(`${API_URL}/api/portfolio/me`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
       const data = await getJson(response);
 
@@ -675,7 +728,7 @@ export default function Portfolio() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [user]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -683,7 +736,7 @@ export default function Portfolio() {
   }, [fetchPortfolioData]);
 
   const handleAddAsset = async (asset) => {
-    if (!token) {
+    if (!user) {
       return { success: false, error: 'Please login to add an asset' };
     }
 
@@ -699,9 +752,9 @@ export default function Portfolio() {
 
       const response = await fetch(`${API_URL}/api/portfolio/assets`, {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(body),
       });
@@ -731,6 +784,44 @@ export default function Portfolio() {
     }
   };
 
+  const handleSellAsset = async (coinId, quantity) => {
+    if (!user) {
+      return { success: false, error: 'Please login to sell an asset' };
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/portfolio/sell`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ coinId, quantity }),
+      });
+      const data = await getJson(response);
+
+      if (!response.ok) {
+        return {
+          success: false,
+          error: data.message || data.error || 'Failed to sell asset',
+        };
+      }
+
+      setPortfolioData(normalizePortfolioData(data));
+      setError('');
+      await fetchPortfolioData();
+
+      return { success: true };
+    } catch (err) {
+      return {
+        success: false,
+        error: err instanceof TypeError && err.message === 'Failed to fetch'
+          ? `Unable to reach backend at ${API_URL}`
+          : err.message || 'Failed to sell asset',
+      };
+    }
+  };
+
   const totalBalance = portfolioData.totalBalance;
   const dayPnl = portfolioData.profitLoss24h;
   const dayPnlPct = portfolioData.profitLoss24hPercent;
@@ -740,7 +831,7 @@ export default function Portfolio() {
   const isEmpty = !loading && !error && holdingsList.length === 0;
 
   const canExportPortfolio = useCallback(() => {
-    if (!token) {
+    if (!user) {
       setError('Please login to export your portfolio');
       return false;
     }
@@ -756,7 +847,7 @@ export default function Portfolio() {
     }
 
     return true;
-  }, [error, holdingsList.length, loading, token]);
+  }, [error, holdingsList.length, loading, user]);
 
   const handleExportCsv = useCallback(() => {
     if (!canExportPortfolio()) {
@@ -792,15 +883,6 @@ export default function Portfolio() {
     { label: '24h Profit/Loss', value: fmtSigned(dayPnl), change: dayPnlPct, sub: 'since open' },
     { label: 'All-Time Profit', value: fmtSigned(allTimePnl), change: allTimePnlPct, sub: 'since inception' },
   ];
-
-  const portfolioCoin = {
-    name: 'Portfolio',
-    ticker: 'PFT',
-    status: 'Live',
-    price: totalBalance,
-    change: dayPnlPct,
-    changeAbs: dayPnl,
-  };
 
   const aiInsights = useMemo(() => {
     if (holdingsList.length === 0) {
@@ -884,12 +966,18 @@ export default function Portfolio() {
         ))}
       </div>
 
-      <div className="flex flex-col lg:flex-row gap-4">
-        <AllocationCard total={totalBalance} allocationData={portfolioData.assetAllocation} />
-        <div className="flex-1 min-w-0">
-          <PriceChart coin={portfolioCoin} data={portfolioData.chartData} />
+      {isEmpty ? (
+        <div className="bg-surface border border-default rounded-xl">
+          <EmptyPortfolio onAddAsset={() => setShowAddModal(true)} />
         </div>
-      </div>
+      ) : (
+        <>
+          <div className="flex flex-col lg:flex-row gap-4">
+            <AllocationCard total={totalBalance} allocationData={portfolioData.assetAllocation} />
+            <div className="flex-1 min-w-0">
+              <WalletChart data={portfolioData.chartData} totalBalance={totalBalance} />
+            </div>
+          </div>
 
       <div className="bg-surface border border-default rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-default">
@@ -908,55 +996,62 @@ export default function Portfolio() {
         </div>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-default bg-overlay">
-                <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase w-8">#</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase">Coin</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase">Amount</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase">Avg. Buy</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase">Value</th>
-                <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase">P&L</th>
-              </tr>
-            </thead>
-            <tbody>
-              {holdingsList.map((h) => (
-                <tr key={h.coinId || h.ticker} className="border-b border-subtle hover:bg-overlay transition-colors">
-                  <td className="p-3 text-sm text-muted w-8">{h.rank}</td>
-                  <td className="p-3">
-                    <div className="flex items-center gap-2.5">
-                      <CoinLogo ticker={h.ticker} size={32} image={h.image} />
-                      <div>
-                        <span className="text-sm font-semibold text-primary block">{h.name}</span>
-                        <span className="text-xs text-muted">{h.ticker}</span>
+              <thead>
+                <tr className="border-b border-default bg-overlay">
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase w-8">#</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-muted uppercase">Coin</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase">Amount</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase">Avg. Buy</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase">Value</th>
+                  <th className="text-right px-4 py-3 text-xs font-semibold text-muted uppercase">P&L</th>
+                  <th className="text-center px-4 py-3 text-xs font-semibold text-muted uppercase w-20">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {holdingsList.map((h) => (
+                  <tr key={h.coinId || h.ticker} className="border-b border-subtle hover:bg-overlay transition-colors">
+                    <td className="p-3 text-sm text-muted w-8">{h.rank}</td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-2.5">
+                        <CoinLogo ticker={h.ticker} size={32} image={h.image} />
+                        <div>
+                          <span className="text-sm font-semibold text-primary block">{h.name}</span>
+                          <span className="text-xs text-muted">{h.ticker}</span>
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="p-3 text-right text-sm text-primary">{fmtQuantity(h.amount)}</td>
-                  <td className="p-3 text-right text-sm text-secondary">{fmt(h.avgBuy)}</td>
-                  <td className="p-3 text-right text-sm font-semibold text-primary">{fmt(h.currentValue)}</td>
-                  <td className="p-3 text-right">
-                    <div className="flex flex-col items-end gap-0.5">
-                      <span className={`text-sm font-semibold ${h.unrealizedPnl >= 0 ? 'text-success' : 'text-danger'}`}>
-                        {fmtSigned(h.unrealizedPnl)}
-                      </span>
-                      <span className={`text-xs px-1.5 py-0.5 rounded ${h.pnlPct >= 0 ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'}`}>
-                        {fmtPercent(h.pnlPct)}
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {isEmpty && (
-                <tr>
-                  <td colSpan="6" className="p-6 text-center text-sm text-muted">
-                    No portfolio data yet
-                  </td>
-                </tr>
-              )}
+                    </td>
+                    <td className="p-3 text-right text-sm text-primary">{fmtQuantity(h.amount)}</td>
+                    <td className="p-3 text-right text-sm text-secondary">{fmt(h.avgBuy)}</td>
+                    <td className="p-3 text-right text-sm font-semibold text-primary">{fmt(h.currentValue)}</td>
+                    <td className="p-3 text-right">
+                      <div className="flex flex-col items-end gap-0.5">
+                        <span className={`text-sm font-semibold ${h.unrealizedPnl >= 0 ? 'text-success' : 'text-danger'}`}>
+                          {fmtSigned(h.unrealizedPnl)}
+                        </span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${h.pnlPct >= 0 ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'}`}>
+                          {fmtPercent(h.pnlPct)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="p-3 text-center">
+                      <button
+                        className="cursor-pointer p-1.5 rounded-lg border-none text-danger hover:bg-danger/10 transition-colors"
+                        title="Sell asset"
+                        onClick={() => { setSellTarget(h); setShowSellModal(true); }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
       </div>
+        </>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         {aiInsights.map((ins) => (
@@ -980,6 +1075,129 @@ export default function Portfolio() {
       </footer>
 
       {showAddModal && <AddAssetModal onClose={() => setShowAddModal(false)} onAdd={handleAddAsset} />}
+      {showSellModal && sellTarget && (
+        <SellModal
+          coin={sellTarget}
+          onClose={() => setShowSellModal(false)}
+          onSell={handleSellAsset}
+        />
+      )}
     </main>
   );
 }
+
+function SellModal({ coin, onClose, onSell }) {
+  const [quantity, setQuantity] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const maxQuantity = coin?.amount || 0;
+  const sellQty = parseFloat(quantity) || 0;
+  const currentPrice = coin?.currentPrice || 0;
+  const totalValue = sellQty * currentPrice;
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!sellQty || sellQty <= 0) {
+      setError('Enter a valid quantity to sell');
+      return;
+    }
+
+    if (sellQty > maxQuantity) {
+      setError(`You only have ${fmtQuantity(maxQuantity)} ${coin?.ticker || ''}`);
+      return;
+    }
+
+    setSubmitting(true);
+    setError('');
+
+    const result = await onSell(coin.coinId, sellQty);
+
+    setSubmitting(false);
+
+    if (result?.success === false) {
+      setError(result.error || 'Failed to sell asset');
+      return;
+    }
+
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={onClose}>
+      <div className="bg-surface border border-default rounded-xl p-7 w-[400px] max-w-[92vw]" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h2 className="text-base font-semibold text-primary">Sell Asset</h2>
+            <p className="text-xs text-secondary mt-0.5">{coin?.name} ({coin?.ticker})</p>
+          </div>
+          <button className="bg-none border-none cursor-pointer text-secondary p-1 rounded" onClick={onClose}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <p className="text-xs text-secondary mb-4">
+          You own <strong className="text-primary">{fmtQuantity(maxQuantity)} {coin?.ticker}</strong> at avg. buy {fmt(coin?.avgBuy)}
+        </p>
+
+        {error && <p className="text-xs text-danger mb-3">{error}</p>}
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-medium text-secondary uppercase">Quantity to Sell</label>
+              <button
+                type="button"
+                className="text-[10px] text-accent hover:underline cursor-pointer"
+                onClick={() => setQuantity(String(maxQuantity))}
+              >
+                Sell All
+              </button>
+            </div>
+            <input
+              type="number"
+              value={quantity}
+              onChange={e => setQuantity(e.target.value)}
+              placeholder="0.00"
+              step="any"
+              min="0"
+              max={maxQuantity}
+              className="w-full h-10 px-3.5 rounded-lg border border-default bg-base text-sm text-primary outline-none focus:border-accent"
+              autoFocus
+            />
+          </div>
+
+          <div className="bg-base rounded-lg p-3 border border-default">
+            <div className="flex justify-between text-xs">
+              <span className="text-muted">Total Value</span>
+              <span className="text-primary font-semibold">{fmt(totalValue)}</span>
+            </div>
+            <div className="flex justify-between text-xs mt-1">
+              <span className="text-muted">Current Price</span>
+              <span className="text-primary">{fmt(currentPrice)}</span>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={!sellQty || sellQty <= 0 || sellQty > maxQuantity || submitting}
+            className="w-full py-2.5 bg-danger border-none rounded-lg text-sm font-semibold text-white cursor-pointer hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? 'Selling...' : `Sell ${fmtQuantity(sellQty)} ${coin?.ticker}`}
+          </button>
+          <button
+            type="button"
+            className="w-full py-2 bg-base border border-default rounded-lg text-xs font-medium text-secondary cursor-pointer hover:text-primary"
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+

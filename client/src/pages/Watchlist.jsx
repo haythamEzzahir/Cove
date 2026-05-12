@@ -26,6 +26,7 @@ const AVAILABLE_COLUMNS = [
   { key: 'atl', label: 'ATL', default: false },
   { key: 'sparkline', label: 'Last 7d', default: true },
   { key: 'alert', label: 'Alert', default: true },
+  { key: 'portfolio', label: '', default: true },
   { key: 'actions', label: '', default: true },
 ];
 
@@ -45,6 +46,7 @@ const COLUMN_WIDTHS = {
   atl: 'minmax(85px, 0.85fr)',
   sparkline: '140px',
   alert: '80px',
+  portfolio: '70px',
   actions: '50px',
 };
 
@@ -377,8 +379,106 @@ function AlertModal({ coin, currentPrice, currencySymbol, existingAlert, onSave,
   );
 }
 
+function AddToPortfolioModal({ coin, currentPrice, currencySymbol, onConfirm, onCancel }) {
+  const [quantity, setQuantity] = useState('');
+  const [buyPrice, setBuyPrice] = useState(currentPrice ?? '');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async () => {
+    const qty = parseFloat(quantity);
+    const price = parseFloat(buyPrice);
+    const total = qty * price;
+
+    if (!qty || qty <= 0) { setError('Enter a valid quantity'); return; }
+    if (!price || price <= 0) { setError('Enter a valid price'); return; }
+
+    setSubmitting(true);
+    setError('');
+
+    await onConfirm(coin, qty, price, total);
+    setSubmitting(false);
+  };
+
+  const qtyNum = parseFloat(quantity) || 0;
+  const priceNum = parseFloat(buyPrice) || 0;
+  const total = qtyNum * priceNum;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center" onClick={onCancel}>
+      <div className="bg-surface border border-default rounded-xl p-7 w-[400px] max-w-[92vw]" onClick={e => e.stopPropagation()}>
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h2 className="text-base font-semibold text-primary">Add to Portfolio</h2>
+            <p className="text-xs text-secondary mt-0.5">{coin.name} ({coin.ticker})</p>
+          </div>
+          <button className="bg-none border-none cursor-pointer text-secondary p-1 rounded" onClick={onCancel}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <p className="text-xs text-secondary mb-4">Current price: <strong className="text-primary">{formatPrice(currentPrice, currencySymbol)}</strong></p>
+
+        {error && <p className="text-xs text-danger mb-3">{error}</p>}
+
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-secondary uppercase mb-1 block">Quantity ({coin.ticker})</label>
+            <input
+              type="number"
+              value={quantity}
+              onChange={e => setQuantity(e.target.value)}
+              placeholder="0.00"
+              step="any"
+              min="0"
+              className="w-full h-10 px-3.5 rounded-lg border border-default bg-base text-sm text-primary outline-none focus:border-accent"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-secondary uppercase mb-1 block">Avg. Buy Price ({currencySymbol})</label>
+            <input
+              type="number"
+              value={buyPrice}
+              onChange={e => setBuyPrice(e.target.value)}
+              placeholder="0.00"
+              step="any"
+              min="0"
+              className="w-full h-10 px-3.5 rounded-lg border border-default bg-base text-sm text-primary outline-none focus:border-accent"
+            />
+          </div>
+
+          <div className="bg-base rounded-lg p-3 border border-default">
+            <div className="flex justify-between text-xs">
+              <span className="text-muted">Total Investment</span>
+              <span className="text-primary font-semibold">{formatPrice(total, currencySymbol)}</span>
+            </div>
+          </div>
+
+          <button
+            className="w-full py-2.5 bg-accent text-white border-none rounded-lg text-sm font-semibold cursor-pointer hover:opacity-90 disabled:opacity-50"
+            onClick={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? 'Adding...' : 'Add to Portfolio'}
+          </button>
+          <button
+            className="w-full py-2 bg-base border border-default rounded-lg text-xs font-medium text-secondary cursor-pointer hover:text-primary"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Watchlist() {
-  const { user, token, watchlistItems, loadWatchlist, addToWatchlist, removeFromWatchlist } = useAuth();
+  const { user, watchlistItems, loadWatchlist, addToWatchlist, removeFromWatchlist } = useAuth();
   const { currency, currencyData } = useCurrency();
   const [coins, setCoins] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -400,6 +500,7 @@ export default function Watchlist() {
     } catch { return {}; }
   });
   const [alertTarget, setAlertTarget] = useState(null);
+  const [addToPortfolioTarget, setAddToPortfolioTarget] = useState(null);
   const alertsRef = useRef(alerts);
 
   useEffect(() => {
@@ -438,9 +539,9 @@ export default function Watchlist() {
 
             fetch(`${API_URL}/api/alerts/trigger`, {
               method: 'POST',
+              credentials: 'include',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
               },
               body: JSON.stringify({
                 coinName: coin?.name || coinId,
@@ -463,9 +564,9 @@ export default function Watchlist() {
       livePricesRef.current = { ...livePricesRef.current, [coinId]: price };
       return prev.map(c => (c.id === coinId || c.coinId === coinId) ? { ...c, current_price: price } : c);
     });
-  }, [currencySymbol, token]);
+  }, [currencySymbol]);
 
-  const { isConnected } = useBinanceWebSocket(watchlistItems, handlePriceUpdate, currency);
+  const { isConnected } = useBinanceWebSocket(coins.map(c => ({ ticker: c.symbol, coinId: c.id })), handlePriceUpdate, currency);
 
   const watchlist = coins.map(toWatchlistCoin);
 
@@ -473,7 +574,7 @@ export default function Watchlist() {
     let active = true;
 
     async function refreshCoinIds() {
-      if (!token) return;
+      if (!user) return;
 
       const result = await loadWatchlist();
 
@@ -487,7 +588,7 @@ export default function Watchlist() {
     return () => {
       active = false;
     };
-  }, [token, loadWatchlist]);
+  }, [user, loadWatchlist]);
 
   useEffect(() => {
     let active = true;
@@ -632,6 +733,20 @@ export default function Watchlist() {
           </div>
         );
       }
+      case 'portfolio':
+        return (
+          <div className="flex items-center justify-center">
+            <button
+              className="cursor-pointer p-1.5 rounded-lg border-none text-muted hover:text-accent hover:bg-accent/10 transition-colors"
+              title="Add to portfolio"
+              onClick={e => { e.stopPropagation(); setAddToPortfolioTarget(coin); }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </div>
+        );
       case 'actions':
         return (
           <button className="cursor-pointer text-muted hover:text-danger transition-colors" title="Remove from watchlist" onClick={e => { e.stopPropagation(); setRemoveTarget(coin); }}>
@@ -713,6 +828,61 @@ export default function Watchlist() {
       }
     }
     setTimeout(() => setAlertTarget(null), 800);
+  };
+
+  const handleAddToPortfolioConfirm = async (coin, quantity, buyPrice, total) => {
+    if (!user) return { success: false, error: 'Please login to add an asset' };
+
+    try {
+      const response = await fetch(`${API_URL}/api/portfolio/assets`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          coinId: coin.coinId || coin.id,
+          name: coin.name,
+          symbol: coin.ticker,
+          quantity,
+          currentPrice: coin.price,
+          averageBuyPrice: buyPrice,
+          image: coin.image || '',
+        }),
+      });
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: data.message || data.error || 'Failed to add to portfolio' };
+      }
+
+      setAddToPortfolioTarget(null);
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message || 'Failed to add to portfolio' };
+    }
+  };
+
+  const handleConfirmAddToPortfolio = async (coin, quantity, buyPrice) => {
+    try {
+      const response = await fetch(`${API_URL}/api/portfolio/assets`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          coinId: coin.coinId || coin.id,
+          name: coin.name,
+          symbol: coin.ticker,
+          quantity,
+          currentPrice: buyPrice,
+          averageBuyPrice: buyPrice,
+          image: coin.image || '',
+        }),
+      });
+
+      if (response.ok) {
+        setAddToPortfolioTarget(null);
+      }
+    } catch {
+    }
   };
 
   return (
@@ -910,6 +1080,15 @@ export default function Watchlist() {
           existingAlert={alerts[alertTarget.coinId || alertTarget.id]} 
           onSave={handleSaveAlert} 
           onCancel={() => setAlertTarget(null)} 
+        />
+      )}
+      {addToPortfolioTarget && (
+        <AddToPortfolioModal
+          coin={addToPortfolioTarget}
+          currentPrice={addToPortfolioTarget.price}
+          currencySymbol={currencySymbol}
+          onConfirm={handleConfirmAddToPortfolio}
+          onCancel={() => setAddToPortfolioTarget(null)}
         />
       )}
 

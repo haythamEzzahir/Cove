@@ -1,93 +1,31 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const BINANCE_WS_URL = 'wss://stream.binance.com:9443/stream';
 
-const DEFAULT_SYMBOLS = {
-  bitcoin: 'btcusdt',
-  ethereum: 'ethusdt',
-  tether: 'usdtusdt',
-  bnb: 'bnbusdt',
-  solana: 'solusdt',
-  'usd-coin': 'usdcusdt',
-  ripple: 'xrpusdt',
-  dogecoin: 'dogeusdt',
-  cardano: 'adausdt',
-  'avalanche-2': 'avaxusdt',
-  'shiba-inu': 'shibusdt',
-  polkadot: 'dotusdt',
-  tron: 'trxusdt',
-  chainlink: 'linkusdt',
-  polygon: 'maticusdt',
-  'wrapped-bitcoin': 'wbtcusdt',
-  litecoin: 'ltcusdt',
-  'bitcoin-cash': 'bchusdt',
-  uniswap: 'uniusdt',
-  stellar: 'xlmusdt',
-  cosmos: 'atomusdt',
-  monero: 'xmrusdt',
-  'ethereum-classic': 'etcusdt',
-  'hedera-hashgraph': 'hbarusdt',
-  filecoin: 'filusdt',
-  'internet-computer': 'icpusdt',
-  'aptcoin': 'aptusdt',
-  arbitrum: 'arbusdt',
-  chainlist: 'clvusdt',
-  near: 'nearusdt',
-  vesta: 'eusdt',
-};
-
-const ALT_SYMBOLS = {
-  eur: {
-    bitcoin: 'btceur',
-    ethereum: 'etheur',
-    bnb: 'bnbeur',
-    ripple: 'xrpeur',
-    cardano: 'adaeur',
-    solana: 'soleur',
-    dogecoin: 'dogeeur',
-    polkadot: 'doteur',
-    polygon: 'maticeur',
-    litecoin: 'ltceur',
-    chainlink: 'linkeur',
-    'avalanche-2': 'avaxeur',
-    uniswap: 'unieur',
-    stellar: 'xlmeur',
-    cosmos: 'atomeur',
-    'bitcoin-cash': 'bcheur',
-    tron: 'trxeur',
-  },
-  gbp: {
-    bitcoin: 'btcgbp',
-    ethereum: 'ethgbp',
-    bnb: 'bnbgbp',
-  },
-  try: {
-    bitcoin: 'btctry',
-    ethereum: 'ethtry',
-    bnb: 'bnbtry',
-    solana: 'soltry',
-    ripple: 'xrptry',
-  },
-  brl: {
-    bitcoin: 'btcbrl',
-    ethereum: 'ethbrl',
-  },
-  aud: {
-    bitcoin: 'btcaud',
-    ethereum: 'ethaud',
-  },
-};
-
-function getBinanceSymbol(coinId, currency = 'usd') {
-  if (!coinId) return null;
-  const id = String(coinId).toLowerCase();
-  if (currency !== 'usd' && ALT_SYMBOLS[currency]?.[id]) {
-    return `${ALT_SYMBOLS[currency][id]}@trade`;
-  }
-  return DEFAULT_SYMBOLS[id] ? `${DEFAULT_SYMBOLS[id]}@trade` : null;
+function getBinanceStream(ticker, currency = 'usd') {
+  if (!ticker) return null;
+  const base = ticker.toLowerCase();
+  const quote = currency.toLowerCase() === 'usd' ? 'usdt' : currency.toLowerCase();
+  return `${base}${quote}@trade`;
 }
 
-export function useBinanceWebSocket(coinIds, onPriceUpdate, currency = 'usd') {
+function buildStreamData(assets, currency) {
+  const symbolToId = {};
+  const streams = (assets || [])
+    .map(asset => {
+      const stream = getBinanceStream(asset.ticker, currency);
+      if (stream) {
+        const binanceSymbol = stream.split('@')[0];
+        if (asset.coinId) symbolToId[binanceSymbol] = asset.coinId;
+        return stream;
+      }
+      return null;
+    })
+    .filter(Boolean);
+  return { streams, symbolToId };
+}
+
+export function useBinanceWebSocket(assets, onPriceUpdate, currency = 'usd') {
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
   const [isConnected, setIsConnected] = useState(false);
@@ -97,30 +35,40 @@ export function useBinanceWebSocket(coinIds, onPriceUpdate, currency = 'usd') {
     onPriceUpdateRef.current = onPriceUpdate;
   }, [onPriceUpdate]);
 
+  const streamKey = useMemo(() => {
+    const { streams, symbolToId } = buildStreamData(assets, currency);
+    if (streams.length === 0 || Object.keys(symbolToId).length === 0) return '';
+    return [...new Set(streams)].sort().join(',');
+  }, [assets, currency]);
+
   useEffect(() => {
-    if (!coinIds || coinIds.length === 0) return;
+    if (!streamKey) return;
 
-    const streams = coinIds
-      .map(id => getBinanceSymbol(String(id), currency))
-      .filter(Boolean);
+    const { streams, symbolToId } = buildStreamData(assets, currency);
 
-    if (streams.length === 0) return;
+    const cleanup = () => {
+      if (wsRef.current) {
+        wsRef.current.onclose = null;
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      if (reconnectRef.current) {
+        clearTimeout(reconnectRef.current);
+        reconnectRef.current = null;
+      }
+    };
 
-    let ws = new WebSocket(BINANCE_WS_URL);
+    cleanup();
+
     let isClosed = false;
 
-    const subscribe = (socket) => {
-      socket.send(JSON.stringify({
+    const handleOpen = () => {
+      setIsConnected(true);
+      ws.send(JSON.stringify({
         method: 'SUBSCRIBE',
         params: streams,
         id: 1,
       }));
-    };
-
-    const handleOpen = () => {
-      setIsConnected(true);
-      console.log(`Binance WebSocket connected (${currency.toUpperCase()}) -> ${streams.join(', ')}`);
-      subscribe(ws);
     };
 
     const handleMessage = (event) => {
@@ -129,42 +77,42 @@ export function useBinanceWebSocket(coinIds, onPriceUpdate, currency = 'usd') {
         if (msg.stream && msg.data && msg.data.s && msg.data.p) {
           const symbol = msg.data.s.toLowerCase();
           const price = parseFloat(msg.data.p);
-          const all = { ...(ALT_SYMBOLS[currency] || {}), ...DEFAULT_SYMBOLS };
-          const coinId = Object.entries(all).find(([, p]) => p === symbol)?.[0];
-          if (coinId) onPriceUpdateRef.current(coinId, price);
+          const coinId = symbolToId[symbol];
+          if (coinId) {
+            onPriceUpdateRef.current(coinId, price);
+          }
         }
-      } catch (e) {}
+      } catch (e) {
+        // Silently ignore malformed messages or subscription confirmations
+      }
     };
-
-    const handleError = () => console.error('Binance WS error');
 
     const handleClose = () => {
       if (isClosed) return;
       setIsConnected(false);
-      console.log(`Binance WS disconnected (${currency.toUpperCase()})`);
+
       reconnectRef.current = setTimeout(() => {
-        const newWs = new WebSocket(BINANCE_WS_URL);
-        newWs.onopen = handleOpen;
-        newWs.onmessage = handleMessage;
-        newWs.onerror = handleError;
-        newWs.onclose = handleClose;
-        wsRef.current = newWs;
+        const ws = new WebSocket(BINANCE_WS_URL);
+        ws.onopen = handleOpen;
+        ws.onmessage = handleMessage;
+        ws.onerror = () => {};
+        ws.onclose = handleClose;
+        wsRef.current = ws;
       }, 5000);
     };
 
+    const ws = new WebSocket(BINANCE_WS_URL);
     ws.onopen = handleOpen;
     ws.onmessage = handleMessage;
-    ws.onerror = handleError;
+    ws.onerror = () => {};
     ws.onclose = handleClose;
     wsRef.current = ws;
 
     return () => {
       isClosed = true;
-      ws.onclose = null;
-      ws.close();
-      if (reconnectRef.current) clearTimeout(reconnectRef.current);
+      cleanup();
     };
-  }, [coinIds, currency]);
+  }, [streamKey]);
 
   return { isConnected };
 }

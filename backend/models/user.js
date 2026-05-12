@@ -36,7 +36,8 @@ const userSchema = new mongoose.Schema(
     },
     avatar: {
       type: String,
-      default: ""
+      default: "",
+      maxlength: 500
     },
     bio: {
       type: String,
@@ -54,6 +55,10 @@ const userSchema = new mongoose.Schema(
     otpExpiry: {
       type: Date,
       default: null
+    },
+    otpAttempts: {
+      type: Number,
+      default: 0
     }
   },
   { timestamps: true }

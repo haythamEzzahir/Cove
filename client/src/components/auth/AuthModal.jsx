@@ -2,12 +2,7 @@ import { useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-
-const AUTH_REDIRECT_KEY = 'fintracker_auth_redirect';
-
-function getSafeRedirectPath(path) {
-  return path && path.startsWith('/') && !path.startsWith('//') ? path : '/';
-}
+import { getSafeRedirectPath, AUTH_REDIRECT_KEY } from '../../config';
 
 function getRedirectAfterAuth(redirectTo) {
   const savedRedirect = sessionStorage.getItem(AUTH_REDIRECT_KEY);
@@ -56,8 +51,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', redi
         }
 
         setError(result.error || 'Google authentication failed');
-      } catch (error) {
-        console.error('Google login handler error:', error);
+      } catch {
         setError('Google authentication failed');
       }
 
@@ -76,8 +70,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', redi
     setError('');
     setLoading(true);
 
-    if (mode === 'signup' && password.length < 6) {
-      setError('Password must be at least 6 characters');
+    if (mode === 'signup' && password.length < 8) {
+      setError('Password must be at least 8 characters');
       setLoading(false);
       return;
     }
@@ -164,6 +158,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', redi
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter your full name"
+                maxLength={100}
                 className="h-12 px-4 rounded-xl border border-default bg-base text-base text-primary outline-none focus:border-accent placeholder:text-muted"
               />
             </div>
@@ -176,6 +171,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', redi
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Enter your email"
+              maxLength={255}
               className="h-12 px-4 rounded-xl border border-default bg-base text-base text-primary outline-none focus:border-accent placeholder:text-muted"
             />
           </div>
@@ -187,7 +183,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', redi
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder={mode === 'login' ? 'Enter your password' : 'Create a password (min 6 characters)'}
+                placeholder={mode === 'login' ? 'Enter your password' : 'Create a password (min 8 characters)'}
+                maxLength={128}
                 className="w-full h-12 px-4 pr-12 rounded-xl border border-default bg-base text-base text-primary outline-none focus:border-accent placeholder:text-muted"
               />
               <button

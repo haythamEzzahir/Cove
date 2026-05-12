@@ -5,23 +5,33 @@ import {
   googleAuth,
   getGoogleClientId,
   getCurrentUser,
+  refreshAccessToken,
+  logoutUser,
   verifyOTP,
   resendVerificationOTP,
   deleteAccount
 } from "../controllers/authController.js";
 import { protect } from "../middleware/authMiddleware.js";
+import {
+  validateRegistration,
+  validateLogin,
+  validateOTP,
+  validateResendOTP,
+  handleValidationErrors
+} from "../utils/validators.js";
 
 const router = express.Router();
 
-router.post("/register", registerUser);
-router.post("/login", loginUser);
+router.post("/register", validateRegistration, handleValidationErrors, registerUser);
+router.post("/login", validateLogin, handleValidationErrors, loginUser);
+router.post("/refresh", refreshAccessToken);
+router.post("/logout", logoutUser);
 router.get("/me", protect, getCurrentUser);
 router.get("/google/config", getGoogleClientId);
 router.get("/google/client-id", getGoogleClientId);
 router.post("/google", googleAuth);
-router.post("/verify-otp", verifyOTP);
-router.post("/resend-otp", resendVerificationOTP);
+router.post("/verify-otp", validateOTP, handleValidationErrors, verifyOTP);
+router.post("/resend-otp", validateResendOTP, handleValidationErrors, resendVerificationOTP);
 router.delete("/account", protect, deleteAccount);
-
 
 export default router;

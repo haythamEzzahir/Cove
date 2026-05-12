@@ -381,12 +381,7 @@ const buildPortfolioResponse = async (portfolio) => {
 
 const getMyPortfolio = async (req, res) => {
   try {
-    const userId = getUserObjectId(req);
-
-    if (!userId) {
-      return res.status(401).json({ message: "Not authorized, no user" });
-    }
-
+    const userId = req.user._id;
     const portfolio = await findOrCreateUserPortfolio(userId);
     await dedupePortfolioHoldings(portfolio);
 
@@ -399,13 +394,20 @@ const getMyPortfolio = async (req, res) => {
   }
 };
 
+const appendChartPoint = (portfolio, totalBalance) => {
+  const label = new Date().toISOString();
+  const value = roundCurrency(totalBalance);
+
+  const existingPoints = portfolio.chartData || [];
+  const maxPoints = 200;
+
+  const nextPoints = [...existingPoints, { label, value }].slice(-maxPoints);
+  portfolio.chartData = nextPoints;
+};
+
 const addPortfolioAsset = async (req, res) => {
   try {
-    const userId = getUserObjectId(req);
-
-    if (!userId) {
-      return res.status(401).json({ message: "Not authorized, no user" });
-    }
+    const userId = req.user._id;
 
     const coinId = String(req.body.coinId || req.body.id || "").trim().toLowerCase();
     const name = String(req.body.name || "").trim();
@@ -480,6 +482,12 @@ const addPortfolioAsset = async (req, res) => {
 
     const responseData = await buildPortfolioResponse(portfolio);
 
+    if (responseData.totalBalance > 0) {
+      await appendChartPoint(portfolio, responseData.totalBalance);
+      await portfolio.save();
+      responseData.chartData = buildChartData(portfolio, responseData.totalBalance);
+    }
+
     return res.status(201).json(responseData);
   } catch (error) {
     console.error("Add portfolio holding error:", error.message);
@@ -487,13 +495,69 @@ const addPortfolioAsset = async (req, res) => {
   }
 };
 
-const addPortfolioHolding = addPortfolioAsset;
+const sellPortfolioAsset = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const coinId = String(req.body.coinId || req.body.id || "").trim().toLowerCase();
+    const quantity = toNumber(req.body.quantity);
+
+    if (!coinId) {
+      return res.status(400).json({ message: "coinId is required" });
+    }
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      return res.status(400).json({ message: "quantity must be greater than 0" });
+    }
+
+    const portfolio = await Portfolio.findOne({ userId });
+
+    if (!portfolio) {
+      return res.status(404).json({ message: "Portfolio not found" });
+    }
+
+    const holdingIndex = (portfolio.holdings || []).findIndex((holding) => (
+      holding.coinId === coinId
+    ));
+
+    if (holdingIndex === -1) {
+      return res.status(404).json({ message: "Holding not found in portfolio" });
+    }
+
+    const holding = portfolio.holdings[holdingIndex];
+    const currentQuantity = toNumber(holding.quantity);
+
+    if (quantity > currentQuantity) {
+      return res.status(400).json({ message: `Cannot sell more than you own. You have ${currentQuantity} ${holding.symbol || coinId}` });
+    }
+
+    if (quantity === currentQuantity) {
+      portfolio.holdings.splice(holdingIndex, 1);
+    } else {
+      holding.quantity = currentQuantity - quantity;
+    }
+
+    portfolio.holdings = mergeDuplicateHoldings(portfolio.holdings || []);
+    await portfolio.save();
+
+    const responseData = await buildPortfolioResponse(portfolio);
+
+    if (responseData.totalBalance > 0) {
+      await appendChartPoint(portfolio, responseData.totalBalance);
+      await portfolio.save();
+      responseData.chartData = buildChartData(portfolio, responseData.totalBalance);
+    }
+
+    return res.json(responseData);
+  } catch (error) {
+    console.error("Sell portfolio holding error:", error.message);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
 
 export {
   addPortfolioAsset,
-  addPortfolioHolding,
-  buildPortfolioResponse,
-  findOrCreateUserPortfolio,
+  sellPortfolioAsset,
   getMyPortfolio,
   mergeDuplicateHoldings
 };
