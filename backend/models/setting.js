@@ -18,10 +18,6 @@ const settingSchema = new mongoose.Schema(
     notifications: {
       type: Boolean,
       default: true
-    },
-    language: {
-      type: String,
-      default: "fr"
     }
   },
   { timestamps: true }

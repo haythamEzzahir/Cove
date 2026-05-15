@@ -1,15 +1,6 @@
 // src/components/settings/CurrencySelect.jsx
 
-const CURRENCIES = [
-  { value: 'USD', label: '🇺🇸 USD – US Dollar' },
-  { value: 'EUR', label: '🇪🇺 EUR – Euro' },
-  { value: 'GBP', label: '🇬🇧 GBP – British Pound' },
-  { value: 'MAD', label: '🇲🇦 MAD – Dirham marocain' },
-  { value: 'BTC', label: '₿  BTC – Bitcoin' },
-  { value: 'ETH', label: 'Ξ  ETH – Ethereum' },
-];
-
-export default function CurrencySelect({ value, onChange }) {
+export default function CurrencySelect({ value, onChange, currencies = [] }) {
   return (
     <div className="currency-select-wrapper">
       <select
@@ -17,9 +8,9 @@ export default function CurrencySelect({ value, onChange }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
-        {CURRENCIES.map((c) => (
-          <option key={c.value} value={c.value}>
-            {c.label}
+        {currencies.map((c) => (
+          <option key={c.code} value={c.code}>
+            {c.symbol} {c.code.toUpperCase()} - {c.name}
           </option>
         ))}
       </select>

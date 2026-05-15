@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 
 const CurrencyContext = createContext(null);
+const STORAGE_KEY = 'fintracker_currency';
 
 const CURRENCIES = [
   { code: 'usd', symbol: '$', name: 'US Dollar' },
@@ -12,26 +13,38 @@ const CURRENCIES = [
   { code: 'egp', symbol: 'E£', name: 'Egyptian Pound' },
 ];
 
+function normalizeCurrency(value) {
+  const code = String(value || '').trim().toLowerCase();
+  return CURRENCIES.some((currency) => currency.code === code) ? code : 'usd';
+}
+
 export function CurrencyProvider({ children }) {
-  const [currency, setCurrency] = useState(() => {
+  const [currency, setCurrencyState] = useState(() => {
     try {
-      const saved = localStorage.getItem('fintracker_currency');
-      return saved || 'usd';
+      return normalizeCurrency(localStorage.getItem(STORAGE_KEY));
     } catch {
       return 'usd';
     }
   });
 
+  const setCurrency = useCallback((value) => {
+    setCurrencyState(normalizeCurrency(value));
+  }, []);
+
   useEffect(() => {
     try {
-      localStorage.setItem('fintracker_currency', currency);
-    } catch {}
+      localStorage.setItem(STORAGE_KEY, currency);
+    } catch {
+      // ignore localStorage errors
+    }
   }, [currency]);
 
-  const currencyData = CURRENCIES.find(c => c.code === currency) || CURRENCIES[0];
+  const currencyData = CURRENCIES.find((c) => c.code === currency) || CURRENCIES[0];
 
   return (
-    <CurrencyContext.Provider value={{ currency, setCurrency, currencies: CURRENCIES, currencyData }}>
+    <CurrencyContext.Provider
+      value={{ currency, setCurrency, updateCurrency: setCurrency, currencies: CURRENCIES, currencyData }}
+    >
       {children}
     </CurrencyContext.Provider>
   );

@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useCurrency } from '../context/CurrencyContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
 import ProfileCard from '../components/settings/ProfileCard';
@@ -11,8 +13,15 @@ import CurrencySelect from '../components/settings/CurrencySelect';
 function Settings() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { settings, updateSetting } = useSettings();
+  const { currency, setCurrency, currencies } = useCurrency();
+  const { settings, updateSetting, loadSettings } = useSettings();
   const { isDark, toggleTheme } = useTheme();
+
+  useEffect(() => {
+    if (user?._id) {
+      loadSettings();
+    }
+  }, [loadSettings, user?._id]);
 
   return (
     <div className="settings-wrapper flex flex-col min-h-full">
@@ -88,8 +97,9 @@ function Settings() {
           description="Used across all markets and charts"
           control={
             <CurrencySelect
-              value={settings.currency}
-              onChange={(val) => updateSetting('currency', val)}
+              value={currency}
+              onChange={setCurrency}
+              currencies={currencies}
             />
           }
         />

@@ -74,7 +74,6 @@ export const validateChartQuery = [
 
 export const validateSettings = [
   body("theme").optional().isIn(["dark", "light", "system"]).withMessage("Theme must be dark, light, or system"),
-  body("language").optional().isIn(["en", "fr", "ar"]).withMessage("Language must be en, fr, or ar"),
   body("compactView").optional().isBoolean(),
   body("notifications").optional().isBoolean(),
 ];

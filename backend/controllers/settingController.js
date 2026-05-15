@@ -20,9 +20,6 @@ const updateMySettings = async (req, res) => {
   if (typeof req.body.theme === "string" && ["dark", "light", "system"].includes(req.body.theme)) {
     settings.theme = req.body.theme;
   }
-  if (typeof req.body.language === "string" && ["en", "fr", "ar"].includes(req.body.language)) {
-    settings.language = req.body.language;
-  }
   if (typeof req.body.compactView === "boolean") {
     settings.compactView = req.body.compactView;
   }

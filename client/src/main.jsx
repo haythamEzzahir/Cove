@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState } from 'react';
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
@@ -6,7 +6,6 @@ import { SettingsProvider } from './context/SettingsContext';
 import { AuthProvider } from './context/AuthContext';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { API_URL } from './config';
 import AppLayout from './components/layout/AppLayout';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
@@ -19,7 +18,7 @@ import Signup from './pages/Signup';
 import VerifyPending from './pages/VerifyPending';
 import './index.css';
 
-const GOOGLE_CONFIG_URL = `${API_URL}/api/auth/google/config`;
+console.log("Google Client ID:", import.meta.env.VITE_GOOGLE_CLIENT_ID);
 
 const router = createBrowserRouter([
   {
@@ -50,54 +49,9 @@ const router = createBrowserRouter([
   },
 ]);
 
-function GoogleProviderWrapper({ children }) {
-  const [clientId, setClientId] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    const loadClientId = async () => {
-      try {
-        const response = await fetch(GOOGLE_CONFIG_URL);
-        const contentType = response.headers.get('content-type') || '';
-        const data = contentType.includes('application/json')
-          ? await response.json()
-          : {};
-
-        if (!response.ok || !data.clientId) {
-          throw new Error('Google configuration unavailable');
-        }
-
-        setClientId(data.clientId);
-      } catch (err) {
-        console.error('Google config error:', err);
-        setError('Google login is not available');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadClientId();
-  }, []);
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  if (error || !clientId) {
-    return <>{children}</>;
-  }
-
-  return (
-    <GoogleOAuthProvider clientId={clientId}>
-      {children}
-    </GoogleOAuthProvider>
-  );
-}
-
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <GoogleProviderWrapper>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
       <ThemeProvider>
         <SettingsProvider>
           <CurrencyProvider>
@@ -107,6 +61,6 @@ createRoot(document.getElementById('root')).render(
           </CurrencyProvider>
         </SettingsProvider>
       </ThemeProvider>
-    </GoogleProviderWrapper>
+    </GoogleOAuthProvider>
   </StrictMode>
 );

@@ -74,7 +74,7 @@ fintracker/
 4. Live prices stream from Binance WebSocket in the browser
 5. User can add coins to portfolio (tracks holdings, P&L, allocation)
 6. User can add coins to watchlist (only user-chosen coins appear)
-7. All settings (theme, currency, language) are persisted in localStorage
+7. All settings (theme, currency, notifications, compact view) are persisted in localStorage
 8. Portfolio can be exported as CSV or PDF report
 9. Avatars are uploaded to Cloudinary — only the URL is stored in MongoDB
 
@@ -90,7 +90,7 @@ The app wraps everything in these providers (in `main.jsx`):
 |---|---|---|
 | `GoogleProviderWrapper` | `src/main.jsx` | Dynamically loads Google OAuth Client ID from backend |
 | `ThemeProvider` | `src/context/ThemeContext.jsx` | Manages dark/light theme, persists to localStorage |
-| `SettingsProvider` | `src/context/SettingsContext.jsx` | User settings (theme, language, notifications, compact view) |
+| `SettingsProvider` | `src/context/SettingsContext.jsx` | User settings (theme, notifications, compact view) |
 | `CurrencyProvider` | `src/context/CurrencyContext.jsx` | Active currency (USD, EUR, GBP, etc.) |
 | `AuthProvider` | `src/context/AuthContext.jsx` | Cookie-based auth, user state, watchlist, login/signup/logout |
 
@@ -117,7 +117,7 @@ Single source of truth for:
 | `Portfolio.jsx` | `/portfolio` | Holdings table, balance overview, donut chart (allocation), CSV/PDF export, add asset modal |
 | `Watchlist.jsx` | `/watchlist` | User-chosen tracked coins with live prices, add/remove coins, set price alerts inline |
 | `Alerts.jsx` | `/alerts` | Dedicated alerts page. Create/edit/delete price alerts with notification triggers |
-| `Settings.jsx` | `/settings` | User preferences: currency, theme toggle, notifications, language |
+| `Settings.jsx` | `/settings` | User preferences: currency, theme toggle, notifications |
 | `Profile.jsx` | `/settings/profile` | Profile editing: name, email, avatar (URL or base64 → Cloudinary), password change |
 
 ### Routing (`main.jsx`)
@@ -212,7 +212,7 @@ Uses `express-validator` library:
 | `validateProfileUpdate` | `PUT /api/users/me` | Name 1-100, valid email, bio max 500, avatar URL or base64 |
 | `validatePortfolioAsset` | `POST /api/portfolio` | Valid coinId (alphanumeric), name, symbol, quantity > 0, price > 0 |
 | `validateWatchlistItem` | `POST /api/watchlist` | Valid coinId |
-| `validateSettings` | `PUT /api/settings/me` | Theme: dark/light/system, Language: en/fr/ar, booleans |
+| `validateSettings` | `PUT /api/settings/me` | Theme: dark/light/system, booleans |
 | `validateChartQuery` | `GET /chart/:coinId` | coinId alphanumeric, days 1-365 |
 | `handleValidationErrors` | After any validator | Returns 400 with formatted error details |
 
@@ -459,7 +459,6 @@ Located in `TopBar.jsx` — toggles between dark/light via `useTheme().toggleThe
 
 - **Appearance:** Theme toggle (dark/light)
 - **Currency:** Dropdown to change display currency
-- **Language:** English, French, Arabic (UI labels stored in settings)
 - **Notifications:** Toggle for price alert notifications
 - **Compact View:** Toggle for reduced padding UI
 - **Portfolio Summary:** Toggle for showing portfolio stats on dashboard
@@ -523,7 +522,7 @@ Located in `TopBar.jsx` — toggles between dark/light via `useTheme().toggleThe
 | Method | Path | Auth | Description |
 |---|---|---|---|
 | `GET` | `/api/settings/me` | Yes | Get user settings |
-| `PUT` | `/api/settings/me` | Yes | Update settings (theme, language, etc.) |
+| `PUT` | `/api/settings/me` | Yes | Update settings (theme, notifications, compact view, etc.) |
 
 ### Alerts
 
@@ -626,7 +625,6 @@ TTL index: `{ createdAt: 1, expireAfterSeconds: 7 * 24 * 60 * 60 }`
 | `theme` | String | `"dark"` | `"dark"` or `"light"` |
 | `compactView` | Boolean | `false` | Compact UI toggle |
 | `notifications` | Boolean | `true` | Alert notifications |
-| `language` | String | `"fr"` | `"en"`, `"fr"`, or `"ar"` |
 
 ---
 
