@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo } from 'react';
+import { createContext, useContext } from 'react';
 import { useSettings } from './SettingsContext';
 
 const CurrencyContext = createContext(null);
@@ -13,34 +13,32 @@ const CURRENCIES = [
   { code: 'egp', symbol: 'E\u00a3', name: 'Egyptian Pound' },
 ];
 
-function normalizeCurrency(value) {
-  const code = String(value || '').trim().toLowerCase();
-  return CURRENCIES.some((currency) => currency.code === code) ? code : 'usd';
+function getCurrency(code) {
+  return CURRENCIES.find((currency) => currency.code === code) || CURRENCIES[0];
 }
 
 export function CurrencyProvider({ children }) {
   const { settings, updateSetting } = useSettings();
-  const currency = normalizeCurrency(settings.currency);
 
-  const setCurrency = useCallback((value) => {
-    return updateSetting('currency', normalizeCurrency(value));
-  }, [updateSetting]);
+  // Currency is stored in SettingsContext. This context only makes it easier to use.
+  const currency = settings.currency || 'usd';
+  const currencyData = getCurrency(currency);
 
-  const currencyData = useMemo(
-    () => CURRENCIES.find((c) => c.code === currency) || CURRENCIES[0],
-    [currency]
-  );
-
-  const value = useMemo(() => ({
-    currency,
-    setCurrency,
-    updateCurrency: setCurrency,
-    currencies: CURRENCIES,
-    currencyData,
-  }), [currency, currencyData, setCurrency]);
+  function setCurrency(value) {
+    const nextCurrency = getCurrency(value).code;
+    return updateSetting('currency', nextCurrency);
+  }
 
   return (
-    <CurrencyContext.Provider value={value}>
+    <CurrencyContext.Provider
+      value={{
+        currency,
+        currencyData,
+        currencies: CURRENCIES,
+        setCurrency,
+        updateCurrency: setCurrency,
+      }}
+    >
       {children}
     </CurrencyContext.Provider>
   );

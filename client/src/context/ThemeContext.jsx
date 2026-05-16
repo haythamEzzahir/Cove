@@ -1,64 +1,59 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { useSettings } from './SettingsContext';
 
-const DEFAULT_THEME = 'dark';
-const SUPPORTED_THEMES = ['dark', 'light', 'system'];
-
 const ThemeContext = createContext(null);
+const THEMES = ['dark', 'light', 'system'];
 
-function normalizeTheme(value) {
-  return SUPPORTED_THEMES.includes(value) ? value : DEFAULT_THEME;
+function getTheme(value) {
+  return THEMES.includes(value) ? value : 'dark';
 }
 
-function getSystemPrefersDark() {
+function systemPrefersDark() {
   if (typeof window === 'undefined') return true;
   return window.matchMedia('(prefers-color-scheme: dark)').matches;
 }
 
 export function ThemeProvider({ children }) {
   const { settings, updateSetting } = useSettings();
-  const theme = normalizeTheme(settings.theme);
-  const [systemPrefersDark, setSystemPrefersDark] = useState(getSystemPrefersDark);
-  const isDark = theme === 'system' ? systemPrefersDark : theme === 'dark';
+  const [systemDark, setSystemDark] = useState(systemPrefersDark);
+
+  // Theme comes from SettingsContext, then this context applies it to the page.
+  const theme = getTheme(settings.theme);
+  const isDark = theme === 'system' ? systemDark : theme === 'dark';
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
 
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (event) => setSystemPrefersDark(event.matches);
+    const onSystemThemeChange = (event) => setSystemDark(event.matches);
 
-    mediaQuery.addEventListener('change', handleChange);
-
-    return () => mediaQuery.removeEventListener('change', handleChange);
+    mediaQuery.addEventListener('change', onSystemThemeChange);
+    return () => mediaQuery.removeEventListener('change', onSystemThemeChange);
   }, []);
 
   useEffect(() => {
-    const html = document.documentElement;
-    html.classList.toggle('dark', isDark);
+    document.documentElement.classList.toggle('dark', isDark);
   }, [isDark]);
 
-  const setTheme = useCallback((value) => {
-    return updateSetting('theme', normalizeTheme(value));
-  }, [updateSetting]);
+  function setTheme(value) {
+    return updateSetting('theme', getTheme(value));
+  }
 
-  const toggleTheme = useCallback(() => {
+  function toggleTheme() {
     return updateSetting('theme', isDark ? 'light' : 'dark');
-  }, [isDark, updateSetting]);
-
-  const setLightTheme = useCallback(() => setTheme('light'), [setTheme]);
-  const setDarkTheme = useCallback(() => setTheme('dark'), [setTheme]);
-
-  const value = useMemo(() => ({
-    theme,
-    isDark,
-    toggleTheme,
-    setTheme,
-    setLightTheme,
-    setDarkTheme,
-  }), [isDark, setDarkTheme, setLightTheme, setTheme, theme, toggleTheme]);
+  }
 
   return (
-    <ThemeContext.Provider value={value}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        isDark,
+        setTheme,
+        toggleTheme,
+        setLightTheme: () => setTheme('light'),
+        setDarkTheme: () => setTheme('dark'),
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );

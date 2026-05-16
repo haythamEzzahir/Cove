@@ -1,11 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { API_URL, fetchWithAuth, getJson } from '../config';
 import { useAuth } from './AuthContext';
 
-const STORAGE_KEY = 'fintracker_settings';
-const SUPPORTED_THEMES = ['dark', 'light', 'system'];
-const SUPPORTED_CURRENCIES = ['usd', 'eur', 'gbp', 'jpy', 'aed', 'sar', 'egp'];
-const SETTING_KEYS = new Set(['theme', 'compactView', 'notifications', 'currency']);
+const SETTINGS_CACHE_KEY = 'fintracker_settings';
 
 const DEFAULT_SETTINGS = {
   theme: 'dark',
@@ -14,109 +11,70 @@ const DEFAULT_SETTINGS = {
   currency: 'usd',
 };
 
+const SUPPORTED_THEMES = ['dark', 'light', 'system'];
+const SUPPORTED_CURRENCIES = ['usd', 'eur', 'gbp', 'jpy', 'aed', 'sar', 'egp'];
+const SETTINGS_KEYS = ['theme', 'compactView', 'notifications', 'currency'];
+
 const SettingsContext = createContext(null);
 
-function normalizeTheme(value) {
-  return SUPPORTED_THEMES.includes(value) ? value : DEFAULT_SETTINGS.theme;
-}
-
-function normalizeCurrency(value) {
-  const code = String(value || '').trim().toLowerCase();
-  return SUPPORTED_CURRENCIES.includes(code) ? code : DEFAULT_SETTINGS.currency;
-}
-
 function normalizeSettings(data = {}) {
-  const notifications = typeof data.notifications === 'boolean'
-    ? data.notifications
-    : DEFAULT_SETTINGS.notifications;
+  const theme = SUPPORTED_THEMES.includes(data.theme) ? data.theme : DEFAULT_SETTINGS.theme;
+  const currency = SUPPORTED_CURRENCIES.includes(data.currency) ? data.currency : DEFAULT_SETTINGS.currency;
 
   return {
-    theme: normalizeTheme(data.theme),
+    theme,
+    currency,
     compactView: typeof data.compactView === 'boolean' ? data.compactView : DEFAULT_SETTINGS.compactView,
-    notifications,
-    currency: normalizeCurrency(data.currency),
+    notifications: typeof data.notifications === 'boolean' ? data.notifications : DEFAULT_SETTINGS.notifications,
   };
 }
 
-function normalizeSettingValue(key, value) {
-  if (key === 'theme') {
-    const nextTheme = normalizeTheme(value);
-    return nextTheme === value ? nextTheme : undefined;
-  }
-
-  if (key === 'currency') {
-    const nextCurrency = normalizeCurrency(value);
-    return nextCurrency === String(value || '').trim().toLowerCase() ? nextCurrency : undefined;
-  }
-
-  if (key === 'compactView' || key === 'notifications') {
-    return typeof value === 'boolean' ? value : undefined;
-  }
-
-  return undefined;
-}
-
-function readCachedSettings() {
+function readSettingsCache() {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return DEFAULT_SETTINGS;
-
-    const parsed = JSON.parse(saved);
-    return normalizeSettings(parsed);
+    const saved = localStorage.getItem(SETTINGS_CACHE_KEY);
+    return saved ? normalizeSettings(JSON.parse(saved)) : DEFAULT_SETTINGS;
   } catch {
     return DEFAULT_SETTINGS;
   }
 }
 
-function cacheSettings(settings) {
+function saveSettingsCache(settings) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeSettings(settings)));
+    localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(normalizeSettings(settings)));
   } catch {
-    // ignore localStorage errors
+    // localStorage is only a cache, so failing here is not critical.
   }
+}
+
+function isValidSetting(key, value) {
+  if (!SETTINGS_KEYS.includes(key)) return false;
+  if (key === 'theme') return SUPPORTED_THEMES.includes(value);
+  if (key === 'currency') return SUPPORTED_CURRENCIES.includes(value);
+  return typeof value === 'boolean';
 }
 
 export function SettingsProvider({ children }) {
   const { user, loading: authLoading } = useAuth();
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [settingsLoading, setSettingsLoading] = useState(true);
-  const [settingsError, setSettingsError] = useState('');
-  const settingsRef = useRef(DEFAULT_SETTINGS);
-  const mutationVersionRef = useRef(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const applySettings = useCallback((nextSettings, { cache = false } = {}) => {
-    const normalized = normalizeSettings(nextSettings);
-    settingsRef.current = normalized;
-    setSettings(normalized);
-
-    if (cache) {
-      cacheSettings(normalized);
-    }
-
-    return normalized;
-  }, []);
-
+  // compactView affects the whole page layout, so we apply it to the body.
   useEffect(() => {
     document.body.classList.toggle('compact-mode', settings.compactView);
   }, [settings.compactView]);
 
   const loadSettings = useCallback(async () => {
-    if (authLoading) {
-      return { success: false, error: 'Authentication is still loading' };
-    }
+    if (authLoading) return { success: false, error: 'Authentication is still loading' };
 
-    const versionAtStart = mutationVersionRef.current;
-    setSettingsLoading(true);
-    setSettingsError('');
+    setLoading(true);
+    setError('');
 
+    // Without a logged-in user, MongoDB is not available. Use the local cache only here.
     if (!user?._id) {
-      const cachedSettings = readCachedSettings();
-
-      if (mutationVersionRef.current === versionAtStart) {
-        applySettings(cachedSettings);
-      }
-
-      setSettingsLoading(false);
+      const cachedSettings = readSettingsCache();
+      setSettings(cachedSettings);
+      setLoading(false);
       return { success: true, settings: cachedSettings, source: 'localStorage' };
     }
 
@@ -125,40 +83,71 @@ export function SettingsProvider({ children }) {
       const data = await getJson(response);
 
       if (!response.ok) {
-        const fallbackSettings = readCachedSettings();
-        const error = data.message || 'Failed to load settings';
-
-        if (mutationVersionRef.current === versionAtStart) {
-          applySettings(fallbackSettings);
-          setSettingsError(error);
-        }
-
-        setSettingsLoading(false);
-        return { success: false, error, settings: fallbackSettings, source: 'localStorage' };
+        const cachedSettings = readSettingsCache();
+        const message = data.message || 'Failed to load settings';
+        setSettings(cachedSettings);
+        setError(message);
+        setLoading(false);
+        return { success: false, error: message, settings: cachedSettings };
       }
 
+      // After login, MongoDB is the source of truth.
       const remoteSettings = normalizeSettings(data);
-
-      if (mutationVersionRef.current === versionAtStart) {
-        applySettings(remoteSettings, { cache: true });
-      }
-
-      setSettingsLoading(false);
+      setSettings(remoteSettings);
+      saveSettingsCache(remoteSettings);
+      setLoading(false);
       return { success: true, settings: remoteSettings, source: 'mongodb' };
     } catch {
-      const fallbackSettings = readCachedSettings();
-      const error = 'Server error';
+      const cachedSettings = readSettingsCache();
+      setSettings(cachedSettings);
+      setError('Server error');
+      setLoading(false);
+      return { success: false, error: 'Server error', settings: cachedSettings };
+    }
+  }, [authLoading, user?._id]);
 
-      if (mutationVersionRef.current === versionAtStart) {
-        applySettings(fallbackSettings);
-        setSettingsError(error);
+  async function updateSetting(key, value) {
+    if (!isValidSetting(key, value)) {
+      return { success: false, error: `Invalid setting: ${key}` };
+    }
+
+    const nextSettings = normalizeSettings({ ...settings, [key]: value });
+
+    // Update React immediately so the UI feels fast.
+    setSettings(nextSettings);
+    setError('');
+
+    // If the user is not connected, keep only a local fallback.
+    if (authLoading || !user?._id) {
+      saveSettingsCache(nextSettings);
+      return { success: true, settings: nextSettings, source: 'localStorage' };
+    }
+
+    try {
+      const response = await fetchWithAuth(`${API_URL}/api/settings/me`, {
+        method: 'PUT',
+        body: JSON.stringify({ [key]: value }),
+      });
+      const data = await getJson(response);
+
+      if (!response.ok) {
+        const message = data.message || 'Failed to update settings';
+        setError(message);
+        return { success: false, error: message };
       }
 
-      setSettingsLoading(false);
-      return { success: false, error, settings: fallbackSettings, source: 'localStorage' };
+      // The backend response becomes the new React state.
+      const savedSettings = normalizeSettings(data);
+      setSettings(savedSettings);
+      saveSettingsCache(savedSettings);
+      return { success: true, settings: savedSettings, source: 'mongodb' };
+    } catch {
+      setError('Server error');
+      return { success: false, error: 'Server error' };
     }
-  }, [applySettings, authLoading, user?._id]);
+  }
 
+  // Load settings after the auth status is known, and again when the user changes.
   useEffect(() => {
     if (!authLoading) {
       const timeoutId = window.setTimeout(() => {
@@ -171,70 +160,8 @@ export function SettingsProvider({ children }) {
     return undefined;
   }, [authLoading, loadSettings]);
 
-  const updateSetting = useCallback(async (key, value) => {
-    if (!SETTING_KEYS.has(key)) {
-      return { success: false, error: `Unsupported setting: ${key}` };
-    }
-
-    const normalizedValue = normalizeSettingValue(key, value);
-
-    if (normalizedValue === undefined) {
-      return { success: false, error: `Invalid value for setting: ${key}` };
-    }
-
-    const mutationVersion = mutationVersionRef.current + 1;
-    const optimisticSettings = normalizeSettings({
-      ...settingsRef.current,
-      [key]: normalizedValue,
-    });
-
-    mutationVersionRef.current = mutationVersion;
-    settingsRef.current = optimisticSettings;
-    setSettings(optimisticSettings);
-    setSettingsError('');
-
-    if (authLoading || !user?._id) {
-      cacheSettings(optimisticSettings);
-      return { success: true, settings: optimisticSettings, source: 'localStorage' };
-    }
-
-    try {
-      const response = await fetchWithAuth(`${API_URL}/api/settings/me`, {
-        method: 'PUT',
-        body: JSON.stringify({ [key]: normalizedValue }),
-      });
-      const data = await getJson(response);
-
-      if (!response.ok) {
-        const error = data.message || 'Failed to update settings';
-        setSettingsError(error);
-        return { success: false, error };
-      }
-
-      const remoteSettings = normalizeSettings(data);
-
-      if (mutationVersionRef.current === mutationVersion) {
-        applySettings(remoteSettings, { cache: true });
-      }
-
-      return { success: true, settings: remoteSettings, source: 'mongodb' };
-    } catch {
-      const error = 'Server error';
-      setSettingsError(error);
-      return { success: false, error };
-    }
-  }, [applySettings, authLoading, user?._id]);
-
-  const value = useMemo(() => ({
-    settings,
-    updateSetting,
-    loadSettings,
-    settingsLoading,
-    settingsError,
-  }), [loadSettings, settings, settingsError, settingsLoading, updateSetting]);
-
   return (
-    <SettingsContext.Provider value={value}>
+    <SettingsContext.Provider value={{ settings, loading, error, loadSettings, updateSetting }}>
       {children}
     </SettingsContext.Provider>
   );
