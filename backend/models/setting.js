@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 
+export const SUPPORTED_CURRENCIES = ["usd", "eur", "gbp", "jpy", "aed", "sar", "egp"];
+
 const settingSchema = new mongoose.Schema(
   {
     userId: {
@@ -18,6 +20,11 @@ const settingSchema = new mongoose.Schema(
     notifications: {
       type: Boolean,
       default: true
+    },
+    currency: {
+      type: String,
+      default: "usd",
+      enum: SUPPORTED_CURRENCIES
     }
   },
   { timestamps: true }

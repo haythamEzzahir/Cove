@@ -1,62 +1,64 @@
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useSettings } from './SettingsContext';
 
-const STORAGE_KEY = 'fintracker_theme';
 const DEFAULT_THEME = 'dark';
+const SUPPORTED_THEMES = ['dark', 'light', 'system'];
 
 const ThemeContext = createContext(null);
 
+function normalizeTheme(value) {
+  return SUPPORTED_THEMES.includes(value) ? value : DEFAULT_THEME;
+}
+
+function getSystemPrefersDark() {
+  if (typeof window === 'undefined') return true;
+  return window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
+
 export function ThemeProvider({ children }) {
-  const [theme, setTheme] = useState(() => {
-    if (typeof window === 'undefined') return DEFAULT_THEME;
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored === 'light' || stored === 'dark' ? stored : DEFAULT_THEME;
-    } catch {
-      return DEFAULT_THEME;
-    }
-  });
-
-  const toggleTheme = useCallback(() => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-  }, []);
-
-  const setLightTheme = useCallback(() => setTheme('light'), []);
-  const setDarkTheme = useCallback(() => setTheme('dark'), []);
+  const { settings, updateSetting } = useSettings();
+  const theme = normalizeTheme(settings.theme);
+  const [systemPrefersDark, setSystemPrefersDark] = useState(getSystemPrefersDark);
+  const isDark = theme === 'system' ? systemPrefersDark : theme === 'dark';
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      localStorage.setItem(STORAGE_KEY, theme);
-    } catch {
-      // ignore localStorage errors
-    }
+    if (typeof window === 'undefined') return undefined;
 
-    const html = document.documentElement;
-    if (theme === 'dark') {
-      html.classList.add('dark');
-    } else {
-      html.classList.remove('dark');
-    }
-  }, [theme]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = (e) => {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (!stored) {
-        setTheme(e.matches ? 'dark' : 'light');
-      }
-    };
+    const handleChange = (event) => setSystemPrefersDark(event.matches);
 
     mediaQuery.addEventListener('change', handleChange);
+
     return () => mediaQuery.removeEventListener('change', handleChange);
   }, []);
 
+  useEffect(() => {
+    const html = document.documentElement;
+    html.classList.toggle('dark', isDark);
+  }, [isDark]);
+
+  const setTheme = useCallback((value) => {
+    return updateSetting('theme', normalizeTheme(value));
+  }, [updateSetting]);
+
+  const toggleTheme = useCallback(() => {
+    return updateSetting('theme', isDark ? 'light' : 'dark');
+  }, [isDark, updateSetting]);
+
+  const setLightTheme = useCallback(() => setTheme('light'), [setTheme]);
+  const setDarkTheme = useCallback(() => setTheme('dark'), [setTheme]);
+
+  const value = useMemo(() => ({
+    theme,
+    isDark,
+    toggleTheme,
+    setTheme,
+    setLightTheme,
+    setDarkTheme,
+  }), [isDark, setDarkTheme, setLightTheme, setTheme, theme, toggleTheme]);
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, setLightTheme, setDarkTheme, isDark: theme === 'dark' }}>
+    <ThemeContext.Provider value={value}>
       {children}
     </ThemeContext.Provider>
   );

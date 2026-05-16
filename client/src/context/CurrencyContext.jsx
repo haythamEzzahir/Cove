@@ -1,16 +1,16 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useMemo } from 'react';
+import { useSettings } from './SettingsContext';
 
 const CurrencyContext = createContext(null);
-const STORAGE_KEY = 'fintracker_currency';
 
 const CURRENCIES = [
   { code: 'usd', symbol: '$', name: 'US Dollar' },
-  { code: 'eur', symbol: '€', name: 'Euro' },
-  { code: 'gbp', symbol: '£', name: 'British Pound' },
-  { code: 'jpy', symbol: '¥', name: 'Japanese Yen' },
-  { code: 'aed', symbol: 'د.إ', name: 'UAE Dirham' },
-  { code: 'sar', symbol: '﷼', name: 'Saudi Riyal' },
-  { code: 'egp', symbol: 'E£', name: 'Egyptian Pound' },
+  { code: 'eur', symbol: '\u20ac', name: 'Euro' },
+  { code: 'gbp', symbol: '\u00a3', name: 'British Pound' },
+  { code: 'jpy', symbol: '\u00a5', name: 'Japanese Yen' },
+  { code: 'aed', symbol: '\u062f.\u0625', name: 'UAE Dirham' },
+  { code: 'sar', symbol: '\ufdfc', name: 'Saudi Riyal' },
+  { code: 'egp', symbol: 'E\u00a3', name: 'Egyptian Pound' },
 ];
 
 function normalizeCurrency(value) {
@@ -19,32 +19,28 @@ function normalizeCurrency(value) {
 }
 
 export function CurrencyProvider({ children }) {
-  const [currency, setCurrencyState] = useState(() => {
-    try {
-      return normalizeCurrency(localStorage.getItem(STORAGE_KEY));
-    } catch {
-      return 'usd';
-    }
-  });
+  const { settings, updateSetting } = useSettings();
+  const currency = normalizeCurrency(settings.currency);
 
   const setCurrency = useCallback((value) => {
-    setCurrencyState(normalizeCurrency(value));
-  }, []);
+    return updateSetting('currency', normalizeCurrency(value));
+  }, [updateSetting]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, currency);
-    } catch {
-      // ignore localStorage errors
-    }
-  }, [currency]);
+  const currencyData = useMemo(
+    () => CURRENCIES.find((c) => c.code === currency) || CURRENCIES[0],
+    [currency]
+  );
 
-  const currencyData = CURRENCIES.find((c) => c.code === currency) || CURRENCIES[0];
+  const value = useMemo(() => ({
+    currency,
+    setCurrency,
+    updateCurrency: setCurrency,
+    currencies: CURRENCIES,
+    currencyData,
+  }), [currency, currencyData, setCurrency]);
 
   return (
-    <CurrencyContext.Provider
-      value={{ currency, setCurrency, updateCurrency: setCurrency, currencies: CURRENCIES, currencyData }}
-    >
+    <CurrencyContext.Provider value={value}>
       {children}
     </CurrencyContext.Provider>
   );

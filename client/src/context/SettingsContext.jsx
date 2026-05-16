@@ -1,99 +1,240 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { API_URL, fetchWithAuth, getJson } from '../config';
+import { useAuth } from './AuthContext';
+
+const STORAGE_KEY = 'fintracker_settings';
+const SUPPORTED_THEMES = ['dark', 'light', 'system'];
+const SUPPORTED_CURRENCIES = ['usd', 'eur', 'gbp', 'jpy', 'aed', 'sar', 'egp'];
+const SETTING_KEYS = new Set(['theme', 'compactView', 'notifications', 'currency']);
 
 const DEFAULT_SETTINGS = {
-  compactView:      false,
-  priceAlerts:      true,
-  marketNews:       false,
-  portfolioSummary: true,
+  theme: 'dark',
+  compactView: false,
+  notifications: true,
+  currency: 'usd',
 };
 
 const SettingsContext = createContext(null);
 
-const REMOTE_SETTING_KEYS = new Set(['compactView']);
+function normalizeTheme(value) {
+  return SUPPORTED_THEMES.includes(value) ? value : DEFAULT_SETTINGS.theme;
+}
 
-function normalizeRemoteSettings(data = {}) {
-  const nextSettings = {};
+function normalizeCurrency(value) {
+  const code = String(value || '').trim().toLowerCase();
+  return SUPPORTED_CURRENCIES.includes(code) ? code : DEFAULT_SETTINGS.currency;
+}
 
-  if (typeof data.compactView === 'boolean') {
-    nextSettings.compactView = data.compactView;
+function normalizeSettings(data = {}) {
+  const notifications = typeof data.notifications === 'boolean'
+    ? data.notifications
+    : DEFAULT_SETTINGS.notifications;
+
+  return {
+    theme: normalizeTheme(data.theme),
+    compactView: typeof data.compactView === 'boolean' ? data.compactView : DEFAULT_SETTINGS.compactView,
+    notifications,
+    currency: normalizeCurrency(data.currency),
+  };
+}
+
+function normalizeSettingValue(key, value) {
+  if (key === 'theme') {
+    const nextTheme = normalizeTheme(value);
+    return nextTheme === value ? nextTheme : undefined;
   }
 
-  return nextSettings;
+  if (key === 'currency') {
+    const nextCurrency = normalizeCurrency(value);
+    return nextCurrency === String(value || '').trim().toLowerCase() ? nextCurrency : undefined;
+  }
+
+  if (key === 'compactView' || key === 'notifications') {
+    return typeof value === 'boolean' ? value : undefined;
+  }
+
+  return undefined;
+}
+
+function readCachedSettings() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return DEFAULT_SETTINGS;
+
+    const parsed = JSON.parse(saved);
+    return normalizeSettings(parsed);
+  } catch {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+function cacheSettings(settings) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(normalizeSettings(settings)));
+  } catch {
+    // ignore localStorage errors
+  }
 }
 
 export function SettingsProvider({ children }) {
-  const [settings, setSettings] = useState(() => {
-    try {
-      const saved = localStorage.getItem('fintracker_settings');
-      if (!saved) return DEFAULT_SETTINGS;
+  const { user, loading: authLoading } = useAuth();
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [settingsLoading, setSettingsLoading] = useState(true);
+  const [settingsError, setSettingsError] = useState('');
+  const settingsRef = useRef(DEFAULT_SETTINGS);
+  const mutationVersionRef = useRef(0);
 
-      const savedSettings = JSON.parse(saved);
-      delete savedSettings.darkMode;
-      delete savedSettings.currency;
-      delete savedSettings.language;
+  const applySettings = useCallback((nextSettings, { cache = false } = {}) => {
+    const normalized = normalizeSettings(nextSettings);
+    settingsRef.current = normalized;
+    setSettings(normalized);
 
-      return { ...DEFAULT_SETTINGS, ...savedSettings };
-    } catch {
-      return DEFAULT_SETTINGS;
+    if (cache) {
+      cacheSettings(normalized);
     }
-  });
+
+    return normalized;
+  }, []);
 
   useEffect(() => {
     document.body.classList.toggle('compact-mode', settings.compactView);
   }, [settings.compactView]);
 
-  useEffect(() => {
-    try {
-      localStorage.setItem('fintracker_settings', JSON.stringify(settings));
-    } catch {
-      // ignore localStorage errors
-    }
-  }, [settings]);
-
   const loadSettings = useCallback(async () => {
+    if (authLoading) {
+      return { success: false, error: 'Authentication is still loading' };
+    }
+
+    const versionAtStart = mutationVersionRef.current;
+    setSettingsLoading(true);
+    setSettingsError('');
+
+    if (!user?._id) {
+      const cachedSettings = readCachedSettings();
+
+      if (mutationVersionRef.current === versionAtStart) {
+        applySettings(cachedSettings);
+      }
+
+      setSettingsLoading(false);
+      return { success: true, settings: cachedSettings, source: 'localStorage' };
+    }
+
     try {
       const response = await fetchWithAuth(`${API_URL}/api/settings/me`);
       const data = await getJson(response);
 
       if (!response.ok) {
-        return { success: false, error: data.message || 'Failed to load settings' };
+        const fallbackSettings = readCachedSettings();
+        const error = data.message || 'Failed to load settings';
+
+        if (mutationVersionRef.current === versionAtStart) {
+          applySettings(fallbackSettings);
+          setSettingsError(error);
+        }
+
+        setSettingsLoading(false);
+        return { success: false, error, settings: fallbackSettings, source: 'localStorage' };
       }
 
-      setSettings((prev) => ({ ...prev, ...normalizeRemoteSettings(data) }));
-      return { success: true, settings: data };
+      const remoteSettings = normalizeSettings(data);
+
+      if (mutationVersionRef.current === versionAtStart) {
+        applySettings(remoteSettings, { cache: true });
+      }
+
+      setSettingsLoading(false);
+      return { success: true, settings: remoteSettings, source: 'mongodb' };
     } catch {
-      return { success: false, error: 'Server error' };
+      const fallbackSettings = readCachedSettings();
+      const error = 'Server error';
+
+      if (mutationVersionRef.current === versionAtStart) {
+        applySettings(fallbackSettings);
+        setSettingsError(error);
+      }
+
+      setSettingsLoading(false);
+      return { success: false, error, settings: fallbackSettings, source: 'localStorage' };
     }
-  }, []);
+  }, [applySettings, authLoading, user?._id]);
+
+  useEffect(() => {
+    if (!authLoading) {
+      const timeoutId = window.setTimeout(() => {
+        loadSettings();
+      }, 0);
+
+      return () => window.clearTimeout(timeoutId);
+    }
+
+    return undefined;
+  }, [authLoading, loadSettings]);
 
   const updateSetting = useCallback(async (key, value) => {
-    setSettings((prev) => ({ ...prev, [key]: value }));
+    if (!SETTING_KEYS.has(key)) {
+      return { success: false, error: `Unsupported setting: ${key}` };
+    }
 
-    if (!REMOTE_SETTING_KEYS.has(key)) {
-      return { success: true };
+    const normalizedValue = normalizeSettingValue(key, value);
+
+    if (normalizedValue === undefined) {
+      return { success: false, error: `Invalid value for setting: ${key}` };
+    }
+
+    const mutationVersion = mutationVersionRef.current + 1;
+    const optimisticSettings = normalizeSettings({
+      ...settingsRef.current,
+      [key]: normalizedValue,
+    });
+
+    mutationVersionRef.current = mutationVersion;
+    settingsRef.current = optimisticSettings;
+    setSettings(optimisticSettings);
+    setSettingsError('');
+
+    if (authLoading || !user?._id) {
+      cacheSettings(optimisticSettings);
+      return { success: true, settings: optimisticSettings, source: 'localStorage' };
     }
 
     try {
       const response = await fetchWithAuth(`${API_URL}/api/settings/me`, {
         method: 'PUT',
-        body: JSON.stringify({ [key]: value }),
+        body: JSON.stringify({ [key]: normalizedValue }),
       });
       const data = await getJson(response);
 
       if (!response.ok) {
-        return { success: false, error: data.message || 'Failed to update settings' };
+        const error = data.message || 'Failed to update settings';
+        setSettingsError(error);
+        return { success: false, error };
       }
 
-      setSettings((prev) => ({ ...prev, ...normalizeRemoteSettings(data) }));
-      return { success: true, settings: data };
+      const remoteSettings = normalizeSettings(data);
+
+      if (mutationVersionRef.current === mutationVersion) {
+        applySettings(remoteSettings, { cache: true });
+      }
+
+      return { success: true, settings: remoteSettings, source: 'mongodb' };
     } catch {
-      return { success: false, error: 'Server error' };
+      const error = 'Server error';
+      setSettingsError(error);
+      return { success: false, error };
     }
-  }, []);
+  }, [applySettings, authLoading, user?._id]);
+
+  const value = useMemo(() => ({
+    settings,
+    updateSetting,
+    loadSettings,
+    settingsLoading,
+    settingsError,
+  }), [loadSettings, settings, settingsError, settingsLoading, updateSetting]);
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSetting, loadSettings }}>
+    <SettingsContext.Provider value={value}>
       {children}
     </SettingsContext.Provider>
   );

@@ -1,4 +1,5 @@
 import { body, param, query, validationResult } from "express-validator";
+import { SUPPORTED_CURRENCIES } from "../models/setting.js";
 
 export const validateRegistration = [
   body("name").trim().isLength({ min: 1, max: 100 }).withMessage("Name must be 1-100 characters"),
@@ -76,6 +77,7 @@ export const validateSettings = [
   body("theme").optional().isIn(["dark", "light", "system"]).withMessage("Theme must be dark, light, or system"),
   body("compactView").optional().isBoolean(),
   body("notifications").optional().isBoolean(),
+  body("currency").optional().isIn(SUPPORTED_CURRENCIES).withMessage("Currency is not supported"),
 ];
 
 export const handleValidationErrors = (req, res, next) => {

@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCurrency } from '../context/CurrencyContext';
@@ -14,14 +13,8 @@ function Settings() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { currency, setCurrency, currencies } = useCurrency();
-  const { settings, updateSetting, loadSettings } = useSettings();
+  const { settings, updateSetting } = useSettings();
   const { isDark, toggleTheme } = useTheme();
-
-  useEffect(() => {
-    if (user?._id) {
-      loadSettings();
-    }
-  }, [loadSettings, user?._id]);
 
   return (
     <div className="settings-wrapper flex flex-col min-h-full">
@@ -60,32 +53,12 @@ function Settings() {
 
       <SettingsSection title="Notifications">
         <SettingItem
-          label="Price Alerts"
-          description="Push notifications for alerts"
+          label="Notifications"
+          description="Push notifications for alerts and account updates"
           control={
             <ToggleSwitch
-              checked={settings.priceAlerts}
-              onChange={(val) => updateSetting('priceAlerts', val)}
-            />
-          }
-        />
-        <SettingItem
-          label="Market News"
-          description="Daily news digest"
-          control={
-            <ToggleSwitch
-              checked={settings.marketNews}
-              onChange={(val) => updateSetting('marketNews', val)}
-            />
-          }
-        />
-        <SettingItem
-          label="Portfolio Summary"
-          description="Weekly performance report"
-          control={
-            <ToggleSwitch
-              checked={settings.portfolioSummary}
-              onChange={(val) => updateSetting('portfolioSummary', val)}
+              checked={settings.notifications}
+              onChange={(val) => updateSetting('notifications', val)}
             />
           }
         />
