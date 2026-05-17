@@ -6,17 +6,15 @@ import TopBar from './TopBar';
 import AuthModal from '../auth/AuthModal';
 
 const PAGE_DATA = {
-  '/': { title: 'Dashboard', subtitle: 'Live market feed' },
   '/markets': { title: 'Markets', subtitle: 'Browse all cryptocurrencies' },
   '/watchlist': { title: 'Watchlist', subtitle: 'Track your assets' },
   '/portfolio': { title: 'Portfolio', subtitle: 'Manage your holdings' },
   '/alerts': { title: 'Alerts', subtitle: 'Price notifications' },
-  '/news': { title: 'News', subtitle: 'Latest crypto news' },
   '/settings': { title: 'Settings', subtitle: 'App preferences' },
   '/settings/profile': { title: 'Profile', subtitle: 'Account settings' },
 };
 
-const PROTECTED_ROUTES = ['/watchlist', '/portfolio', '/alerts', '/news', '/settings', '/settings/profile'];
+const PROTECTED_ROUTES = ['/watchlist', '/portfolio', '/alerts', '/settings', '/settings/profile'];
 const VERIFY_PATH = '/verify-pending';
 
 function getCurrentPath(location) {
@@ -37,7 +35,7 @@ export default function AppLayout() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalMode, setAuthModalMode] = useState('login');
-  const [authRedirectTo, setAuthRedirectTo] = useState('/');
+  const [authRedirectTo, setAuthRedirectTo] = useState('/markets');
 
   const toggleSidebar = () => {
     const newState = !sidebarCollapsed;
@@ -62,7 +60,7 @@ export default function AppLayout() {
     }
   }, [loading, user, location.pathname, navigate]);
 
-  const { title, subtitle } = PAGE_DATA[location.pathname] || { title: 'Dashboard', subtitle: '' };
+  const { title, subtitle } = PAGE_DATA[location.pathname] || { title: 'Markets', subtitle: '' };
 
   const requiresAuth = PROTECTED_ROUTES.some(route => location.pathname.startsWith(route));
   const currentPath = getCurrentPath(location);

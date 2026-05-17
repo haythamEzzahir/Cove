@@ -3,22 +3,18 @@ import { useNavigate } from 'react-router-dom';
 import {
   LogoutIcon,
   SettingsIcon,
-  DashboardIcon,
   MarketsIcon,
   WatchlistIcon,
   PortfolioIcon,
   AlertsIcon,
-  NewsIcon,
 } from '../icons/SidebarIcons';
 import { useAuth } from '../../context/AuthContext';
 
 const navItems = [
-  { path: '/', label: 'Dashboard', Icon: DashboardIcon },
   { path: '/markets', label: 'Markets', Icon: MarketsIcon },
   { path: '/watchlist', label: 'Watchlist', Icon: WatchlistIcon },
   { path: '/portfolio', label: 'Portfolio', Icon: PortfolioIcon },
   { path: '/alerts', label: 'Alerts', Icon: AlertsIcon },
-  { path: '/news', label: 'News', Icon: NewsIcon },
 ];
 
 export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }) {
@@ -28,7 +24,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
   const handleLogout = () => {
     logout();
     onClose?.();
-    navigate('/');
+    navigate('/markets');
   };
 
   return (

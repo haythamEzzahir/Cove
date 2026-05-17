@@ -52,7 +52,7 @@ const FILTER_OPTIONS = [
   { key: 'new', label: 'New' },
 ];
 
-export default function Dashboard() {
+export default function Markets() {
   const { metrics, chartData, featuredCoin, assets, fetchChartData, selectCoin } = useMarketData();
   const { user, addToWatchlist, removeFromWatchlist, isInWatchlist } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');

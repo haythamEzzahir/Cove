@@ -8,7 +8,7 @@ import { CurrencyProvider } from './context/CurrencyContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { API_URL } from './config';
 import AppLayout from './components/layout/AppLayout';
-import Dashboard from './pages/Dashboard';
+import Markets from './pages/Markets';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import Watchlist from './pages/Watchlist';
@@ -38,12 +38,11 @@ const router = createBrowserRouter([
     path: '/',
     element: <AppLayout />,
     children: [
-      { index: true, element: <Dashboard /> },
-      { path: 'markets', element: <Dashboard /> },
+      { index: true, element: <Markets /> },
+      { path: 'markets', element: <Markets /> },
       { path: 'watchlist', element: <Watchlist /> },
       { path: 'portfolio', element: <Portfolio /> },
       { path: 'alerts', element: <Alerts /> },
-      { path: 'news', element: <Dashboard /> },
       { path: 'settings', element: <Settings /> },
       { path: 'settings/profile', element: <Profile /> },
     ],
