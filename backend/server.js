@@ -62,6 +62,7 @@ app.use((req, res, next) => {
 });
 
 // Routes
+// Health check endpoint
 app.get("/", (req, res) => {
   res.send("Backend API is running");
 });
@@ -77,6 +78,7 @@ app.use("/api/watchlist", apiLimiter, watchlistRoutes);
 // Market Proxy Routes (Consolidated)
 app.use("/", marketRoutes);
 
+// Trigger a price alert email when user-defined threshold is hit
 app.post("/api/alerts/trigger", protect, async (req, res) => {
   try {
     const { coinName, condition, targetPrice, currentPrice, currencySymbol } = req.body;
@@ -103,11 +105,13 @@ app.post("/api/alerts/trigger", protect, async (req, res) => {
 
 app.use(errorHandler);
 
+// Catch-all 404 for unknown routes
 app.use((req, res) => {
   res.status(404).json({ message: `Route ${req.method} ${req.path} not found` });
 });
 
 // Database Connection & Server Start
+// Connect to DB, ensure indexes, then start listening
 connectDB().then(async () => {
   await ensurePortfolioIndexes();
   await ensureWatchlistIndexes();

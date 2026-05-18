@@ -11,6 +11,7 @@ const TIME_RANGES = [
   { label: 'All', days: Infinity },
 ];
 
+// Format a date label for the X axis based on the selected range
 function fmtAxisLabel(rawDate, rangeDays) {
   try {
     const d = new Date(rawDate);
@@ -32,6 +33,7 @@ function fmtAxisLabel(rawDate, rangeDays) {
   }
 }
 
+// Format a date for the tooltip popup
 function fmtTooltipDate(rawDate) {
   try {
     const d = new Date(rawDate);
@@ -44,6 +46,7 @@ function fmtTooltipDate(rawDate) {
   }
 }
 
+// Portfolio value chart with time range filtering (7D/30D/90D/1Y/All)
 export default function WalletChart({ data = [], totalBalance = 0 }) {
   const [activeRange, setActiveRange] = useState(TIME_RANGES[4]);
   const { currencyData } = useCurrency();
@@ -52,7 +55,7 @@ export default function WalletChart({ data = [], totalBalance = 0 }) {
   const mutedColor = isDark ? '255,255,255' : '100,116,139';
   const bgOverlay = isDark ? '24,24,27' : '255,255,255';
   const borderColor = isDark ? '63,63,70' : '228,231,235';
-  const chartBlue = '#3b82f6';
+  const chartGreen = '#10b981';
   const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
 
   const chartPoints = useMemo(() => {
@@ -99,7 +102,7 @@ export default function WalletChart({ data = [], totalBalance = 0 }) {
     : true;
 
   const gradientId = isPositive ? 'priceGradUp' : 'priceGradDown';
-  const lineColor = isPositive ? chartBlue : '#ef4444';
+  const lineColor = isPositive ? chartGreen : '#ef4444';
 
   return (
     <div className="bg-surface border border-default rounded-xl p-4 lg:p-5">

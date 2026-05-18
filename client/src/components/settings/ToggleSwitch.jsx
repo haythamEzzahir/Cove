@@ -2,6 +2,7 @@
 // <button> avec .toggle-switch + .active conditionnel
 // Le .toggle-thumb est positionné par CSS — aucune logique JS
 
+// Accessible toggle switch button with animated thumb
 export default function ToggleSwitch({ checked, onChange }) {
   return (
     <button

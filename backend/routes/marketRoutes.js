@@ -12,6 +12,7 @@ import { validateCoinIdParam, validateChartQuery, handleValidationErrors } from 
 
 const router = express.Router();
 
+// Middleware: validate that coinId only contains safe characters
 const validateCoinGeckoId = (req, res, next) => {
   const { coinId } = req.params;
   if (!/^[a-z0-9-]+$/i.test(coinId)) {
@@ -20,11 +21,17 @@ const validateCoinGeckoId = (req, res, next) => {
   next();
 };
 
+// GET /public/coins — top 10 coins for landing page ticker
 router.get('/public/coins', publicProxyLimiter, getPublicCoins);
+// GET /coins — list all coins (Markets table)
 router.get('/coins', publicProxyLimiter, getCoins);
+// GET /coins/:coinId — get single coin details
 router.get('/coins/:coinId', publicProxyLimiter, validateCoinGeckoId, getCoinById);
+// GET /chart/:coinId — get historical price chart data
 router.get('/chart/:coinId', publicProxyLimiter, validateCoinGeckoId, validateChartQuery, handleValidationErrors, getCoinChart);
+// GET /exchange-rates — get fiat exchange rates
 router.get('/exchange-rates', publicProxyLimiter, getExchangeRates);
+// GET /search — search coins by name/ticker
 router.get('/search', publicProxyLimiter, searchCoins);
 
 export default router;

@@ -4,6 +4,7 @@ let redis = null;
 let redisFailed = false;
 let redisConnecting = false;
 
+// Try to connect to Redis, silently fall back to in-memory cache on failure
 async function initRedis() {
   if (redis || redisFailed || !process.env.REDIS_URL || redisConnecting) return;
 
@@ -38,6 +39,7 @@ initRedis();
 // In-memory fallback (single-process only)
 const memoryStore = new Map();
 
+// Get a cached value by key (Redis first, then in-memory fallback)
 export async function getCache(key) {
   try {
     if (redis && redis.status === "ready") {
@@ -59,6 +61,7 @@ export async function getCache(key) {
   return entry.data;
 }
 
+// Store a value in cache with TTL (Redis first, then in-memory fallback)
 export async function setCache(key, data, ttlSeconds) {
   try {
     if (redis && redis.status === "ready") {
@@ -76,6 +79,7 @@ export async function setCache(key, data, ttlSeconds) {
   });
 }
 
+// Delete a cached value by key
 export async function deleteCache(key) {
   try {
     if (redis && redis.status === "ready") {

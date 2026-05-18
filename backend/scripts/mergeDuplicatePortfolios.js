@@ -10,6 +10,7 @@ dotenv.config();
 
 const shouldApply = process.argv.includes("--apply");
 
+// Extract the chart data from the first portfolio that has any
 const getMergedChartData = (portfolios) => {
   const portfolioWithChart = portfolios.find((portfolio) => (
     Array.isArray(portfolio.chartData) && portfolio.chartData.length > 0
@@ -18,6 +19,7 @@ const getMergedChartData = (portfolios) => {
   return portfolioWithChart?.chartData || [];
 };
 
+// Find and merge all duplicate portfolio documents per user
 const main = async () => {
   if (!process.env.MONGO_URI) {
     throw new Error("MONGO_URI missing");

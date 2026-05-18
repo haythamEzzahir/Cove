@@ -11,9 +11,12 @@ const ALLOCATION_COLORS = [
   "#F59E0B"
 ];
 
+// Round a number to 2 decimal places for currency display
 const roundCurrency = (value) => Math.round((Number(value) || 0) * 100) / 100;
+// Round a percentage to 2 decimal places
 const roundPercent = (value) => Math.round((Number(value) || 0) * 100) / 100;
 
+// Safely parse a value to a number, return fallback if invalid
 const toNumber = (value, fallback = 0) => {
   if (typeof value === "string") {
     const parsed = Number(value.replace(/[$,\s]/g, ""));
@@ -24,6 +27,7 @@ const toNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+// Extract and validate user ObjectId from the request
 const getUserObjectId = (req) => {
   const userId = req.user?._id || req.user?.id;
 
@@ -34,6 +38,7 @@ const getUserObjectId = (req) => {
   return new mongoose.Types.ObjectId(userId);
 };
 
+// Generate a unique deduplication key for a holding (by coinId or symbol)
 const getHoldingKey = (holding) => {
   const coinId = String(holding.coinId || "").trim().toLowerCase();
   const symbol = String(holding.symbol || "").trim().toLowerCase();
@@ -44,6 +49,7 @@ const getHoldingKey = (holding) => {
   return "";
 };
 
+// Clean and normalize a holding object for consistent storage
 const normalizeStoredHolding = (holding) => {
   const averageBuyFallback = toNumber(holding.currentPrice);
   const averageBuyPrice = Math.max(
@@ -72,6 +78,7 @@ const normalizeStoredHolding = (holding) => {
   };
 };
 
+// Merge duplicate holdings for the same coin (combine quantities, average buy price)
 const mergeDuplicateHoldings = (holdings = []) => {
   const mergedHoldings = new Map();
   const holdingAliases = new Map();
@@ -133,6 +140,7 @@ const mergeDuplicateHoldings = (holdings = []) => {
   return [...mergedHoldings.values()];
 };
 
+// Check if two holdings arrays are identical
 const holdingsAreEqual = (leftHoldings = [], rightHoldings = []) => {
   if (leftHoldings.length !== rightHoldings.length) return false;
 
@@ -153,6 +161,7 @@ const holdingsAreEqual = (leftHoldings = [], rightHoldings = []) => {
   });
 };
 
+// Deduplicate and clean up a portfolio's holdings, save if changed
 const dedupePortfolioHoldings = async (portfolio) => {
   if (!portfolio) return null;
 
@@ -169,6 +178,7 @@ const dedupePortfolioHoldings = async (portfolio) => {
   return portfolio;
 };
 
+// Find the user's portfolio or create a new empty one
 const findOrCreateUserPortfolio = async (userId) => {
   const existingPortfolio = await Portfolio.findOne({ userId });
 
@@ -190,6 +200,7 @@ const findOrCreateUserPortfolio = async (userId) => {
   }
 };
 
+// Return a zeroed-out portfolio response for new users
 const getEmptyPortfolioResponse = () => ({
   totalBalance: 0,
   investedAmount: 0,
@@ -202,6 +213,7 @@ const getEmptyPortfolioResponse = () => ({
   holdings: []
 });
 
+// Fetch current market prices for all coins in the portfolio
 const fetchMarketPrices = async (holdings) => {
   const coinIds = [...new Set(
     holdings
@@ -236,6 +248,7 @@ const fetchMarketPrices = async (holdings) => {
   }
 };
 
+// Enrich a holding with current market data and calculate P&L
 const normalizeHolding = (holding, marketCoin) => {
   const quantity = Math.max(0, toNumber(holding.quantity));
   const averageBuyPrice = Math.max(0, toNumber(holding.averageBuyPrice));
@@ -285,6 +298,7 @@ const normalizeHolding = (holding, marketCoin) => {
   };
 };
 
+// Build the asset allocation breakdown (top 4 + Others)
 const buildAssetAllocation = (holdings, totalBalance) => {
   if (totalBalance <= 0) return [];
 
@@ -319,6 +333,7 @@ const buildAssetAllocation = (holdings, totalBalance) => {
   return topAllocations;
 };
 
+// Build chart data from stored points or create a single "Now" point
 const buildChartData = (portfolio, totalBalance) => {
   const storedPoints = (portfolio.chartData || [])
     .map((point) => ({
@@ -336,6 +351,7 @@ const buildChartData = (portfolio, totalBalance) => {
     : [];
 };
 
+// Build the full portfolio response with holdings, P&L, allocation, and chart
 const buildPortfolioResponse = async (portfolio) => {
   if (!portfolio) return getEmptyPortfolioResponse();
 
@@ -379,6 +395,7 @@ const buildPortfolioResponse = async (portfolio) => {
   };
 };
 
+// GET handler — return the user's full portfolio
 const getMyPortfolio = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -394,6 +411,7 @@ const getMyPortfolio = async (req, res) => {
   }
 };
 
+// Add a new chart data point (keeps max 200 points, trims oldest)
 const appendChartPoint = (portfolio, totalBalance) => {
   const label = new Date().toISOString();
   const value = roundCurrency(totalBalance);
@@ -405,6 +423,7 @@ const appendChartPoint = (portfolio, totalBalance) => {
   portfolio.chartData = nextPoints;
 };
 
+// POST handler — add a coin holding to the portfolio
 const addPortfolioAsset = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -495,6 +514,7 @@ const addPortfolioAsset = async (req, res) => {
   }
 };
 
+// POST handler — sell (reduce or remove) a coin holding from the portfolio
 const sellPortfolioAsset = async (req, res) => {
   try {
     const userId = req.user._id;

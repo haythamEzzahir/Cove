@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+// Define the User schema with name, email, password, Google OAuth, and verification fields
 const userSchema = new mongoose.Schema(
   {
     name: {

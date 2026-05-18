@@ -1,5 +1,6 @@
 import { useTheme } from '../../context/ThemeContext';
 
+// Card that displays a single metric (label, value, change badge)
 export default function MetricCard({ label, value, change, badge, className = '' }) {
   const { isDark } = useTheme();
   

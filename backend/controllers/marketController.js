@@ -1,5 +1,6 @@
 import { getCache, setCache } from "../utils/cache.js";
 
+// Fetch data from CoinGecko API with API key header
 const fetchCoinGecko = async (url) => {
   return fetch(url, {
     method: "GET",
@@ -9,6 +10,7 @@ const fetchCoinGecko = async (url) => {
   });
 };
 
+// Get top 10 coins for the landing page ticker (cached)
 export const getPublicCoins = async (req, res) => {
   const cacheKey = "coins_list_public";
   const cached = await getCache(cacheKey);
@@ -34,6 +36,7 @@ export const getPublicCoins = async (req, res) => {
   }
 };
 
+// Get up to 100 coins for Markets table, optionally filtered by IDs (cached)
 export const getCoins = async (req, res) => {
   const ids = req.query.ids;
   const currency = req.query.currency || "usd";
@@ -61,6 +64,7 @@ export const getCoins = async (req, res) => {
   }
 };
 
+// Get detailed data for a single coin by its CoinGecko ID (cached)
 export const getCoinById = async (req, res) => {
   const { coinId } = req.params;
   const currency = req.query.currency || "usd";
@@ -112,6 +116,7 @@ export const getCoinById = async (req, res) => {
   }
 };
 
+// Get historical price chart data for a coin (cached 5 min)
 export const getCoinChart = async (req, res) => {
   const { coinId } = req.params;
   const currency = req.query.currency || "usd";
@@ -139,6 +144,7 @@ export const getCoinChart = async (req, res) => {
   }
 };
 
+// Get fiat exchange rates from CoinGecko (cached 1 hour)
 export const getExchangeRates = async (req, res) => {
   const cacheKey = "exchange_rates";
   const cached = await getCache(cacheKey);
@@ -163,6 +169,7 @@ export const getExchangeRates = async (req, res) => {
   }
 };
 
+// Search coins by name or ticker via CoinGecko (cached 2 min)
 export const searchCoins = async (req, res) => {
   const query = (req.query.q || "").toLowerCase().trim();
   const cacheKey = `search_${query}`;

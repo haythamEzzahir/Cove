@@ -9,6 +9,7 @@ import {
   AlertsIcon,
 } from '../icons/SidebarIcons';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from '../../context/ToastContext';
 
 const navItems = [
   { path: '/markets', label: 'Markets', Icon: MarketsIcon },
@@ -20,10 +21,12 @@ const navItems = [
 export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { addToast } = useToast();
 
   const handleLogout = () => {
     logout();
     onClose?.();
+    addToast('Signed out successfully', 'success');
     navigate('/markets');
   };
 
@@ -36,20 +39,26 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
         overflow: collapsed ? 'visible' : 'y-auto'
       }}
     >
-      <div className="flex items-center h-14 px-3 border-b border-default shrink-0">
-        <div className="w-7 h-7 rounded-md bg-accent flex items-center justify-center text-sm font-bold text-white shrink-0">
-          F
-        </div>
-        <span 
-          className="ml-2.5 text-sm font-semibold text-primary whitespace-nowrap overflow-hidden transition-all duration-150"
-          style={{ 
-            opacity: collapsed ? 0 : 1, 
-            width: collapsed ? 0 : 'auto',
-            pointerEvents: collapsed ? 'none' : 'auto'
-          }}
+        <div className="flex items-center h-14 px-3 border-b border-default shrink-0">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2.5 bg-transparent border-none cursor-pointer shrink-0"
         >
-          FinTracker
-        </span>
+          <svg viewBox="0 0 32 32" fill="none" className="w-7 h-7 shrink-0">
+            <path d="M26 26C26 18 22 5 16 5C10 5 6 18 6 26" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <circle cx="16" cy="14" r="3" fill="#10b981"/>
+          </svg>
+          <span 
+            className="text-sm font-semibold text-primary whitespace-nowrap overflow-hidden transition-all duration-150"
+            style={{ 
+              opacity: collapsed ? 0 : 1, 
+              width: collapsed ? 0 : 'auto',
+              pointerEvents: collapsed ? 'none' : 'auto'
+            }}
+          >
+            Cove
+          </span>
+        </button>
         <button
           onClick={onToggleCollapse}
           className="ml-auto p-1.5 cursor-pointer bg-transparent border-none text-muted hover:text-primary rounded shrink-0"
@@ -108,7 +117,7 @@ export default function Sidebar({ isOpen, onClose, collapsed, onToggleCollapse }
         )}
 
         <div 
-          className="mx-2 mt-3 mb-4 bg-gradient-to-r from-blue-700 to-blue-500 rounded-lg p-2.5 text-center transition-all duration-150 overflow-hidden"
+          className="mx-2 mt-3 mb-4 bg-gradient-to-r from-emerald-700 to-emerald-500 rounded-lg p-2.5 text-center transition-all duration-150 overflow-hidden"
           style={{ 
             opacity: collapsed ? 0 : 1, 
             height: collapsed ? 0 : 'auto',

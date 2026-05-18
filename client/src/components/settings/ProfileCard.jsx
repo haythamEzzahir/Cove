@@ -1,3 +1,4 @@
+// Card displaying user avatar initials, name, email, and a link to profile edit
 export default function ProfileCard({ name, email, onViewProfile }) {
   const displayName = name?.trim() || 'User';
   const displayEmail = email?.trim() || 'No email available';

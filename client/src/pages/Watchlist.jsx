@@ -4,6 +4,7 @@ import Badge from "../components/shared/Badge";
 import TabBar from "../components/shared/TabBar";
 import MetricCard from "../components/dashboard/MetricCard";
 import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { useCurrency } from "../context/CurrencyContext";
 import { useTheme } from "../context/ThemeContext";
 import { useBinanceWebSocket } from "../hooks/useBinanceWebSocket";
@@ -489,6 +490,7 @@ export default function Watchlist() {
   const [activeTab, setActiveTab] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageError, setPageError] = useState("");
+  const { addToast } = useToast();
   const [loading, setLoading] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState(() => AVAILABLE_COLUMNS.filter(c => c.default).map(c => c.key));
   const [showColumnMenu, setShowColumnMenu] = useState(false);
@@ -781,6 +783,8 @@ export default function Watchlist() {
 
     if (!result.success) {
       setPageError(result.error);
+    } else {
+      addToast('Added to watchlist', 'success');
     }
 
     return result;
@@ -794,6 +798,8 @@ export default function Watchlist() {
 
     if (!result.success) {
       setPageError(result.error);
+    } else {
+      addToast('Removed from watchlist', 'success');
     }
 
     setRemoveTarget(null);
@@ -1093,7 +1099,7 @@ export default function Watchlist() {
       )}
 
       <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-auto">
-        <span>© 2024 FinTracker Inc. All rights reserved.</span>
+        <span>© 2026 Cove. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>
           <a href="#" className="text-inherit no-underline">Privacy</a>

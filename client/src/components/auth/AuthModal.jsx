@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getSafeRedirectPath, AUTH_REDIRECT_KEY } from '../../config';
 
+// Get the redirect path from session storage or fallback
 function getRedirectAfterAuth(redirectTo) {
   const savedRedirect = sessionStorage.getItem(AUTH_REDIRECT_KEY);
   const target = getSafeRedirectPath(redirectTo || savedRedirect);
@@ -12,6 +13,7 @@ function getRedirectAfterAuth(redirectTo) {
   return target;
 }
 
+// Modal with login/signup forms + Google OAuth
 export default function AuthModal({ isOpen, onClose, initialMode = 'login', redirectTo = '/' }) {
   const navigate = useNavigate();
   const [mode, setMode] = useState(initialMode);
@@ -23,6 +25,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', redi
   const [loading, setLoading] = useState(false);
   const { login, signup, googleLogin } = useAuth();
 
+  // Close modal and redirect after successful auth
   const handleAuthSuccess = () => {
     const target = getRedirectAfterAuth(redirectTo);
     onClose?.();
@@ -63,6 +66,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', redi
     },
   });
 
+  // Handle form submission for login or signup
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (loading) return;

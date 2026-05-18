@@ -6,8 +6,10 @@ import { SettingsProvider } from './context/SettingsContext';
 import { AuthProvider } from './context/AuthContext';
 import { CurrencyProvider } from './context/CurrencyContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './context/ToastContext';
 import { API_URL } from './config';
 import AppLayout from './components/layout/AppLayout';
+import Landing from './pages/Landing';
 import Markets from './pages/Markets';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
@@ -38,7 +40,7 @@ const router = createBrowserRouter([
     path: '/',
     element: <AppLayout />,
     children: [
-      { index: true, element: <Markets /> },
+      { index: true, element: <Landing /> },
       { path: 'markets', element: <Markets /> },
       { path: 'watchlist', element: <Watchlist /> },
       { path: 'portfolio', element: <Portfolio /> },
@@ -49,6 +51,7 @@ const router = createBrowserRouter([
   },
 ]);
 
+// Fetch the Google OAuth client ID from backend and wrap children in GoogleOAuthProvider
 function GoogleProviderWrapper({ children }) {
   const [clientId, setClientId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -101,7 +104,9 @@ createRoot(document.getElementById('root')).render(
         <SettingsProvider>
           <CurrencyProvider>
             <AuthProvider>
-              <RouterProvider router={router} />
+              <ToastProvider>
+                <RouterProvider router={router} />
+              </ToastProvider>
             </AuthProvider>
           </CurrencyProvider>
         </SettingsProvider>

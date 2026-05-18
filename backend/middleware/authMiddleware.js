@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import User from "../models/user.js";
 
+// Middleware: require a valid JWT token, attach user to req
 const protect = async (req, res, next) => {
   const token = req.cookies?.token;
 

@@ -1,14 +1,14 @@
-// src/components/settings/CurrencySelect.jsx
-
 const CURRENCIES = [
-  { value: 'USD', label: '🇺🇸 USD – US Dollar' },
-  { value: 'EUR', label: '🇪🇺 EUR – Euro' },
-  { value: 'GBP', label: '🇬🇧 GBP – British Pound' },
-  { value: 'MAD', label: '🇲🇦 MAD – Dirham marocain' },
-  { value: 'BTC', label: '₿  BTC – Bitcoin' },
-  { value: 'ETH', label: 'Ξ  ETH – Ethereum' },
+  { value: 'usd', label: '🇺🇸 USD – US Dollar' },
+  { value: 'eur', label: '🇪🇺 EUR – Euro' },
+  { value: 'gbp', label: '🇬🇧 GBP – British Pound' },
+  { value: 'jpy', label: '🇯🇵 JPY – Japanese Yen' },
+  { value: 'aed', label: '🇦🇪 AED – UAE Dirham' },
+  { value: 'sar', label: '🇸🇦 SAR – Saudi Riyal' },
+  { value: 'egp', label: '🇪🇬 EGP – Egyptian Pound' },
 ];
 
+// Dropdown select for choosing the display currency
 export default function CurrencySelect({ value, onChange }) {
   return (
     <div className="currency-select-wrapper">

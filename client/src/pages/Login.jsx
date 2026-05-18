@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useGoogleLogin } from '@react-oauth/google';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { API_URL, getSafeRedirectPath, AUTH_REDIRECT_KEY } from '../config';
 
 function getInitialEmail(search) {
@@ -35,6 +36,7 @@ export default function Login() {
   const [needsVerification, setNeedsVerification] = useState(false);
   const [verificationSent, setVerificationSent] = useState(false);
   const { login, googleLogin } = useAuth();
+  const { addToast } = useToast();
 
   const getRedirectPath = () => {
     const params = new URLSearchParams(location.search);
@@ -64,8 +66,8 @@ export default function Login() {
         }
 
         const result = await googleLogin({ code: codeResponse.code });
-
         if (result.success) {
+          addToast('Signed in with Google', 'success');
           redirectAfterAuth();
           return;
         }
@@ -93,6 +95,7 @@ export default function Login() {
     const result = await login(email, password);
 
     if (result.success) {
+      addToast('Signed in successfully', 'success');
       redirectAfterAuth();
       return;
     }

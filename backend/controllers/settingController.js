@@ -1,5 +1,6 @@
 import Setting from "../models/setting.js";
 
+// GET handler — return user settings, create defaults if missing
 const getMySettings = async (req, res) => {
   let settings = await Setting.findOne({ userId: req.user._id });
 
@@ -10,6 +11,7 @@ const getMySettings = async (req, res) => {
   res.json(settings);
 };
 
+// PUT handler — update user settings (theme, language, compact view, notifications)
 const updateMySettings = async (req, res) => {
   const settings = await Setting.findOne({ userId: req.user._id });
 

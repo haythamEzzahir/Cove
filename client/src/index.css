@@ -25,7 +25,7 @@
   --border-default: 209, 213, 219;
   
   /* Brand Colors - slightly muted */
-  --color-primary: 37, 99, 235;
+  --color-primary: 5, 150, 105;
   --color-success: 22, 101, 52;
   --color-danger: 190, 24, 33;
   --color-warning: 161, 98, 7;
@@ -38,29 +38,29 @@
 /* Dark Theme */
 .dark {
   /* Backgrounds */
-  --bg-base: 13, 17, 23;
-  --bg-surface: 22, 27, 34;
-  --bg-overlay: 28, 33, 40;
-  --bg-card: 22, 27, 34;
+  --bg-base: 0, 0, 0;
+  --bg-surface: 18, 18, 20;
+  --bg-overlay: 30, 30, 33;
+  --bg-card: 18, 18, 20;
   
   /* Text */
-  --text-primary: 230, 237, 243;
-  --text-secondary: 201, 209, 217;
-  --text-muted: 125, 133, 144;
+  --text-primary: 250, 250, 250;
+  --text-secondary: 161, 161, 170;
+  --text-muted: 113, 113, 122;
   
   /* Borders */
-  --border-subtle: 33, 38, 45;
-  --border-default: 48, 54, 61;
+  --border-subtle: 39, 39, 42;
+  --border-default: 63, 63, 70;
   
   /* Brand Colors */
-  --color-primary: 59, 130, 246;
+  --color-primary: 16, 185, 129;
   --color-success: 63, 185, 80;
   --color-danger: 248, 81, 73;
   --color-warning: 210, 153, 34;
   
   /* Interactive States */
-  --bg-hover: 33, 38, 45;
-  --bg-active: 48, 54, 61;
+  --bg-hover: 39, 39, 42;
+  --bg-active: 63, 63, 70;
 }
 
 /*
@@ -84,6 +84,11 @@ body {
   color: rgb(var(--text-primary));
   font-family: var(--font-sans);
   transition: background-color 0.3s, color 0.3s;
+}
+
+.dark ::selection {
+  background-color: #3f3f46;
+  color: #ffffff;
 }
 
 #root {
@@ -504,4 +509,12 @@ body.compact-mode .profile-card {
 .dark .theme-toggle-moon {
   opacity: 0;
   transform: rotate(90deg) scale(0.5);
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out;
 }

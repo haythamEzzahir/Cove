@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 
 const BINANCE_WS_URL = 'wss://stream.binance.com:9443/stream';
 
+// Build the Binance WebSocket stream name for a given ticker (e.g. "btcusdt@trade")
 function getBinanceStream(ticker, currency = 'usd') {
   if (!ticker) return null;
   const base = ticker.toLowerCase();
@@ -9,6 +10,7 @@ function getBinanceStream(ticker, currency = 'usd') {
   return `${base}${quote}@trade`;
 }
 
+// Build stream names and a symbol→coinId mapping from the assets array
 function buildStreamData(assets, currency) {
   const symbolToId = {};
   const streams = (assets || [])
@@ -25,6 +27,7 @@ function buildStreamData(assets, currency) {
   return { streams, symbolToId };
 }
 
+// Hook: subscribe to Binance WebSocket for real-time price updates on watched coins
 export function useBinanceWebSocket(assets, onPriceUpdate, currency = 'usd') {
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
@@ -71,6 +74,7 @@ export function useBinanceWebSocket(assets, onPriceUpdate, currency = 'usd') {
       }));
     };
 
+      // Parse incoming WebSocket message and forward price update
     const handleMessage = (event) => {
       try {
         const msg = JSON.parse(event.data);
@@ -87,6 +91,7 @@ export function useBinanceWebSocket(assets, onPriceUpdate, currency = 'usd') {
       }
     };
 
+      // Handle WebSocket disconnect with auto-reconnect after 5s
     const handleClose = () => {
       if (isClosed) return;
       setIsConnected(false);

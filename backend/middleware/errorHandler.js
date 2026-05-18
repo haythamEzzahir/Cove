@@ -1,3 +1,4 @@
+// Global error handler — returns error message with stack trace in dev mode
 const errorHandler = (err, req, res, next) => {
   const statusCode = res.statusCode && res.statusCode !== 200 ? res.statusCode : 500;
 

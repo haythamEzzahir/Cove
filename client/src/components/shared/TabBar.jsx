@@ -11,6 +11,7 @@ import { useTheme } from '../../context/ThemeContext';
  *   onChange  {(tab: string)=>void}
  *   size      {'sm' | 'md'}
  */
+// Horizontal pill-style tab switcher (e.g. All / Gainers / Losers)
 export default function TabBar({ tabs = [], active, onChange, size = 'sm' }) {
   const { isDark } = useTheme();
   const pad   = size === 'sm' ? '3px 9px' : '5px 14px';

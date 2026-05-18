@@ -513,7 +513,7 @@ function ProfileEditor({ user, logout, updateCurrentUser }) {
       </div>
 
       <footer className="flex flex-wrap justify-center gap-3 border-t border-subtle py-4 text-center text-xs text-muted sm:gap-5">
-        <span>© 2024 FinTracker Inc. All rights reserved.</span>
+        <span>© 2026 Cove. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>
           <a href="#" className="text-inherit no-underline">Privacy</a>

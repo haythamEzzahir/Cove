@@ -17,10 +17,12 @@ const PAGE_DATA = {
 const PROTECTED_ROUTES = ['/watchlist', '/portfolio', '/alerts', '/settings', '/settings/profile'];
 const VERIFY_PATH = '/verify-pending';
 
+// Build the full path string including search and hash
 function getCurrentPath(location) {
   return `${location.pathname}${location.search}${location.hash}`;
 }
 
+// Main layout wrapper: sidebar + topbar + content outlet, handles auth gating on protected routes
 export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -37,6 +39,9 @@ export default function AppLayout() {
   const [authModalMode, setAuthModalMode] = useState('login');
   const [authRedirectTo, setAuthRedirectTo] = useState('/markets');
 
+  const isLanding = location.pathname === '/';
+
+  // Toggle sidebar between collapsed and expanded, persist to localStorage
   const toggleSidebar = () => {
     const newState = !sidebarCollapsed;
     setSidebarCollapsed(newState);
@@ -69,6 +74,7 @@ export default function AppLayout() {
   const activeAuthRedirectTo = shouldShowProtectedAuth ? currentPath : authRedirectTo;
   const activeAuthModalMode = shouldShowProtectedAuth ? 'login' : authModalMode;
 
+  // Show the auth modal, remembering the current path for post-login redirect
   const handleShowAuth = useCallback((mode = 'login') => {
     setAuthRedirectTo(currentPath);
     setShowAuthModal(true);
@@ -77,6 +83,10 @@ export default function AppLayout() {
 
   if (loading) {
     return null;
+  }
+
+  if (isLanding) {
+    return <Outlet />;
   }
 
   return (

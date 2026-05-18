@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
 import { useTheme } from '../context/ThemeContext';
+import { useCurrency } from '../context/CurrencyContext';
 import ProfileCard from '../components/settings/ProfileCard';
 import SettingsSection from '../components/settings/SettingsSection';
 import SettingItem from '../components/settings/SettingItem';
@@ -13,6 +14,7 @@ function Settings() {
   const { user } = useAuth();
   const { settings, updateSetting } = useSettings();
   const { isDark, toggleTheme } = useTheme();
+  const { currency, setCurrency } = useCurrency();
 
   return (
     <div className="settings-wrapper flex flex-col min-h-full">
@@ -61,16 +63,6 @@ function Settings() {
           }
         />
         <SettingItem
-          label="Market News"
-          description="Daily news digest"
-          control={
-            <ToggleSwitch
-              checked={settings.marketNews}
-              onChange={(val) => updateSetting('marketNews', val)}
-            />
-          }
-        />
-        <SettingItem
           label="Portfolio Summary"
           description="Weekly performance report"
           control={
@@ -88,15 +80,15 @@ function Settings() {
           description="Used across all markets and charts"
           control={
             <CurrencySelect
-              value={settings.currency}
-              onChange={(val) => updateSetting('currency', val)}
+              value={currency}
+              onChange={(val) => setCurrency(val)}
             />
           }
         />
       </SettingsSection>
 
       <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-auto">
-        <span>© 2024 FinTracker Inc. All rights reserved.</span>
+        <span>© 2026 Cove. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>
           <a href="#" className="text-inherit no-underline">Privacy</a>

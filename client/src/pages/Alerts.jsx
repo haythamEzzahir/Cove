@@ -6,6 +6,7 @@ import MetricCard from "../components/dashboard/MetricCard";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
+// Format a number as price with symbol and adaptive decimals
 function formatPrice(price, symbol = "$") {
   if (price === null || price === undefined || Number.isNaN(Number(price))) return "-";
   const value = Number(price);
@@ -14,6 +15,7 @@ function formatPrice(price, symbol = "$") {
   return `${symbol}${value.toFixed(4)}`;
 }
 
+// Convert a timestamp to a human-readable "time ago" string
 function timeAgo(timestamp) {
   const seconds = Math.floor((Date.now() - timestamp) / 1000);
   if (seconds < 60) return "Just now";
@@ -22,6 +24,7 @@ function timeAgo(timestamp) {
   return `${Math.floor(seconds / 86400)}d ago`;
 }
 
+// Animated pulsing dot for triggered alerts
 function AlertPulse({ triggered }) {
   if (!triggered) return null;
   return (
@@ -32,6 +35,7 @@ function AlertPulse({ triggered }) {
   );
 }
 
+// Icon for an alert (up arrow for above, down arrow for below)
 function AlertIcon({ condition, triggered }) {
   const color = triggered ? "text-danger" : condition === "above" ? "text-success" : "text-warning";
   return (
@@ -47,6 +51,7 @@ function AlertIcon({ condition, triggered }) {
   );
 }
 
+// Tiny sparkline chart for a coin in alert cards
 function CoinMiniChart({ coinId, currency }) {
   const [sparkline, setSparkline] = useState([]);
   const [positive, setPositive] = useState(true);
@@ -90,6 +95,7 @@ function CoinMiniChart({ coinId, currency }) {
   );
 }
 
+// Card showing a single alert with current price and mini chart
 function AlertCard({ coin, alert, onDismiss, currencySymbol, currency }) {
   const [coinData, setCoinData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -206,6 +212,7 @@ function AlertCard({ coin, alert, onDismiss, currencySymbol, currency }) {
   );
 }
 
+// Two-step modal to create a new price alert (select coin → set target)
 function CreateAlertModal({ onClose, onCreateAlert, currencySymbol }) {
   const [search, setSearch] = useState("");
   const [coins, setCoins] = useState([]);
@@ -327,6 +334,7 @@ function CreateAlertModal({ onClose, onCreateAlert, currencySymbol }) {
   );
 }
 
+// Empty state shown when the user has no alerts
 function EmptyState({ onCreateAlert }) {
   return (
     <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -348,6 +356,7 @@ function EmptyState({ onCreateAlert }) {
   );
 }
 
+// Alerts page: view, filter, create, and dismiss price alerts
 export default function Alerts() {
   const navigate = useNavigate();
   const { currency, currencyData } = useCurrency();
@@ -515,7 +524,7 @@ export default function Alerts() {
       )}
 
       <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-auto">
-        <span>© 2024 FinTracker Inc. All rights reserved.</span>
+        <span>© 2026 Cove. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>
           <a href="#" className="text-inherit no-underline">Privacy</a>

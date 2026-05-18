@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { useMarketData } from '../hooks/useMarketData';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import MetricCard from '../components/dashboard/MetricCard';
 import PriceChart from '../components/dashboard/PriceChart';
 
@@ -55,6 +56,7 @@ const FILTER_OPTIONS = [
 export default function Markets() {
   const { metrics, chartData, featuredCoin, assets, fetchChartData, selectCoin } = useMarketData();
   const { user, addToWatchlist, removeFromWatchlist, isInWatchlist } = useAuth();
+  const { addToast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleColumns, setVisibleColumns] = useState(() => AVAILABLE_COLUMNS.filter(c => c.default).map(c => c.key));
   const [showColumnMenu, setShowColumnMenu] = useState(false);
@@ -111,7 +113,7 @@ export default function Markets() {
   const handleWatchlistToggle = async (e, asset) => {
     e.stopPropagation();
     if (!user) {
-      alert('Please login to add coins to your watchlist');
+      addToast('Sign in to add coins to your watchlist', 'warning');
       return;
     }
 
@@ -126,8 +128,10 @@ export default function Markets() {
       ? await removeFromWatchlist(coinId)
       : await addToWatchlist(asset);
 
-    if (!result.success) {
-      alert(result.error);
+    if (result.success) {
+      addToast(isInWatchlist(coinId) ? 'Removed from watchlist' : 'Added to watchlist', 'success');
+    } else if (result.error) {
+      addToast(result.error, 'error');
     }
   };
 
@@ -441,7 +445,7 @@ export default function Markets() {
       </div>
 
       <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-auto">
-        <span>© 2024 FinTracker Inc. All rights reserved.</span>
+        <span>© 2026 Cove. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>
           <a href="#" className="text-inherit no-underline">Privacy</a>

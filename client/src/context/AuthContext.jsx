@@ -3,6 +3,7 @@ import { API_URL, getInitials, getJson } from '../config';
 
 const AuthContext = createContext(null);
 
+// Normalize user data from the API into a consistent shape with initials
 function normalizeAuthUser(data = {}) {
   const email = data.email || '';
   const name = data.name?.trim() || email.split('@')[0] || 'User';
@@ -22,6 +23,7 @@ function normalizeAuthUser(data = {}) {
   };
 }
 
+// Extract unique coin IDs from various API response formats
 function normalizeCoinIds(data) {
   if (Array.isArray(data)) {
     const coinIds = data
@@ -47,11 +49,13 @@ function normalizeCoinIds(data) {
   return [];
 }
 
+// Extract coinId from a coin object or return the string directly
 function getCoinId(coin) {
   if (typeof coin === 'string') return coin;
   return coin?.coinId || coin?.id;
 }
 
+// Normalize a coin object into the payload format expected by the watchlist API
 function normalizeWatchlistCoinPayload(coin) {
   const coinId = getCoinId(coin)?.trim().toLowerCase();
 
@@ -77,6 +81,7 @@ function normalizeWatchlistCoinPayload(coin) {
   };
 }
 
+// Fetch wrapper that always sends credentials (cookies)
 const authFetch = async (url, options = {}) => {
   const { headers = {}, ...rest } = options;
 
@@ -90,16 +95,19 @@ const authFetch = async (url, options = {}) => {
   });
 };
 
+// Provides auth state (user, watchlist) and actions (login, signup, logout) to the entire app
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [watchlist, setWatchlist] = useState([]);
 
+  // Clear all auth state (used on logout or session expiry)
   const clearAuth = useCallback(() => {
     setUser(null);
     setWatchlist([]);
   }, []);
 
+  // Fetch current user from API, attempt token refresh on 401
   const refreshUser = useCallback(async () => {
     try {
       const response = await authFetch(`${API_URL}/api/auth/me`);
@@ -136,10 +144,12 @@ export function AuthProvider({ children }) {
     }
   }, [clearAuth]);
 
+  // Update the current user state with partial data
   const updateCurrentUser = useCallback((updates) => {
     setUser(normalizeAuthUser(updates));
   }, []);
 
+  // Fetch watchlist coin IDs from the API
   const loadWatchlist = useCallback(async () => {
     try {
       const response = await authFetch(`${API_URL}/api/watchlist`);
@@ -158,6 +168,7 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  // On mount: try to restore the session and load the watchlist
   useEffect(() => {
     let ignore = false;
 
@@ -180,6 +191,7 @@ export function AuthProvider({ children }) {
     };
   }, [loadWatchlist, refreshUser]);
 
+  // Sign in with email + password, refresh user + watchlist on success
   const login = async (email, password) => {
     try {
       const response = await authFetch(`${API_URL}/api/auth/login`, {
@@ -207,6 +219,7 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Register a new account, refresh user + watchlist on success
   const signup = async (name, email, password) => {
     try {
       const response = await authFetch(`${API_URL}/api/auth/register`, {
@@ -229,6 +242,7 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Authenticate via Google OAuth, refresh user + watchlist on success
   const googleLogin = async (googleResponse) => {
     try {
       const payload = typeof googleResponse === 'string'
@@ -260,6 +274,7 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Sign out: call logout API then clear local state
   const logout = async () => {
     try {
       await authFetch(`${API_URL}/api/auth/logout`, { method: 'POST' });
@@ -268,6 +283,7 @@ export function AuthProvider({ children }) {
     clearAuth();
   };
 
+  // Add a coin to the user's watchlist via API
   const addToWatchlist = async (coin) => {
     const coinPayload = normalizeWatchlistCoinPayload(coin);
     const coinId = coinPayload?.coinId;
@@ -299,6 +315,7 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Remove a coin from the user's watchlist via API
   const removeFromWatchlist = async (coinId) => {
     const normalizedCoinId = getCoinId(coinId)?.trim().toLowerCase();
 
@@ -334,6 +351,7 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Check if a coin is in the user's watchlist
   const isInWatchlist = (coinId) => {
     const normalizedCoinId = getCoinId(coinId)?.trim().toLowerCase();
     return Boolean(normalizedCoinId && watchlist.includes(normalizedCoinId));
@@ -364,6 +382,7 @@ export function AuthProvider({ children }) {
   );
 }
 
+// Hook to access auth context (user, login, logout, watchlist, etc.)
 export function useAuth() {
   const ctx = useContext(AuthContext);
 

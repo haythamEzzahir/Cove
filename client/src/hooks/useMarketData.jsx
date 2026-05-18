@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCurrency } from '../context/CurrencyContext';
-import { useBinanceWebSocket } from './useBinanceWebSocket';
+
 import { fetchWithAuth } from '../config';
 
 const API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/coins` : 'http://localhost:5000/coins';
@@ -22,6 +22,7 @@ const MAX_POINTS = {
   'max': 80,
 };
 
+// Hook: fetch and manage market data (coins list, prices, chart, metrics)
 export function useMarketData() {
   const { currency, currencyData } = useCurrency();
   const [data, setData] = useState({
@@ -34,13 +35,16 @@ export function useMarketData() {
     loading: true,
     error: null,
   });
+  const chartCacheRef = useRef({});
 
+  // Format a raw price number using the current currency symbol
   const formatPrice = useCallback((price) => {
     if (!price && price !== 0) return '-';
     if (price >= 1) return `${currencyData.symbol}${price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     return `${currencyData.symbol}${price.toFixed(6)}`;
   }, [currencyData.symbol]);
 
+  // Format a market cap number with abbreviation (T/B/M)
   const formatMarketCap = useCallback((cap) => {
     if (!cap && cap !== 0) return '-';
     if (cap >= 1e12) return `${currencyData.symbol}${(cap / 1e12).toFixed(2)}T`;
@@ -48,55 +52,7 @@ export function useMarketData() {
     return `${currencyData.symbol}${(cap / 1e6).toFixed(1)}M`;
   }, [currencyData.symbol]);
 
-  const handlePriceUpdate = useCallback((coinId, newPrice) => {
-    setData(prev => {
-      const updatedAssets = prev.assets.map(asset => {
-        if (asset.coinId.toLowerCase() === coinId.toLowerCase()) {
-          const priceDirection = newPrice > asset.current_price ? 'up' : newPrice < asset.current_price ? 'down' : asset.priceDirection;
-          return {
-            ...asset,
-            price: formatPrice(newPrice),
-            current_price: newPrice,
-            priceDirection,
-          };
-        }
-        return asset;
-      });
-
-      let updatedFeatured = prev.featuredCoin;
-      if (prev.featuredCoin?.coinId.toLowerCase() === coinId.toLowerCase()) {
-        const priceDirection = newPrice > prev.featuredCoin.price ? 'up' : newPrice < prev.featuredCoin.price ? 'down' : prev.featuredCoin.priceDirection;
-        updatedFeatured = {
-          ...prev.featuredCoin,
-          price: newPrice,
-          priceDirection,
-        };
-      }
-
-      const updatedTrending = prev.trendingCoins.map(coin => {
-        if (coin.coinId.toLowerCase() === coinId.toLowerCase()) {
-          const priceDirection = newPrice > coin.current_price ? 'up' : newPrice < coin.current_price ? 'down' : coin.priceDirection;
-          return {
-            ...coin,
-            price: formatPrice(newPrice),
-            current_price: newPrice,
-            priceDirection,
-          };
-        }
-        return coin;
-      });
-
-      return {
-        ...prev,
-        assets: updatedAssets,
-        featuredCoin: updatedFeatured,
-        trendingCoins: updatedTrending,
-      };
-    });
-  }, [formatPrice]);
-
-  useBinanceWebSocket(data.assets, handlePriceUpdate, currency);
-
+  // Fetch the full coin list and compute metrics on mount/currency change
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -217,8 +173,19 @@ export function useMarketData() {
     fetchData();
   }, [currency, currencyData.symbol]);
 
+  // Fetch chart data for a coin, with client-side caching by coinId+period+currency
   const fetchChartData = async (period = '7D', coinId = data.featuredCoin?.coinId) => {
     if (!coinId) return;
+
+    const cacheKey = `${coinId}_${period}_${currency}`;
+    if (chartCacheRef.current[cacheKey]) {
+      setData(prev => ({
+        ...prev,
+        chartData: chartCacheRef.current[cacheKey],
+        chartPeriod: period,
+      }));
+      return;
+    }
     
     try {
       const days = TIME_PERIOD_MAP[period] || '7';
@@ -251,6 +218,7 @@ export function useMarketData() {
         return { t: label, price };
       });
       
+      chartCacheRef.current[cacheKey] = formattedData;
       setData(prev => ({
         ...prev,
         chartData: formattedData,
@@ -261,6 +229,7 @@ export function useMarketData() {
     }
   };
 
+  // Switch the featured coin and load its chart data
   const selectCoin = (coin) => {
     if (!coin) return;
     

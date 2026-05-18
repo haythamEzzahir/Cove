@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+// Sub-schema for a coin stored in the watchlist
 const coinSchema = new mongoose.Schema(
   {
     coinId: {
@@ -31,6 +32,7 @@ const coinSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Watchlist schema: one doc per user, stores array of tracked coins
 const watchlistSchema = new mongoose.Schema(
   {
     userId: {
@@ -48,12 +50,15 @@ const watchlistSchema = new mongoose.Schema(
 
 const Watchlist = mongoose.model("Watchlist", watchlistSchema);
 
+// Normalize a coin ID to lowercase trimmed string
 const normalizeCoinId = (value) => String(value || "").trim().toLowerCase();
 
+// Normalize an optional string field with a fallback for null/undefined
 const normalizeOptionalString = (value, fallback = "") => (
   value === undefined || value === null ? fallback : String(value).trim()
 );
 
+// Normalize a coin object for consistent storage in the watchlist
 const normalizeStoredCoin = (coin) => {
   if (typeof coin === "string") {
     const coinId = normalizeCoinId(coin);
@@ -86,6 +91,7 @@ const normalizeStoredCoin = (coin) => {
   };
 };
 
+// Merge duplicate coins by coinId, keeping the latest data for each
 const mergeCoins = (coins = []) => {
   const byCoinId = new Map();
 
@@ -108,6 +114,7 @@ const mergeCoins = (coins = []) => {
   return [...byCoinId.values()];
 };
 
+// Merge duplicate watchlist documents for the same user into one
 const mergeDuplicateWatchlists = async () => {
   const documents = await Watchlist.collection.find({}).toArray();
   const byUserId = new Map();
@@ -197,6 +204,7 @@ const mergeDuplicateWatchlists = async () => {
   return summary;
 };
 
+// Clean up old indexes and create a fresh userId index for the watchlist collection
 const ensureWatchlistIndexes = async () => {
   try {
     let indexes = [];

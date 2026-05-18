@@ -21,11 +21,13 @@ const EMPTY_PORTFOLIO = {
   holdings: [],
 };
 
+// Safely parse a number, return fallback if invalid
 function toNumber(value, fallback = 0) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+// Format a number as USD currency string (auto M suffix for millions)
 function fmt(n) {
   const value = toNumber(n);
   return value >= 1e6
@@ -33,16 +35,19 @@ function fmt(n) {
     : `$${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+// Format a signed number with +/- prefix and USD formatting
 function fmtSigned(n) {
   const value = toNumber(n);
   return `${value >= 0 ? '+' : '-'}${fmt(Math.abs(value))}`;
 }
 
+// Format a number as percentage with +/- sign
 function fmtPercent(n) {
   const value = toNumber(n);
   return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
 }
 
+// Format a coin quantity (up to 8 decimals for small amounts)
 function fmtQuantity(n) {
   const value = toNumber(n);
   return value.toLocaleString('en-US', {
@@ -50,6 +55,7 @@ function fmtQuantity(n) {
   });
 }
 
+// Normalize a market coin object for consistent use in the portfolio
 function normalizeMarketCoin(coin = {}) {
   const currentPrice = toNumber(coin.current_price ?? coin.currentPrice, null);
   const symbol = String(coin.symbol || coin.ticker || '').trim().toUpperCase();
@@ -66,6 +72,7 @@ function normalizeMarketCoin(coin = {}) {
   };
 }
 
+// Safely parse a fetch response as JSON
 async function getJson(response) {
   try {
     return await response.json();
@@ -74,6 +81,7 @@ async function getJson(response) {
   }
 }
 
+// Normalize raw portfolio API data into a consistent shape
 function normalizePortfolioData(data = {}) {
   const assetAllocation = Array.isArray(data.assetAllocation)
     ? data.assetAllocation.map((item, index) => ({
@@ -132,10 +140,12 @@ const PORTFOLIO_EXPORT_COLUMNS = [
   'Profit/Loss %',
 ];
 
+// Escape a value for safe CSV export (wrap in quotes, escape inner quotes)
 function escapeCsvValue(value) {
   return `"${String(value ?? '').replace(/"/g, '""')}"`;
 }
 
+// Format a number for CSV export (no grouping separator)
 function formatCsvNumber(value) {
   const number = toNumber(value);
   return number.toLocaleString('en-US', {
@@ -222,7 +232,7 @@ function addPdfFooter(doc, pageNumber) {
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
   doc.setTextColor(100, 116, 139);
-  doc.text('FinTracker Portfolio Report', 40, pageHeight - 18);
+  doc.text('Cove Portfolio Report', 40, pageHeight - 18);
   doc.text(`Page ${pageNumber}`, pageWidth - 40, pageHeight - 18, { align: 'right' });
 }
 
@@ -252,7 +262,7 @@ function createPortfolioReportPdf({ portfolioData, holdings, user }) {
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(20);
   doc.setTextColor(255, 255, 255);
-  doc.text('FinTracker', margin, 38);
+  doc.text('Cove', margin, 38);
   doc.setFontSize(14);
   doc.text('Portfolio Report', margin, 62);
 
@@ -1066,7 +1076,7 @@ export default function Portfolio() {
       </div>
 
       <footer className="text-center text-xs text-muted pt-4 border-t border-subtle flex justify-center gap-5 mt-auto">
-        <span>Copyright 2024 FinTracker Inc. All rights reserved.</span>
+        <span>Copyright 2026 Cove. All rights reserved.</span>
         <div className="flex gap-3.5">
           <a href="#" className="text-inherit no-underline">Terms</a>
           <a href="#" className="text-inherit no-underline">Privacy</a>

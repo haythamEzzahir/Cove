@@ -5,6 +5,7 @@ const DEFAULT_THEME = 'dark';
 
 const ThemeContext = createContext(null);
 
+// Provides dark/light theme state, toggling, and persists to localStorage + DOM class
 export function ThemeProvider({ children }) {
   const [theme, setTheme] = useState(() => {
     if (typeof window === 'undefined') return DEFAULT_THEME;
@@ -16,11 +17,14 @@ export function ThemeProvider({ children }) {
     }
   });
 
+  // Toggle between dark and light theme
   const toggleTheme = useCallback(() => {
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   }, []);
 
+  // Force light theme
   const setLightTheme = useCallback(() => setTheme('light'), []);
+  // Force dark theme
   const setDarkTheme = useCallback(() => setTheme('dark'), []);
 
   useEffect(() => {
@@ -62,6 +66,7 @@ export function ThemeProvider({ children }) {
   );
 }
 
+// Hook to access theme context (current theme, toggle, setter)
 export function useTheme() {
   const ctx = useContext(ThemeContext);
   if (!ctx) throw new Error('useTheme must be used inside <ThemeProvider>');

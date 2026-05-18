@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+// Sub-schema for a single portfolio holding (coin + quantity + price info)
 const holdingSchema = new mongoose.Schema(
   {
     coinId: {
@@ -51,6 +52,7 @@ const holdingSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Sub-schema for a single chart data point (timestamp + portfolio value)
 const chartPointSchema = new mongoose.Schema(
   {
     label: {
@@ -67,6 +69,7 @@ const chartPointSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Portfolio schema: one per user, holds array of holdings + chart history
 const portfolioSchema = new mongoose.Schema(
   {
     userId: {
@@ -89,6 +92,7 @@ const portfolioSchema = new mongoose.Schema(
 
 const Portfolio = mongoose.model("Portfolio", portfolioSchema);
 
+// Create a unique index on userId to prevent duplicate portfolios
 const ensurePortfolioIndexes = async () => {
   try {
     await Portfolio.collection.createIndex(

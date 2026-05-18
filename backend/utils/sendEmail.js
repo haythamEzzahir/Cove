@@ -2,6 +2,7 @@ import { Resend } from "resend";
 
 let resend = null;
 
+// Lazy-init the Resend client (only if API key is configured)
 function getResend() {
   if (!resend && process.env.RESEND_API_KEY) {
     resend = new Resend(process.env.RESEND_API_KEY);
@@ -9,6 +10,7 @@ function getResend() {
   return resend;
 }
 
+// Send an OTP verification email to the user
 export const sendVerificationEmail = async (email, name, otp) => {
   const client = getResend();
   if (!client) {
@@ -17,7 +19,7 @@ export const sendVerificationEmail = async (email, name, otp) => {
   }
 
   await client.emails.send({
-    from: "FinTracker <onboarding@resend.dev>",
+    from: "Cove <onboarding@resend.dev>",
     to: email,
     subject: "Your verification code",
     html: `
@@ -29,6 +31,7 @@ export const sendVerificationEmail = async (email, name, otp) => {
   });
 };
 
+// Send a price alert notification email when a user's alert is triggered
 export const sendPriceAlertEmail = async (email, name, coinName, condition, targetPrice, currentPrice, symbol) => {
   const client = getResend();
   if (!client) {
@@ -40,7 +43,7 @@ export const sendPriceAlertEmail = async (email, name, coinName, condition, targ
   const arrow = condition === 'above' ? '↑' : '↓';
 
   await client.emails.send({
-    from: "FinTracker <onboarding@resend.dev>",
+    from: "Cove <onboarding@resend.dev>",
     to: email,
     subject: `🔔 Price Alert: ${coinName}`,
     html: `
@@ -55,7 +58,7 @@ export const sendPriceAlertEmail = async (email, name, coinName, condition, targ
             <p style="margin: 0 0 8px; font-size: 13px; color: #9ca3af;">Target: <span style="color: ${color}; font-weight: 600;">${symbol}${targetPrice.toLocaleString()}</span></p>
             <p style="margin: 0; font-size: 13px; color: #9ca3af;">Current: <span style="color: #fff; font-weight: 600;">${symbol}${currentPrice.toLocaleString()}</span></p>
           </div>
-          <p style="color: #6b7280; font-size: 11px; margin: 0;">— FinTracker</p>
+          <p style="color: #6b7280; font-size: 11px; margin: 0;">— Cove</p>
         </div>
       </div>
     `

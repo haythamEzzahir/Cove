@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export default function Signup() {
   const location = useLocation();
@@ -11,6 +12,7 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { signup } = useAuth();
+  const { addToast } = useToast();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,6 +28,7 @@ export default function Signup() {
     const result = await signup(name, email, password);
 
     if (result.success) {
+      addToast('Account created! Check your email for the verification code.', 'success', 5000);
       sessionStorage.setItem('fintracker_verify_email', email);
       navigate(`/verify-pending?email=${encodeURIComponent(email)}`, { replace: true });
     } else {
@@ -39,7 +42,7 @@ export default function Signup() {
       <div className="w-full max-w-[400px] bg-surface border border-default rounded-xl p-8">
         <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-primary mb-2">Create account</h1>
-          <p className="text-sm text-secondary">Get started with FinTracker</p>
+          <p className="text-sm text-secondary">Get started with Cove</p>
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">

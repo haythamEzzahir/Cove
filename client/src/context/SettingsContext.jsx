@@ -3,13 +3,12 @@ import { createContext, useContext, useEffect, useState } from 'react';
 const DEFAULT_SETTINGS = {
   compactView:      false,
   priceAlerts:      true,
-  marketNews:       false,
   portfolioSummary: true,
-  currency:         'USD',
 };
 
 const SettingsContext = createContext(null);
 
+// Provides local UI settings (compact view, price alerts, portfolio summary)
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(() => {
     try {
@@ -18,6 +17,8 @@ export function SettingsProvider({ children }) {
 
       const savedSettings = JSON.parse(saved);
       delete savedSettings.darkMode;
+      delete savedSettings.marketNews;
+      delete savedSettings.currency;
 
       return { ...DEFAULT_SETTINGS, ...savedSettings };
     } catch {
@@ -37,6 +38,7 @@ export function SettingsProvider({ children }) {
     }
   }, [settings]);
 
+  // Update a single setting and persist to localStorage
   function updateSetting(key, value) {
     setSettings((prev) => ({ ...prev, [key]: value }));
   }
@@ -48,6 +50,7 @@ export function SettingsProvider({ children }) {
   );
 }
 
+// Hook to access settings context
 export function useSettings() {
   const ctx = useContext(SettingsContext);
   if (!ctx) throw new Error('useSettings must be used inside <SettingsProvider>');

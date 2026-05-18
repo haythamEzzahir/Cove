@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+// Settings schema: one per user, stores theme, language, compact view, notifications
 const settingSchema = new mongoose.Schema(
   {
     userId: {

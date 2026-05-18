@@ -1,5 +1,6 @@
 import { colors } from '../../styles/tokens';
 
+// Renders a coin image or a colored circle with the first letter as fallback
 export default function CoinLogo({ ticker = '', size = 28, image }) {
   const bg = colors.coin?.[ticker] ?? colors.blue;
   const letter = ticker?.charAt(0) || '?';

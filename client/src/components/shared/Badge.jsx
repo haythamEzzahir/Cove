@@ -16,6 +16,7 @@ const variants = {
   neutral: { bg: colors.bgOverlay, text: colors.textMuted },
 };
 
+// Colored pill badge for change percentages and status labels
 export default function Badge({ variant = 'neutral', children, style = {} }) {
   const { bg, text } = variants[variant] ?? variants.neutral;
 

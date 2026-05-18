@@ -7,6 +7,7 @@ import { useTheme } from '../../context/ThemeContext';
 
 const TIME_TABS = ['1D', '7D', '1M', '1Y', 'All'];
 
+// Chart component showing price history with time period tabs (1D/7D/1M/1Y/All)
 export default function PriceChart({ coin, data = [], onTabChange }) {
   const [activeTab, setActiveTab] = useState('7D');
   const { currencyData } = useCurrency();
@@ -16,7 +17,7 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
   const mutedColor = isDark ? '255,255,255' : '100,116,139';
   const bgOverlay = isDark ? '24,24,27' : '255,255,255';
   const borderColor = isDark ? '63,63,70' : '228,231,235';
-  const chartBlue = '#3b82f6';
+  const chartGreen = '#10b981';
   const gridColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)';
 
   const handleTab = (tab) => {
@@ -83,8 +84,8 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
         <AreaChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={chartBlue} stopOpacity={0.25} />
-              <stop offset="100%" stopColor={chartBlue} stopOpacity={0} />
+              <stop offset="0%" stopColor={chartGreen} stopOpacity={0.25} />
+              <stop offset="100%" stopColor={chartGreen} stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid 
@@ -121,11 +122,11 @@ export default function PriceChart({ coin, data = [], onTabChange }) {
           <Area
             type="monotone"
             dataKey="price"
-            stroke={chartBlue}
+            stroke={chartGreen}
             strokeWidth={2}
             fill="url(#priceGrad)"
             dot={false}
-            activeDot={{ r: 4, fill: chartBlue }}
+            activeDot={{ r: 4, fill: chartGreen }}
           />
         </AreaChart>
       </ResponsiveContainer>

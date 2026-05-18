@@ -1,4 +1,4 @@
-# FinTracker — Complete Application Documentation
+# Cove — Complete Application Documentation
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -9,156 +9,212 @@
 6. [Email Verification (OTP)](#email-verification-otp)
 7. [Theme System (Dark/Light Mode)](#theme-system-darklight-mode)
 8. [Currency System](#currency-system)
-9. [Features](#features)
-10. [API Endpoints](#api-endpoints)
-11. [Database Schema](#database-schema)
-12. [Security Measures](#security-measures)
-13. [CoinGeProxy Caching System](#coingecko-proxy-caching-system)
-14. [Avatar Upload (Cloudinary)](#avatar-upload-cloudinary)
-15. [Environment Variables](#environment-variables)
-16. [How to Run](#how-to-run)
-17. [File Cleanup Summary](#file-cleanup-summary)
+9. [Pages & Features](#pages--features)
+10. [Key Components & Hooks](#key-components--hooks)
+11. [API Endpoints](#api-endpoints)
+12. [Database Schema](#database-schema)
+13. [Security Measures](#security-measures)
+14. [CoinGecko Proxy & Caching](#coingecko-proxy--caching)
+15. [Avatar Upload (Cloudinary)](#avatar-upload-cloudinary)
+16. [Environment Variables](#environment-variables)
+17. [How to Run](#how-to-run)
 
 ---
 
 ## Overview
 
-FinTracker is a full-stack cryptocurrency portfolio tracking application that allows users to monitor live market data, manage a personal portfolio, maintain a watchlist, set price alerts, and customize their experience with themes and currency preferences.
+Cove is a full-stack cryptocurrency tracking application. Users can browse live market data, manage a portfolio, maintain a watchlist with real-time prices, set price alerts, and customize themes/currencies.
 
 **Tech Stack:**
-- **Frontend:** React 19, Vite, Tailwind CSS, React Router, Recharts (for charts), html2canvas + jsPDF (for PDF export)
-- **Backend:** Express.js 5, MongoDB (Mongoose), JWT authentication, Cookie-based sessions
-- **External APIs:** CoinGecko (market data), Binance WebSocket (live prices), Google OAuth, Resend (email), Cloudinary (avatar hosting)
+- **Frontend:** React 19, Vite 6, Tailwind CSS, React Router v6, Recharts, jsPDF + html2canvas
+- **Backend:** Express.js 5, MongoDB (Mongoose), JWT (HttpOnly cookies)
+- **External APIs:** CoinGecko (market data), Binance WebSocket (live prices), Google OAuth, Resend (email), Cloudinary (avatars)
 
 ---
 
 ## Architecture
 
 ```
-fintracker/
+cove/
 ├── client/                     # React SPA (Vite)
 │   ├── src/
-│   │   ├── components/         # Reusable UI components
-│   │   │   ├── auth/           # AuthModal
-│   │   │   ├── dashboard/      # MetricCard, PriceChart
-│   │   │   ├── icons/          # Sidebar icons
+│   │   ├── components/
+│   │   │   ├── auth/           # AuthModal — login/signup overlay
+│   │   │   ├── dashboard/      # MetricCard, PriceChart, WalletChart
+│   │   │   ├── icons/          # SVG icon components for sidebar
 │   │   │   ├── layout/         # AppLayout, Sidebar, TopBar
-│   │   │   ├── settings/       # ProfileCard, ToggleSwitch, etc.
-│   │   │   └── shared/         # TabBar, CoinLogo, Badge
-│   │   ├── context/            # React Context providers
-│   │   ├── hooks/              # Custom React hooks
-│   │   ├── pages/              # Route-level page components
-│   │   ├── styles/             # Design tokens
-│   │   ├── config.js           # Centralized config & helpers
-│   │   ├── main.jsx            # App entry + router
-│   │   └── index.css           # Design tokens + CSS utilities
+│   │   │   ├── settings/       # CurrencySelect, ProfileCard, SettingItem, ToggleSwitch
+│   │   │   └── shared/         # Badge, CoinLogo, TabBar
+│   │   ├── context/            # AuthContext, CurrencyContext, SettingsContext, ThemeContext
+│   │   ├── hooks/              # useMarketData, useBinanceWebSocket
+│   │   ├── pages/              # Landing, Markets, Watchlist, Portfolio, Alerts, Settings, etc.
+│   │   ├── styles/             # Design tokens (colors, radius, fontSize)
+│   │   ├── config.js           # Centralized config — API_URL, formatPrice, fetchWithAuth
+│   │   ├── main.jsx            # Entry + React Router config
+│   │   └── index.css           # CSS variables (dark/light) + semantic utility classes
+│   ├── public/favicon.svg      # Cove logo SVG
 │   ├── .env
 │   └── vite.config.js
 ├── backend/                    # Express API server
-│   ├── controllers/            # Request handlers
-│   ├── middleware/             # Auth, rate limiting, error handling
-│   ├── models/                 # Mongoose schemas
+│   ├── controllers/            # auth, market, portfolio, user, watchlist, settings
+│   ├── middleware/             # authMiddleware (JWT verify), errorHandler, rateLimiter
+│   ├── models/                 # Mongoose schemas: user, refreshToken, portfolio, watchlist, setting
 │   ├── routes/                 # Express route definitions
-│   ├── utils/                  # Cache, validators, email, tokens, uploads
-│   ├── scripts/                # Maintenance scripts
-│   ├── server.js               # Server entry point
+│   ├── utils/                  # cache (Map-based), generateToken (JWT), sendEmail (Resend), uploadAvatar (Cloudinary), validators (express-validator)
+│   ├── scripts/                # mergeDuplicatePortfolios
+│   ├── server.js               # Entry point — middleware chain + route mounting
 │   └── .env
-└── .env.example                # Environment template
+└── .env.example
 ```
 
-### How the App Works (High Level)
+### High-Level Data Flow
 
-1. User signs up → receives email verification OTP → verifies → can log in
-2. After login, auth tokens are stored as HttpOnly cookies (not accessible via JS)
-3. The app fetches market data from CoinGecko API via backend proxy (cached in-memory)
-4. Live prices stream from Binance WebSocket in the browser
-5. User can add coins to portfolio (tracks holdings, P&L, allocation)
-6. User can add coins to watchlist (only user-chosen coins appear)
-7. All settings (theme, currency, language) are persisted in localStorage
-8. Portfolio can be exported as CSV or PDF report
-9. Avatars are uploaded to Cloudinary — only the URL is stored in MongoDB
+1. **Landing page** (`/`) — static hero with live ticker tape animation, no API calls
+2. **Markets** (`/markets`) — `useMarketData` fetches top 100 coins from backend proxy (`GET /coins`), which proxies CoinGecko with 60s in-memory cache. Price chart fetches from `GET /chart/:coinId` with 300s cache
+3. **Watchlist** (`/watchlist`) — fetches user's saved coins from `GET /api/watchlist`, then opens Binance WebSocket for real-time price updates (only on this page)
+4. **Portfolio** (`/portfolio`) — CRUD operations on `GET/POST /api/portfolio`, PDF/CSV export client-side
+5. **Alerts** (`/alerts`) — price checks on frontend, email trigger via `POST /api/alerts/trigger`
+6. **Auth** — all auth routes under `/api/auth/*`, dual HttpOnly cookie system
 
 ---
 
 ## Frontend Structure
 
-### Context Providers
-
-The app wraps everything in these providers (in `main.jsx`):
+### Context Providers (wrapping order in `main.jsx`)
 
 | Provider | File | Purpose |
 |---|---|---|
-| `GoogleProviderWrapper` | `src/main.jsx` | Dynamically loads Google OAuth Client ID from backend |
-| `ThemeProvider` | `src/context/ThemeContext.jsx` | Manages dark/light theme, persists to localStorage |
-| `SettingsProvider` | `src/context/SettingsContext.jsx` | User settings (theme, language, notifications, compact view) |
-| `CurrencyProvider` | `src/context/CurrencyContext.jsx` | Active currency (USD, EUR, GBP, etc.) |
-| `AuthProvider` | `src/context/AuthContext.jsx` | Cookie-based auth, user state, watchlist, login/signup/logout |
-
-### Centralized Config (`src/config.js`)
-
-Single source of truth for:
-- `API_URL` — backend base URL
-- `AUTH_REDIRECT_KEY` — session storage key for post-login redirects
-- `getSafeRedirectPath(path)` — validates redirect URLs (prevents open redirect)
-- `getInitials(name)` — extracts initials from a name string
-- `getJson(response)` — safely parses JSON with content-type check
-- `formatPrice(value, symbol)` — formats numbers as currency (e.g., `$68,250.34`)
-- `formatMarketCap(value)` — formats large numbers (e.g., `$1.34T`, `$84.2B`)
-- `fetchWithAuth(url, options)` — fetch wrapper with `credentials: 'include'` and auto-refresh on 401
-
-### Pages
-
-| Page | Path | Description |
-|---|---|---|
-| `Login.jsx` | `/login` | Email/password + Google OAuth login. Shows verification resend if account unverified |
-| `Signup.jsx` | `/signup` | Registration form. Redirects to `/verify-pending` on success (stores email in sessionStorage) |
-| `VerifyPending.jsx` | `/verify-pending` | 6-digit OTP input. Resend code button. Email input fallback if email is missing from URL |
-| `Dashboard.jsx` | `/` | Main dashboard: market metrics, price chart, asset table with pagination, watchlist star column |
-| `Portfolio.jsx` | `/portfolio` | Holdings table, balance overview, donut chart (allocation), CSV/PDF export, add asset modal |
-| `Watchlist.jsx` | `/watchlist` | User-chosen tracked coins with live prices, add/remove coins, set price alerts inline |
-| `Alerts.jsx` | `/alerts` | Dedicated alerts page. Create/edit/delete price alerts with notification triggers |
-| `Settings.jsx` | `/settings` | User preferences: currency, theme toggle, notifications, language |
-| `Profile.jsx` | `/settings/profile` | Profile editing: name, email, avatar (URL or base64 → Cloudinary), password change |
+| `ThemeProvider` | `ThemeContext.jsx` | Dark/light theme, persists to localStorage, toggles `.dark` class on `<html>` |
+| `SettingsProvider` | `SettingsContext.jsx` | User preferences (compactView, priceAlerts, portfolioSummary) |
+| `CurrencyProvider` | `CurrencyContext.jsx` | Active currency (usd/eur/gbp/jpy/aed/sar/egp), persists to localStorage |
+| `AuthProvider` | `AuthContext.jsx` | Cookie-based auth, user state, watchlist management, login/signup/logout |
+| `GoogleProviderWrapper` | `main.jsx` (inline) | Dynamically loads Google OAuth Client ID from backend |
 
 ### Routing (`main.jsx`)
 
-```jsx
+```
 createBrowserRouter([
   { path: '/login', element: <Login /> },
   { path: '/signup', element: <Signup /> },
   { path: '/verify-pending', element: <VerifyPending /> },
   { path: '/', element: <AppLayout />, children: [
-    { index: true, element: <Dashboard /> },
-    { path: 'markets', element: <Dashboard /> },
+    { index: true, element: <Landing /> },       // No sidebar, full-screen
+    { path: 'markets', element: <Markets /> },
     { path: 'watchlist', element: <Watchlist /> },
     { path: 'portfolio', element: <Portfolio /> },
     { path: 'alerts', element: <Alerts /> },
-    { path: 'news', element: <Dashboard /> },
     { path: 'settings', element: <Settings /> },
     { path: 'settings/profile', element: <Profile /> },
   ]},
-]);
+])
 ```
 
-### Route Guards (`components/layout/AppLayout.jsx`)
+**Route protection** (`AppLayout.jsx`):
+- `AppLayout` checks `location.pathname === '/'` and renders `<Outlet />` alone (no sidebar/TopBar for the Landing page)
+- Protected routes (`/watchlist`, `/portfolio`, `/alerts`, `/settings`) show an auth modal if `!user`
+- Unverified users are redirected to `/verify-pending`
 
-- **Unauthenticated users:** Auth modal pops up when accessing protected routes (`/watchlist`, `/portfolio`, `/alerts`, `/news`, `/settings`)
-- **Unverified users:** If `user.isVerified === false`, automatically redirected to `/verify-pending`
-- **Loading state:** Shows nothing while auth state is being hydrated from cookies
+### Centralized Config (`config.js`)
 
-### Hooks
+| Export | Purpose |
+|---|---|
+| `API_URL` | Backend base URL (from `VITE_API_URL` env) |
+| `getSafeRedirectPath` | Prevents open redirect attacks |
+| `getInitials(name)` | Extracts initials (e.g., "John Doe" → "JD") |
+| `formatPrice(value, symbol)` | Formats as currency — handles large/small values |
+| `formatMarketCap(value)` | Formats large numbers (1.34T, 84.2B, 5.1M) |
+| `fetchWithAuth(url, options)` | Fetch with `credentials: 'include'`, auto-refreshes on 401 |
 
-| Hook | File | Purpose |
+### Key Components
+
+#### AppLayout (`components/layout/AppLayout.jsx`)
+- Renders Sidebar (desktop) + TopBar + `<Outlet />`
+- Handles sidebar collapse state (persisted to localStorage)
+- Shows AuthModal overlay for unauthenticated users on protected routes
+- Detects mobile (< 1024px) for responsive sidebar behavior
+
+#### Sidebar (`components/layout/Sidebar.jsx`)
+- Fixed left column: `56px` (collapsed) or `220px` (expanded)
+- Logo SVG (cove + dot) is clickable → navigates to `/`
+- Nav items: Markets, Watchlist, Portfolio, Alerts (each with SVG icon)
+- "Upgrade to Pro" card with emerald gradient
+- Logout button (visible when authenticated), Settings link at bottom
+- Collapse button (chevron icon) in header
+
+#### TopBar (`components/layout/TopBar.jsx`)
+- Fixed height `h-14` (56px) matching Sidebar header
+- Page title + optional subtitle (from `PAGE_DATA` in AppLayout)
+- Currency selector dropdown
+- Theme toggle (dark/light)
+- Notification bell → navigates to `/alerts`
+- User avatar (clickable → `/settings/profile`) or Sign In/Sign Up buttons
+
+### Pages
+
+| Page | Path | Description |
 |---|---|---|
-| `useMarketData` | `hooks/useMarketData.jsx` | Fetches coins, chart data from backend proxy (uses `fetchWithAuth`) |
-| `useBinanceWebSocket` | `hooks/useBinanceWebSocket.jsx` | Subscribes to Binance WebSocket streams for real-time price updates |
+| `Landing.jsx` | `/` | Full-screen hero with scrolling ticker tape (BTC/ETH/etc.), split layout: left has headline + CTA + stats, right has 3D staggered card stack (BTC chart, watchlist preview, alert) with parallax tilt on mouse move. No sidebar. |
+| `Markets.jsx` | `/markets` | Price chart (Recharts area chart with 1D/7D/1M/1Y/All tabs), 6 metric cards (market cap, volume, BTC dominance, Fear & Greed, BTC ATH, global cap), sortable/filterable coin table with 30 items/page, search, column visibility toggles, filter dropdown (All/Trending/Gainers/Losers/New). Data from `useMarketData`. |
+| `Watchlist.jsx` | `/watchlist` | User's starred coins only. Live prices via Binance WebSocket. Stats bar (total value, gainers/losers, best/worst). Set price alerts inline. Add/remove coins. Customizable columns, pagination. |
+| `Portfolio.jsx` | `/portfolio` | Holdings table with rank, name, quantity, avg buy price, current price, value, P&L, 24h change. Donut chart of allocation. Add asset modal (search coins). CSV + PDF export. |
+| `Alerts.jsx` | `/alerts` | List of price alerts with status. Create/edit/delete alerts. Email trigger on threshold. |
+| `Settings.jsx` | `/settings` | Profile card, dark mode toggle, compact view, notification toggles (price alerts, portfolio summary), currency selector (uses `CurrencyContext` directly). |
+| `Profile.jsx` | `/settings/profile` | Edit name, email, avatar (base64 → Cloudinary), change password, delete account. |
+| `Login.jsx` | `/login` | Email/password + Google OAuth. Shows resend verification link if unverified. |
+| `Signup.jsx` | `/signup` | Registration form. Creates account with `isVerified: false`, sends OTP, redirects to `/verify-pending`. |
+| `VerifyPending.jsx` | `/verify-pending` | 6-digit OTP input with resend button. Puts email in sessionStorage as fallback. |
 
-### How Live Prices Work
+---
 
-1. Dashboard and Watchlist load initial data via `useMarketData` (CoinGecko through backend proxy)
-2. `useBinanceWebSocket` opens a WebSocket connection to `wss://stream.binance.com:9443/ws`
-3. Subscribes to `<coinId>usdt@trade` streams for each coin in the user's watchlist
-4. On each price tick, updates are dispatched to components via callback
+## Hooks
+
+### useMarketData (`hooks/useMarketData.jsx`)
+
+Central hook for the Markets page.
+
+**State:**
+- `metrics[]` — 6 metric card values (market cap, volume, BTC dominance, Fear & Greed, BTC ATH, global cap)
+- `chartData[]` — formatted price history for the featured coin
+- `chartPeriod` — currently active time range string
+- `featuredCoin` — currently selected coin (defaults to #1 by market cap)
+- `trendingCoins` — top 4 coins for preview
+- `assets[]` — all coins with formatted prices, market caps, direction indicators
+- `loading`, `error`
+
+**Key functions:**
+
+| Function | Purpose |
+|---|---|
+| `fetchChartData(period, coinId?)` | Fetches chart data from backend proxy. Uses `chartCacheRef` to cache results keyed by `coinId_period_currency` — switching between already-viewed periods is instant. Samples raw data to ~48-80 points depending on range. |
+| `selectCoin(coin)` | Changes featured coin and resets chart. Fetches 7D chart for the new coin. |
+| `formatPrice(price)` | Formats a number with the active currency symbol |
+| `formatMarketCap(cap)` | Formats large numbers (T/B/M suffixes) |
+
+**Data flow:**
+1. `useEffect` on mount/currency change fetches top 100 coins from backend
+2. Computes derived metrics (total market cap, BTC dominance, etc.)
+3. Formats all prices using active currency
+
+### useBinanceWebSocket (`hooks/useBinanceWebSocket.jsx`)
+
+Opens a WebSocket connection to Binance for real-time price updates.
+
+**Usage (only in Watchlist):**
+```js
+const { isConnected } = useBinanceWebSocket(
+  coins.map(c => ({ ticker: c.symbol, coinId: c.id })),
+  handlePriceUpdate,
+  currency
+);
+```
+
+**How it works:**
+1. Builds stream names from coin tickers + currency quote (`btcusdt@trade`, `ethusdt@trade`, etc.)
+2. Subscribes via Binance combined streams (`wss://stream.binance.com:9443/stream`)
+3. On each `@trade` event, extracts price and calls `onPriceUpdateRef.current(coinId, price)`
+4. Uses `useRef` for the callback to avoid re-subscribing when the callback changes
+5. Reconnects with 5s delay on disconnect
+6. Connection key (`streamKey`) is derived from sorted unique streams via `useMemo`
 
 ---
 
@@ -166,71 +222,63 @@ createBrowserRouter([
 
 ### Server (`server.js`)
 
-**Middleware chain:**
-1. `helmet()` — Security headers (CSP, X-Frame, HSTS, etc.)
-2. `cors()` — Cross-origin requests (allows `localhost:5173` + `CLIENT_URL`, credentials enabled)
+**Middleware chain (in order):**
+1. `helmet()` — Security headers (CSP, X-Frame-Options, HSTS, etc.)
+2. `cors()` — Allows `localhost:5173` + `CLIENT_URL`, credentials enabled
 3. `compression()` — Gzip response compression
-4. `express.json({ limit: "500kb" })` — JSON body parsing (supports base64 avatars)
+4. `express.json({ limit: "500kb" })` — JSON body parsing
 5. `cookieParser()` — Parses HttpOnly auth cookies
 6. `globalLimiter` — 100 requests per 15 minutes
-7. Custom middleware — Sets `X-Content-Type-Options: nosniff`
+7. Custom `nosniff` header middleware
+8. Error handler (last)
+9. 404 handler (last)
 
 **Route mounting:**
-- `/api/auth` — with `authLimiter` (30 requests/15min)
-- `/api/auth/verify-otp` — with `otpLimiter` (5 attempts/15min)
-- `/api/auth/resend-otp` — with `otpResendLimiter` (3 resends/10min)
-- `/api/portfolio`, `/api/users`, `/api/settings`, `/api/watchlist` — with `apiLimiter` (200/15min)
+| Prefix | Rate Limiter |
+|---|---|
+| `/api/auth` | `authLimiter` (30/15min) |
+| `/api/auth/verify-otp` | `otpLimiter` (5/15min) |
+| `/api/auth/resend-otp` | `otpResendLimiter` (3/10min) |
+| `/api/portfolio`, `/api/users`, `/api/settings`, `/api/watchlist` | `apiLimiter` (200/15min) |
+| `/coins`, `/chart`, `/search`, `/api/public/coins` | `publicProxyLimiter` (20/1min per IP) |
 
-**CoinGecko Proxy Endpoints (Public + Cached):**
-- `GET /coins` — Market list (100 coins by market cap)
-- `GET /coins/:coinId` — Single coin details
-- `GET /chart/:coinId` — Historical price chart data
-- `GET /coins/exchange-rates` — Currency exchange rates
-- `GET /search?q=...` — Coin search
-- `GET /api/public/coins` — Top 10 coins (lightweight public preview)
+### Controllers
 
-All proxy routes use:
-- `publicProxyLimiter` — 20 requests per minute per IP
-- In-memory cache (see [Caching System](#coingecko-proxy-caching-system))
-- No auth required — cached responses prevent CoinGecko API key abuse
-
-**Error handling:**
-- `errorHandler` middleware is wired at the end of the stack
-- 404 handler for unmatched routes
-- MongoDB connection failure calls `process.exit(1)`
+| Controller | Key Functions |
+|---|---|
+| `authController.js` | `register`, `login`, `googleAuth`, `refreshToken`, `logout`, `verifyOTP`, `resendOTP`, `getMe`, `deleteAccount` |
+| `marketController.js` | `getCoins` (list), `getCoin` (single), `getChart`, `getExchangeRates`, `searchCoins`, `getPublicCoins` — all proxy CoinGecko with caching |
+| `portfolioController.js` | `getPortfolio`, `addAsset` (upserts holding — merges if same coinId) |
+| `watchlistController.js` | `getWatchlist`, `addCoin`, `removeCoin` |
+| `userController.js` | `updateProfile` (handles base64 → Cloudinary upload), `getProfile` |
+| `settingController.js` | `getSettings`, `updateSettings` |
 
 ### Input Validation (`utils/validators.js`)
 
-Uses `express-validator` library:
+Uses `express-validator`:
 
-| Validator | Applies To | Rules |
+| Validator | Endpoint | Rules |
 |---|---|---|
-| `validateRegistration` | `POST /api/auth/register` | Name 1-100 chars, valid email, password 8-128 chars |
-| `validateLogin` | `POST /api/auth/login` | Valid email, non-empty password |
-| `validateOTP` | `POST /api/auth/verify-otp` | Non-empty email, exactly 6 digits |
-| `validateResendOTP` | `POST /api/auth/resend-otp` | Non-empty email |
-| `validateProfileUpdate` | `PUT /api/users/me` | Name 1-100, valid email, bio max 500, avatar URL or base64 |
-| `validatePortfolioAsset` | `POST /api/portfolio` | Valid coinId (alphanumeric), name, symbol, quantity > 0, price > 0 |
-| `validateWatchlistItem` | `POST /api/watchlist` | Valid coinId |
-| `validateSettings` | `PUT /api/settings/me` | Theme: dark/light/system, Language: en/fr/ar, booleans |
+| `validateRegistration` | `POST /register` | Name 1-100, valid email, password 8-128 |
+| `validateLogin` | `POST /login` | Valid email, non-empty password |
+| `validateOTP` | `POST /verify-otp` | Non-empty email, exactly 6 digits |
+| `validateResendOTP` | `POST /resend-otp` | Non-empty email |
+| `validateProfileUpdate` | `PUT /users/me` | Name 1-100, valid email, bio max 500, avatar URL or base64 |
+| `validatePortfolioAsset` | `POST /portfolio` | Valid coinId, name, symbol, quantity > 0, price > 0 |
+| `validateWatchlistItem` | `POST /watchlist` | Valid coinId |
+| `validateSettings` | `PUT /settings/me` | Theme: dark/light, language: en/fr/ar, booleans |
 | `validateChartQuery` | `GET /chart/:coinId` | coinId alphanumeric, days 1-365 |
-| `handleValidationErrors` | After any validator | Returns 400 with formatted error details |
 
-### Rate Limiting (`middleware/rateLimiter.js`)
+### Rate Limiters (`middleware/rateLimiter.js`)
 
-| Limiter | Window | Max Requests | Applies To |
+| Limiter | Window | Max | Applies To |
 |---|---|---|---|
-| `globalLimiter` | 15 min | 100 | All requests |
+| `globalLimiter` | 15 min | 100 | All routes |
 | `authLimiter` | 15 min | 30 | `/api/auth/*` |
-| `otpLimiter` | 15 min | 5 | `/api/auth/verify-otp` |
-| `otpResendLimiter` | 10 min | 3 | `/api/auth/resend-otp` |
-| `apiLimiter` | 15 min | 200 | `/api/portfolio`, `/api/users`, `/api/settings`, `/api/watchlist` |
-| `proxyLimiter` | 5 min | 30 | (legacy, unused) |
-| `publicProxyLimiter` | 1 min | 20 | All CoinGecko proxy routes |
-
-### CoinGecko Validation
-
-All `/coins/:coinId` and `/chart/:coinId` routes validate the coin ID against `/^[a-z0-9-]+$/i` to prevent injection attacks.
+| `otpLimiter` | 15 min | 5 | OTP verification |
+| `otpResendLimiter` | 10 min | 3 | OTP resend |
+| `apiLimiter` | 15 min | 200 | Portfolio, users, settings, watchlist |
+| `publicProxyLimiter` | 1 min | 20 | CoinGecko proxy routes |
 
 ---
 
@@ -238,156 +286,115 @@ All `/coins/:coinId` and `/chart/:coinId` routes validate the coin ID against `/
 
 ### Token Strategy
 
-FinTracker uses a dual-token system with **HttpOnly cookies** (never stored in localStorage):
+Dual HttpOnly cookies (never accessible via JavaScript — XSS-safe):
 
-| Token | Lifespan | Cookie Name | Purpose |
-|---|---|---|---|
-| Access Token | 15 minutes | `token` | Authenticates API requests |
-| Refresh Token | 7 days | `refreshToken` | Issues new access tokens |
+| Token | Lifespan | Cookie Name |
+|---|---|---|
+| Access Token | 15 minutes | `token` |
+| Refresh Token | 7 days | `refreshToken` |
 
-Both tokens are:
-- `httpOnly: true` — JavaScript cannot read them (XSS-safe)
-- `secure: true` in production — HTTPS only
-- `sameSite: "none"` in production, `"lax"` in development
-- `path: "/"` — Available across entire domain
+Cookie settings: `httpOnly: true`, `secure: true` in production, `sameSite: "lax"` (dev) / `"none"` (prod).
 
-### Registration Flow
+### Auth Flow
 
-1. **User submits signup form** (`POST /api/auth/register`)
-   - Name, email, password validated
-   - Checks if user already exists
-   - Hashes password with bcrypt (salt rounds: 10)
-   - Generates 6-digit OTP, sets expiry to 10 minutes
-   - Creates user with `isVerified: false`
-   - Sends verification email via Resend API
-   - Creates user settings document
+```
+1. Register → POST /api/auth/register
+   - Validates input → hashes password (bcrypt, 10 rounds)
+   - Generates 6-digit OTP (10 min expiry)
+   - Creates user (isVerified: false)
+   - Sends email via Resend
    - Sets access + refresh token cookies
-   - Returns user data
 
-2. **Redirect to `/verify-pending`** with email in query params AND stored in `sessionStorage`
+2. Verify OTP → POST /api/auth/verify-otp
+   - Checks email exists
+   - Max 5 attempts per OTP (locks until resend)
+   - Validates OTP match + expiry
+   - Sets isVerified: true, clears OTP
 
-3. **User enters 6-digit OTP** (`POST /api/auth/verify-otp`)
-   - Looks up user by email
-   - Checks if already verified
-   - Checks OTP attempts (max 5, then locked until resend)
-   - Validates OTP matches and hasn't expired
-   - On success: sets `isVerified: true`, clears OTP and attempts
-
-4. **If wrong OTP:** Returns remaining attempts count
-
-### Login Flow
-
-1. **User submits login form** (`POST /api/auth/login`)
-   - Validates email/password
-   - Checks if user is verified
-   - If not verified: returns 403 with `needsVerification: true` and email
-   - If verified: creates new access + refresh token pair
+3. Login → POST /api/auth/login
+   - Validates credentials
+   - Checks isVerified (403 if false)
+   - Creates new access + refresh tokens
    - Sets both as HttpOnly cookies
-   - Returns user data
 
-2. **Frontend hydrates user** by calling `GET /api/auth/me` (cookies sent automatically)
-3. **Loads watchlist** by calling `GET /api/watchlist`
+4. Protected route access
+   - Reads token from req.cookies.token
+   - Verifies JWT with JWT_SECRET
+   - Attaches req.user
 
-### Google OAuth
+5. Token refresh → POST /api/auth/refresh
+   - Triggered automatically on 401 (fetchWithAuth or AuthContext)
+   - Reads refreshToken cookie
+   - SHA-256 hashes it → looks up in RefreshToken collection
+   - If valid: rotates (new access + refresh tokens, deletes old)
+   - If invalid: clears cookies, returns 403
 
-1. `GoogleProviderWrapper` fetches `clientId` from `GET /api/auth/google/config`
-2. User clicks "Continue with Google"
-3. Google login flow returns authorization code
-4. Code sent to `POST /api/auth/google`
-5. Backend verifies with Google, finds or creates user
-6. Google users are auto-verified (Google already verified the email)
-7. Sets access + refresh token cookies
+6. Logout → POST /api/auth/logout
+   - Deletes refresh token from DB
+   - Clears both cookies
 
-### Refresh Token Flow
-
-1. Access token expires after 15 minutes → request returns 401
-2. Frontend (`fetchWithAuth` or `AuthContext`) automatically calls `POST /api/auth/refresh`
-3. Backend reads `refreshToken` cookie
-4. Hashes it (SHA-256), looks up in `RefreshToken` collection
-5. If valid and not expired:
-   - Generates NEW access + refresh tokens (rotation)
-   - Deletes old refresh token from DB
-   - Sets new cookies
-6. If invalid: clears cookies, returns 403 (user must log in again)
-
-### Logout
-
-1. `POST /api/auth/logout`
-2. Deletes refresh token from MongoDB (by hash)
-3. Clears both `token` and `refreshToken` cookies
-4. Returns success message
+7. Google OAuth
+   - Frontend fetches clientId from GET /api/auth/google/config
+   - Google login returns auth code
+   - POST /api/auth/google verifies + creates/finds user
+   - Google users auto-verified (Google verified email)
+   - Sets access + refresh token cookies
+```
 
 ### Account Deletion
 
-1. `DELETE /api/auth/account` (protected)
-2. Deletes all refresh tokens, settings, watchlist, portfolio for user
-3. Deletes user document
-4. Clears cookies
+`DELETE /api/auth/account` — deletes all user data: refresh tokens, settings, watchlist, portfolio, user document. Clears cookies.
 
 ### Password Change
 
-- Requires `currentPassword`, `newPassword`, `confirmPassword`
-- Validates current password with bcrypt.compare
-- Enforces 6-char minimum on new password
-- Not available for Google-authenticated accounts
+Requires current password verification (bcrypt.compare). Not available for Google accounts. Enforces 6-char minimum.
 
 ---
 
 ## Email Verification (OTP)
 
-- 6-digit numeric code generated on signup and resend
-- Expires after 10 minutes
-- Max 5 failed attempts per code (then locked until resend)
-- OTP stored directly on User document (`verificationOTP`, `otpExpiry`, `otpAttempts`)
+- 6-digit numeric code, expires after 10 minutes
+- Max 5 failed attempts per code (locked until resend)
+- OTP stored on User document (`verificationOTP`, `otpExpiry`, `otpAttempts`)
 - Sent via Resend API (`sendVerificationEmail`)
-- Google OAuth users skip verification (auto-verified)
+- Google OAuth users are auto-verified
 
 ---
 
 ## Theme System (Dark/Light Mode)
 
-### How It Works
+### Implementation (`ThemeContext.jsx`)
 
-**Theme detection (in `ThemeContext.jsx`):**
+1. Default: `"dark"` (stored in localStorage as `fintracker_theme`)
+2. On theme change: toggles `.dark` class on `<html>`, persists to localStorage
+3. Listens for OS `prefers-color-scheme` changes
 
-1. On first load, checks `localStorage` for key `fintracker_theme`
-2. If not found, defaults to `dark`
-3. Applies the `dark` CSS class to `<html>` element when theme is `dark`
-4. Listens for OS-level `prefers-color-scheme` changes via `window.matchMedia`
+### CSS Variables (`index.css`)
 
-**CSS Design Tokens (`index.css`):**
-
-Themes use CSS custom properties (CSS variables) defined as RGB values:
+All colors are CSS custom properties in RGB format. The `.dark` class overrides them:
 
 ```css
-/* Light Theme (default — no .dark class) */
-:root {
+:root { /* Light theme */
   --bg-base: 248, 249, 250;
   --bg-surface: 243, 245, 247;
   --text-primary: 33, 37, 41;
-  --text-secondary: 75, 85, 99;
-  --color-primary: 37, 99, 235;
-  --color-danger: 190, 24, 33;
+  --color-primary: 5, 150, 105;       /* emerald-600 */
   --color-success: 22, 101, 52;
+  --color-danger: 190, 24, 33;
 }
 
-/* Dark Theme (when .dark class is on <html>) */
-.dark {
-  --bg-base: 13, 17, 23;
-  --bg-surface: 22, 27, 34;
-  --text-primary: 230, 237, 243;
-  --text-secondary: 201, 209, 217;
-  --color-primary: 59, 130, 246;
-  --color-danger: 248, 81, 73;
-  --color-success: 63, 185, 80;
+.dark { /* Dark theme — zinc palette */
+  --bg-base: 0, 0, 0;                 /* black */
+  --bg-surface: 18, 18, 20;           /* near-black */
+  --bg-overlay: 30, 30, 33;           /* zinc-900 */
+  --text-primary: 250, 250, 250;
+  --text-muted: 113, 113, 122;        /* zinc-500 */
+  --border-default: 63, 63, 70;       /* zinc-700 */
+  --color-primary: 16, 185, 129;      /* emerald-500 */
 }
 ```
 
-Components use Tailwind utility classes like `bg-base`, `text-primary`, `border-default` — these automatically adapt because the CSS variables change when the `.dark` class is toggled.
-
-**Theme toggle:**
-
-Located in `TopBar.jsx` — toggles between dark/light via `useTheme().toggleTheme()`. Persists to `localStorage` and updates the `<html>` class.
+Components use semantic classes: `bg-base`, `bg-surface`, `text-primary`, `text-muted`, `border-default`, `bg-accent`, `text-accent` — defined as CSS utilities in `index.css`.
 
 ---
 
@@ -407,70 +414,56 @@ Located in `TopBar.jsx` — toggles between dark/light via `useTheme().toggleThe
 
 ### How It Works
 
-1. Default currency is `usd`
-2. Stored in `localStorage` under key `fintracker_currency`
-3. Changing currency in Settings page updates the context
+1. Stored in localStorage as `fintracker_currency`
+2. Currency selector in **Settings** page calls `setCurrency()` from `CurrencyContext` directly (not SettingsContext)
+3. TopBar currency dropdown also uses `useCurrency()` — they stay in sync
 4. All CoinGecko API calls pass `?currency=<code>` query parameter
-5. Price formatting uses `formatPrice(value, symbol)` from `config.js`
+5. Price formatting uses `formatPrice(value, symbol)` and `formatMarketCap(value)` from `config.js`
 
 ---
 
-## Features
+## Pages & Features
 
-### Dashboard (`/`)
+### Landing (`/`)
+- Scrolling ticker tape at top showing BTC/ETH/SOL/etc prices
+- Split hero: left has live status badge, "stop guessing, start *watching*" headline, stats row (2.4M+ coins, $4.2B volume, 99.9% uptime), two CTAs (Explore Markets, Create Account)
+- Right side: 3D card stack (BTC mini chart, watchlist cards, alert card) with mouse-follow parallax rotation
+- Feature grid with tags (60+ exchanges, unlimited, multi-wallet, push + email)
+- Custom cursor dot, zinc-based dark palette
 
-- **Market Metrics Cards:** Total market cap, 24h volume, BTC dominance, Fear & Greed index, BTC ATH, Global cap
-- **Price Chart:** Recharts line chart showing historical prices. Supports time ranges: 24H, 7D, 1M, 1Y, All
-- **Asset Table:** Paginated table of top 100 coins with columns: Rank, Watchlist (star), Name, Price, 1h%, 7d%, 24h%, Market Cap, Volume, ATH, ATH Change %, ATL
-- **Column Customization:** Toggle visibility of columns via column menu
-- **Filter:** Dropdown to filter by All, Trending, Gainers, Losers, New
-- **Search:** Filter coins by name or symbol
-- **Watchlist Star:** Click star to add/remove from user's watchlist (requires login)
-- **Live Prices:** Updated via Binance WebSocket in real-time with flash indicators
-
-### Portfolio (`/portfolio`)
-
-- **Balance Overview:** Total balance, invested amount, 24h P&L, all-time P&L with percentages
-- **Asset Allocation Donut Chart:** Recharts pie chart showing portfolio distribution (top 4 + "Others")
-- **Holdings Table:** Rank, name, quantity, avg buy price, current price, value, P&L, 24h change, day P&L
-- **Add Asset Modal:** Search for coin, select, enter amount. Automatically uses current market price as buy price
-- **Export:** CSV file download or PDF report (using html2canvas + jsPDF)
-- **Empty State:** Helpful message when no holdings exist
+### Markets (`/markets`)
+- **PriceChart** — Recharts `AreaChart` with linear gradient fill. Time tabs: 1D, 7D, 1M, 1Y, All. Data cached per `coinId_period_currency` so switching tabs is instant after first load. Line color: `#10b981` (emerald-500)
+- **Metric Cards** — 6 cards in a 3x2 grid: Market Cap, 24h Volume, BTC Dominance, Fear & Greed, BTC ATH, Global Cap
+- **Asset Table** — CSS grid with configurable columns. Search by name/symbol. Filters: All, Trending, Gainers, Losers, New. Pagination: 30 items/page. Column visibility menu
+- **Watchlist star** — click to add/remove from watchlist (requires auth)
 
 ### Watchlist (`/watchlist`)
+- Only coins user explicitly added (fetched from `GET /api/watchlist`)
+- **Live prices** via `useBinanceWebSocket` — updates prices in real-time with direction indicators
+- Stats: total value, gainers count, losers count, best/worst performer
+- Set price alerts inline with condition (above/below target)
+- Add coins via search modal, remove with confirmation
+- 8 items per page, customizable columns
 
-- **User-Chosen Coins Only:** Only coins the user explicitly added from Dashboard or via "Add Asset" modal
-- **Live Prices:** Real-time price updates via Binance WebSocket
-- **Add/Remove:** Add coins via search modal, remove with confirmation dialog
-- **Price Alerts:** Set target prices inline with condition (above/below). Triggers in-app notification and email
-- **Stats:** Total value, gainers/losers count, best/worst performer
-- **Pagination:** 8 items per page with filter options
-- **Column Customization:** Toggle visibility of columns
+### Portfolio (`/portfolio`)
+- Balance overview: total, invested, 24h P&L, all-time P&L
+- Allocation donut chart (top 4 coins + "Others")
+- Holdings table with all columns
+- Add asset modal: search coin → enter quantity → uses current market price as buy price
+- CSV export + PDF report (jsPDF + html2canvas)
 
 ### Alerts (`/alerts`)
-
-- **Alert List:** All active price alerts with status (active, triggered)
-- **Create Alert:** Select coin, set target price, choose condition (above/below)
-- **Delete Alert:** Remove individual or all alerts
-- **Notification:** Browser notification (if permitted) + email when alert triggers
-- **Chart Preview:** Shows coin price chart when editing an alert
+- List of price alerts with status (active/triggered)
+- Create: select coin, target price, condition (above/below)
+- Edit/delete individual alerts, delete all
+- Email notification when triggered
 
 ### Settings (`/settings`)
-
-- **Appearance:** Theme toggle (dark/light)
-- **Currency:** Dropdown to change display currency
-- **Language:** English, French, Arabic (UI labels stored in settings)
-- **Notifications:** Toggle for price alert notifications
-- **Compact View:** Toggle for reduced padding UI
-- **Portfolio Summary:** Toggle for showing portfolio stats on dashboard
-
-### Profile (`/settings/profile`)
-
-- **Display Name:** First + last name or full name
-- **Email:** Can be changed (checks for duplicates)
-- **Avatar:** URL string or base64 data URI (uploaded to Cloudinary automatically)
-- **Password Change:** Current password verification + new password (min 6 chars)
-- **Account Deletion:** Removes all user data (portfolio, watchlist, settings, user document)
+- Profile card → links to `/settings/profile`
+- Dark mode toggle
+- Compact view toggle
+- Notification toggles (price alerts, portfolio summary)
+- Currency selector (drives `CurrencyContext` directly)
 
 ---
 
@@ -480,69 +473,64 @@ Located in `TopBar.jsx` — toggles between dark/light via `useTheme().toggleThe
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/auth/register` | No | Register new user (sends OTP email) |
+| `POST` | `/api/auth/register` | No | Register + send OTP email |
 | `POST` | `/api/auth/login` | No | Login with email/password |
-| `POST` | `/api/auth/google` | No | Google OAuth login |
-| `POST` | `/api/auth/refresh` | No | Refresh access token using refresh cookie |
-| `POST` | `/api/auth/logout` | No | Logout (deletes refresh token + clears cookies) |
-| `GET` | `/api/auth/me` | Yes | Get current user profile |
-| `POST` | `/api/auth/verify-otp` | No | Verify email with 6-digit code |
-| `POST` | `/api/auth/resend-otp` | No | Resend verification code |
-| `DELETE` | `/api/auth/account` | Yes | Delete account and all user data |
-| `GET` | `/api/auth/google/config` | No | Get Google Client ID for frontend |
+| `POST` | `/api/auth/google` | No | Google OAuth |
+| `POST` | `/api/auth/refresh` | No | Refresh token rotation |
+| `POST` | `/api/auth/logout` | No | Clear cookies + delete refresh token |
+| `GET` | `/api/auth/me` | Yes | Current user from DB |
+| `POST` | `/api/auth/verify-otp` | No | 6-digit OTP verification |
+| `POST` | `/api/auth/resend-otp` | No | Resend OTP email |
+| `DELETE` | `/api/auth/account` | Yes | Delete all user data |
+| `GET` | `/api/auth/google/config` | No | Google Client ID for frontend |
 
 ### Users
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/api/users/me` | Yes | Get current user |
-| `GET` | `/api/users/profile` | Yes | Alias for GET /me |
-| `PUT` | `/api/users/me` | Yes | Update profile (name, email, avatar, password) |
-| `PUT` | `/api/users/profile` | Yes | Alias for PUT /me |
+| `GET` | `/api/users/me` | Yes | Get user profile |
+| `PUT` | `/api/users/me` | Yes | Update name, email, avatar, password |
 
 ### Portfolio
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/api/portfolio` | Yes | Get portfolio data with holdings |
-| `GET` | `/api/portfolio/me` | Yes | Alias for GET / |
+| `GET` | `/api/portfolio` | Yes | Get holdings + chart data |
 | `POST` | `/api/portfolio` | Yes | Add/merge asset holding |
-| `POST` | `/api/portfolio/me` | Yes | Alias for POST / |
-| `POST` | `/api/portfolio/assets` | Yes | Alias for POST / |
 
 ### Watchlist
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/api/watchlist` | Yes | Get user's watchlist coins |
-| `POST` | `/api/watchlist` | Yes | Add coin to watchlist |
-| `DELETE` | `/api/watchlist/:coinId` | Yes | Remove coin from watchlist |
+| `GET` | `/api/watchlist` | Yes | Get watchlist coins |
+| `POST` | `/api/watchlist` | Yes | Add coin |
+| `DELETE` | `/api/watchlist/:coinId` | Yes | Remove coin |
 
 ### Settings
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `GET` | `/api/settings/me` | Yes | Get user settings |
-| `PUT` | `/api/settings/me` | Yes | Update settings (theme, language, etc.) |
+| `GET` | `/api/settings/me` | Yes | Get settings |
+| `PUT` | `/api/settings/me` | Yes | Update settings |
 
 ### Alerts
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/alerts/trigger` | Yes | Trigger price alert email |
+| `POST` | `/api/alerts/trigger` | Yes | Send price alert email |
 
 ### CoinGecko Proxy (Public + Cached)
 
 | Method | Path | Cache TTL | Description |
 |---|---|---|---|
-| `GET` | `/coins` | 60s | Get top 100 market coins (supports `?ids=` filter) |
-| `GET` | `/coins/:coinId` | 60s | Get single coin details |
-| `GET` | `/chart/:coinId` | 300s | Get historical chart data (supports `?days=`) |
-| `GET` | `/coins/exchange-rates` | 3600s | Get currency exchange rates |
-| `GET` | `/search?q=` | 120s | Search coins by name |
-| `GET` | `/api/public/coins` | 60s | Top 10 coins (lightweight public preview) |
+| `GET` | `/coins` | 60s | Top 100 coins by market cap |
+| `GET` | `/coins/:coinId` | 60s | Single coin details |
+| `GET` | `/chart/:coinId` | 300s | Historical price chart |
+| `GET` | `/coins/exchange-rates` | 3600s | Currency exchange rates |
+| `GET` | `/search?q=` | 120s | Coin search |
+| `GET` | `/api/public/coins` | 60s | Top 10 coins |
 
-All proxy routes use `publicProxyLimiter` (20 req/min per IP) — no auth required.
+All proxy routes: `publicProxyLimiter` (20 req/min per IP), no auth required.
 
 ---
 
@@ -554,69 +542,43 @@ All proxy routes use `publicProxyLimiter` (20 req/min per IP) — no auth requir
 |---|---|---|---|
 | `name` | String | required | Trimmed |
 | `email` | String | required | Unique, lowercase, trimmed |
-| `password` | String | conditional | Required only for `local` provider |
+| `password` | String | conditional | Required for `local` provider |
 | `googleId` | String | `""` | Google account ID |
 | `provider` | String | `"local"` | `"local"` or `"google"` |
 | `role` | String | `"user"` | User role |
-| `avatar` | String | `""` | Cloudinary URL or empty string (max 500 chars) |
+| `avatar` | String | `""` | Cloudinary URL (max 500 chars) |
 | `bio` | String | `""` | Trimmed |
-| `isVerified` | Boolean | `false` | Email verified status |
-| `verificationOTP` | String | `""` | 6-digit verification code |
-| `otpExpiry` | Date | `null` | OTP expiration time |
-| `otpAttempts` | Number | `0` | Failed OTP attempts counter |
-| `createdAt` | Date | auto | Timestamp |
-| `updatedAt` | Date | auto | Timestamp |
+| `isVerified` | Boolean | `false` | Email verified |
+| `verificationOTP` | String | `""` | 6-digit code |
+| `otpExpiry` | Date | `null` | Expiration |
+| `otpAttempts` | Number | `0` | Failed attempts counter |
 
 ### RefreshToken (`models/refreshToken.js`)
 
 | Field | Type | Notes |
 |---|---|---|
 | `userId` | ObjectId | Reference to User |
-| `tokenHash` | String | SHA-256 hash of raw refresh token (indexed) |
+| `tokenHash` | String | SHA-256 hash (indexed) |
 | `userAgent` | String | Browser user agent |
 | `isRevoked` | Boolean | Revocation flag |
-| `createdAt` | Date | Auto, with TTL index (7 days auto-delete) |
-
-TTL index: `{ createdAt: 1, expireAfterSeconds: 7 * 24 * 60 * 60 }`
+| `createdAt` | Date | TTL index: 7 days auto-delete |
 
 ### Portfolio (`models/portfolio.js`)
 
 | Field | Type | Notes |
 |---|---|---|
-| `userId` | ObjectId | Unique (one portfolio per user) |
-| `holdings[]` | Array of objects | See below |
-| `chartData[]` | Array of objects | Historical balance snapshots |
+| `userId` | ObjectId | Unique per user |
+| `holdings[]` | Array | See below |
+| `chartData[]` | Array | Historical balance snapshots |
 
-**Holding sub-document:**
-
-| Field | Type | Notes |
-|---|---|---|
-| `coinId` | String | Required, lowercase |
-| `symbol` | String | Uppercase |
-| `name` | String | Trimmed |
-| `quantity` | Number | Min 0 |
-| `averageBuyPrice` | Number | Min 0 |
-| `currentPrice` | Number | Min 0 |
-| `priceChange24h` | Number | Nullable |
-| `priceChangePercentage24h` | Number | Nullable |
-| `image` | String | Coin image URL |
+**Holding sub-document:** `coinId`, `symbol`, `name`, `quantity`, `averageBuyPrice`, `currentPrice`, `priceChange24h`, `priceChangePercentage24h`, `image`
 
 ### Watchlist (`models/watchlist.js`)
 
 | Field | Type | Notes |
 |---|---|---|
 | `userId` | ObjectId | Required |
-| `coins[]` | Array of objects | See below |
-
-**Coin sub-document:**
-
-| Field | Type | Notes |
-|---|---|---|
-| `coinId` | String | Required, lowercase |
-| `symbol` | String | Lowercase |
-| `name` | String | Trimmed |
-| `image` | String | URL |
-| `current_price` | Number | Nullable |
+| `coins[]` | Array | `{ coinId, symbol, name, image, current_price }` |
 
 ### Settings (`models/setting.js`)
 
@@ -624,7 +586,7 @@ TTL index: `{ createdAt: 1, expireAfterSeconds: 7 * 24 * 60 * 60 }`
 |---|---|---|---|
 | `userId` | ObjectId | required | One per user |
 | `theme` | String | `"dark"` | `"dark"` or `"light"` |
-| `compactView` | Boolean | `false` | Compact UI toggle |
+| `compactView` | Boolean | `false` | Compact UI |
 | `notifications` | Boolean | `true` | Alert notifications |
 | `language` | String | `"fr"` | `"en"`, `"fr"`, or `"ar"` |
 
@@ -632,235 +594,113 @@ TTL index: `{ createdAt: 1, expireAfterSeconds: 7 * 24 * 60 * 60 }`
 
 ## Security Measures
 
-### Implemented
-
-| Measure | Description | Location |
-|---|---|---|
-| **Helmet** | Security headers (CSP, X-Frame-Options, HSTS, X-Content-Type-Options) | `server.js` |
-| **CORS** | Restricts origins to `localhost:5173` + `CLIENT_URL`, credentials enabled | `server.js` |
-| **Cookie-Parser** | Parses HttpOnly auth cookies | `server.js` |
-| **Rate Limiting** | Prevents brute force on auth, OTP spamming, API abuse, proxy exhaustion | `middleware/rateLimiter.js` |
-| **OTP Throttling** | Max 5 failed attempts per code, then locked until resend | `authController.js` |
-| **Input Validation** | express-validator on all endpoints | `utils/validators.js` |
-| **Password Hashing** | bcrypt with salt rounds of 10 | `authController.js` |
-| **HttpOnly Cookies** | JWT tokens stored in HttpOnly cookies (not localStorage) — XSS safe | `authController.js` |
-| **Refresh Token Rotation** | Each refresh invalidates the old token — stolen tokens are unusable | `authController.js` |
-| **Hashed Refresh Tokens** | SHA-256 hash stored in DB, never the raw token | `authController.js` |
-| **Short-Lived Access Tokens** | 15-minute expiry limits damage window | `generateToken.js` |
-| **XSS Protection** | Helmet CSP headers, no dangerous rendering | Global |
-| **Open Redirect Prevention** | `getSafeRedirectPath()` validates redirect URLs | `config.js` |
-| **Body Size Limit** | 500KB max JSON body (supports small avatars) | `server.js` |
-| **CoinGecko ID Validation** | Alphanumeric-only regex prevents injection | `server.js` |
-| **Email Enumeration Prevention** | Generic error messages on OTP verification | `authController.js` |
-| **Avatar Cloudinary Upload** | Base64 never stored in MongoDB — only Cloudinary URL | `uploadAvatar.js` |
-| **In-Memory Cache** | Prevents CoinGecko API key abuse from rapid unauthenticated requests | `utils/cache.js` |
-
-### Authentication Flow
-
-```
-1. POST /api/auth/register
-   → validates input
-   → hashes password
-   → generates OTP
-   → creates user (isVerified: false)
-   → sends email
-   → sets access + refresh token cookies
-
-2. POST /api/auth/verify-otp
-   → checks email exists
-   → checks not already verified
-   → checks attempts < 5
-   → validates OTP
-   → sets isVerified: true, clears OTP
-
-3. POST /api/auth/login
-   → finds user by email
-   → compares password with bcrypt
-   → checks isVerified (403 if false)
-   → creates new access + refresh token pair
-   → sets both as HttpOnly cookies
-
-4. Any protected route
-   → reads token from req.cookies.token (cookie only, no Bearer fallback)
-   → verifies JWT with JWT_SECRET
-   → fetches user from DB
-   → attaches req.user
-   → proceeds to handler
-
-5. Access token expired (401)
-   → frontend calls POST /api/auth/refresh
-   → backend reads refreshToken cookie
-   → hashes it, looks up in DB
-   → if valid: issues NEW access + refresh tokens (rotation)
-   → if invalid: clears cookies, returns 403
-
-6. POST /api/auth/logout
-   → deletes refresh token from DB
-   → clears both cookies
-```
+| Measure | Location |
+|---|---|
+| Helmet security headers | `server.js` |
+| CORS origin restriction | `server.js` |
+| Rate limiting (6 tiers) | `middleware/rateLimiter.js` |
+| OTP throttling (max 5 attempts) | `authController.js` |
+| Input validation (express-validator) | `utils/validators.js` |
+| Password hashing (bcrypt, 10 rounds) | `authController.js` |
+| HttpOnly cookies (XSS-safe) | `authController.js` |
+| Refresh token rotation | `authController.js` |
+| SHA-256 hashed refresh tokens in DB | `authController.js` |
+| Short-lived access tokens (15min) | `utils/generateToken.js` |
+| Open redirect prevention | `config.js` |
+| Body size limit (500KB) | `server.js` |
+| CoinGecko ID validation (alphanumeric regex) | `server.js` |
+| Generic OTP error messages (no email enumeration) | `authController.js` |
+| Cloudinary upload (no base64 in DB) | `utils/uploadAvatar.js` |
+| In-memory cache (prevents API abuse) | `utils/cache.js` |
 
 ---
 
-## CoinGecko Proxy Caching System
-
-### Purpose
-
-CoinGecko free tier allows ~30 req/min. All proxy routes are public (no auth), so a caching layer prevents API key abuse while keeping data reasonably fresh.
+## CoinGecko Proxy & Caching
 
 ### Implementation (`utils/cache.js`)
 
-```js
-const store = new Map();
-
-export function getCache(key) {
-  const entry = store.get(key);
-  if (!entry) return null;
-  if (Date.now() > entry.expiresAt) {
-    store.delete(key);
-    return null;
-  }
-  return entry.data;
-}
-
-export function setCache(key, data, ttlSeconds) {
-  store.set(key, {
-    data,
-    expiresAt: Date.now() + ttlSeconds * 1000
-  });
-}
-```
+Simple in-memory Map-based cache:
+- `getCache(key)` — returns data if not expired, deletes expired entries
+- `setCache(key, data, ttlSeconds)` — stores with expiration timestamp
 
 ### Cache Keys & TTLs
 
-| Route | Cache Key | TTL | Rationale |
-|---|---|---|---|
-| `/coins` | `coins_list` or `coins_list_{ids}_{currency}` | 60s (30s for filtered) | Market data changes frequently |
-| `/coins/:coinId` | `coin_{coinId}_{currency}` | 60s | Single coin details |
-| `/chart/:coinId` | `chart_{coinId}_{days}_{currency}` | 300s | Historical chart — 5 min is fine |
-| `/coins/exchange-rates` | `exchange_rates` | 3600s | Exchange rates rarely change |
-| `/search?q=` | `search_{query}` | 120s | Search results — 2 min |
-| `/api/public/coins` | `coins_list_public` | 60s | Public preview |
+| Route | Cache Key Pattern | TTL |
+|---|---|---|
+| `/coins` | `coins_list_{currency}` or `coins_list_{ids}_{currency}` | 60s |
+| `/coins/:coinId` | `coin_{coinId}_{currency}` | 60s |
+| `/chart/:coinId` | `chart_{coinId}_{days}_{currency}` | 300s |
+| `/coins/exchange-rates` | `exchange_rates` | 3600s |
+| `/search?q=` | `search_{query}` | 120s |
+| `/api/public/coins` | `coins_list_public` | 60s |
 
-### Rate Limiting
-
-All proxy routes use `publicProxyLimiter`:
-- **20 requests per minute per IP**
-- Combined with caching, this means even a cold cache only triggers 20 real CoinGecko fetches per minute per IP
-
-### Future Upgrade Path
-
-If the app scales beyond a single server, replace the Map-based cache with Redis using `ioredis`. The `getCache`/`setCache` interface stays identical — only the implementation changes (~20 lines).
+Frontend also has its own **chart cache** (`chartCacheRef` in `useMarketData.jsx`) — a `useRef` Map keyed by `coinId_period_currency` so switching chart tabs is instant after the first load per session.
 
 ---
 
 ## Avatar Upload (Cloudinary)
 
-### Flow
-
-1. Frontend sends base64 data URI (`data:image/png;base64,...`) or URL string
-2. Backend validator accepts both formats
-3. In `updateProfile` controller:
-   - If base64: uploads to Cloudinary → stores returned URL in MongoDB
-   - If URL string: stores as-is
-   - If empty: deletes from Cloudinary (if applicable) and clears field
-4. MongoDB only stores the Cloudinary URL (max 500 chars), never base64
-
-### Configuration (`utils/uploadAvatar.js`)
-
-- Cloudinary initialized lazily (to avoid ES module import hoisting before `dotenv.config()`)
-- Folder: `fintracker/avatars`
-- Transformations: 400x400 crop, face gravity, auto quality/format
-- `deleteAvatar` removes old avatar from Cloudinary when updating
-
-### Environment Variables Required
-
-```env
-CLOUDINARY_CLOUD_NAME=your_cloud_name
-CLOUDINARY_API_KEY=your_api_key
-CLOUDINARY_API_SECRET=your_api_secret
-```
+1. Frontend sends base64 data URI or URL string
+2. `updateProfile` controller checks format:
+   - base64 → uploads to Cloudinary → stores returned URL in MongoDB
+   - URL → stores as-is
+   - empty → deletes from Cloudinary + clears field
+3. MongoDB stores only the Cloudinary URL (max 500 chars)
+4. Cloudinary folder: `fintracker/avatars`, transforms: 400x400 crop, face gravity
 
 ---
 
 ## Environment Variables
 
-### Backend (`.env`)
+### Backend (`backend/.env`)
 
-| Variable | Required | Description | Example |
+| Variable | Required | Default | Description |
 |---|---|---|---|
-| `NODE_ENV` | No | Environment mode | `development` |
-| `PORT` | No | Server port (default: 5000) | `5000` |
-| `MONGO_URI` | Yes | MongoDB Atlas connection string | `mongodb+srv://user:pass@cluster.mongodb.net/db` |
-| `JWT_SECRET` | Yes | JWT signing secret | `random_string_32+_chars` |
-| `CLIENT_URL` | No | Frontend URL for CORS | `http://localhost:5173` |
-| `CG_API_KEY` | Yes | CoinGecko API key | `CG-xxxxx` |
-| `GOOGLE_CLIENT_ID` | Yes | Google OAuth client ID | `xxxxx.apps.googleusercontent.com` |
-| `GOOGLE_CLIENT_SECRET` | Yes | Google OAuth client secret | `GOCSP-xxxxx` |
-| `GOOGLE_REDIRECT_URI` | No | Google OAuth redirect | `postmessage` |
-| `RESEND_API_KEY` | Yes | Resend email API key | `re_xxxxx` |
-| `CLOUDINARY_CLOUD_NAME` | Yes | Cloudinary account name | `dnlfuymxo` |
-| `CLOUDINARY_API_KEY` | Yes | Cloudinary API key | `123456789012345` |
-| `CLOUDINARY_API_SECRET` | Yes | Cloudinary API secret | `AbCdEfGhIjKlMnOp` |
+| `PORT` | No | 5000 | Server port |
+| `MONGO_URI` | Yes | — | MongoDB connection string |
+| `JWT_SECRET` | Yes | — | JWT signing secret |
+| `CLIENT_URL` | No | `http://localhost:5173` | CORS origin |
+| `CG_API_KEY` | Yes | — | CoinGecko API key |
+| `GOOGLE_CLIENT_ID` | Yes | — | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | Yes | — | Google OAuth secret |
+| `RESEND_API_KEY` | Yes | — | Resend email API key |
+| `CLOUDINARY_CLOUD_NAME` | Yes | — | Cloudinary cloud name |
+| `CLOUDINARY_API_KEY` | Yes | — | Cloudinary API key |
+| `CLOUDINARY_API_SECRET` | Yes | — | Cloudinary API secret |
 
 ### Frontend (`client/.env`)
 
-| Variable | Required | Description | Example |
-|---|---|---|---|
-| `VITE_API_URL` | No | Backend API URL | `http://localhost:5000` |
-| `VITE_WS_URL` | No | Binance WebSocket URL | `wss://stream.binance.com:9443/ws` |
+| Variable | Default | Description |
+|---|---|---|
+| `VITE_API_URL` | `http://localhost:5000` | Backend API URL |
 
 ---
 
 ## How to Run
 
 ### Prerequisites
-
 - Node.js v18+ (v20 LTS recommended)
-- MongoDB Atlas account (free tier works)
-- Resend account (free tier: 100 emails/day)
-- CoinGecko API key (free tier: 10-30 req/min)
-- Google OAuth credentials (for Google login)
-- Cloudinary account (free tier: 25 GB storage, 25 GB bandwidth/month)
+- MongoDB Atlas (free tier)
+- CoinGecko API key (free tier)
+- Google OAuth credentials
+- Resend account (free: 100 emails/day)
+- Cloudinary account (free tier)
 
-### Backend Setup
-
+### Backend
 ```bash
 cd backend
+cp .env.example .env   # Fill in all values
 npm install
-# Copy .env.example to .env and fill in your values
-cp .env.example .env
 npm run dev
 ```
 
-### Frontend Setup
-
+### Frontend
 ```bash
 cd client
 npm install
 npm run dev
 ```
 
-### Development URLs
-
+### URLs
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:5000`
-- Backend API root: `http://localhost:5000` (returns "Backend API is running")
-
----
-
-## File Cleanup Summary
-
-The following files were removed as they were dead/unused:
-
-- `client/src/App.jsx` — Never imported, just a redirect
-- `client/src/context/CoinContext.jsx` — Broken (typos, missing imports), unused
-- `client/src/components/layout/ThemeToggle.jsx` — Never imported
-- `client/src/components/dashboard/TrendingPanel.jsx` — Never imported
-- `client/src/components/dashboard/MarketTable.jsx` — Never imported
-- `client/src/pages/VerifyEmail.jsx` — Orphaned page, no route defined
-- `client/src/router/routes.jsx` — Never imported
-- `client/src/data/mockData.jsx` — Never imported
-- `backend/config/db.js` — Never imported (MongoDB connects inline in server.js)
-- `backend/render.yaml` — Deployment file (removed)
-- `backend/Procfile` — Deployment file (removed)
-- `client/vercel.json` — Deployment file (removed)

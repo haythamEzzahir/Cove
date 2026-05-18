@@ -1,5 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
 
+// Configure the Cloudinary SDK with credentials from env
 const initCloudinary = () => {
   cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -8,6 +9,7 @@ const initCloudinary = () => {
   });
 };
 
+// Upload a base64 image to Cloudinary and return the secure URL
 const uploadAvatar = async (base64Image) => {
   if (!process.env.CLOUDINARY_CLOUD_NAME) {
     throw new Error("Cloudinary is not configured");
@@ -26,6 +28,7 @@ const uploadAvatar = async (base64Image) => {
   return result.secure_url;
 };
 
+// Delete an avatar image from Cloudinary by its URL
 const deleteAvatar = async (url) => {
   if (!url || !url.includes("cloudinary.com")) return;
 

@@ -1,3 +1,4 @@
+// Brand colors for popular cryptocurrencies
 export const colors = {
   coin: {
     BTC: '#F7931A',
@@ -19,6 +20,7 @@ export const colors = {
   },
 };
 
+// Consistent border radius tokens
 export const radius = {
   sm: '4px',
   md: '6px',
@@ -27,6 +29,7 @@ export const radius = {
   '2xl': '16px',
 };
 
+// Typography size tokens
 export const fontSize = {
   xs: '11px',
   sm: '13px',

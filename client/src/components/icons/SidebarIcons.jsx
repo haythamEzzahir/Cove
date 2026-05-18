@@ -1,3 +1,4 @@
+// Wrapper SVG element for all sidebar icons (16x16, consistent stroke props)
 function IconFrame({ children }) {
   return (
     <svg

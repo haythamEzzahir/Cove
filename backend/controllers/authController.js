@@ -11,8 +11,10 @@ import { sendVerificationEmail } from "../utils/sendEmail.js";
 
 const MAX_OTP_ATTEMPTS = 5;
 
+// Generate a random 6-digit OTP code for email verification
 const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString();
 
+// Create a configured Google OAuth2 client
 const createGoogleOAuthClient = () => (
   new OAuth2Client(
     process.env.GOOGLE_CLIENT_ID,
@@ -21,6 +23,7 @@ const createGoogleOAuthClient = () => (
   )
 );
 
+// Verify Google auth code/credential and return user payload
 const getGooglePayload = async ({ code, credential }) => {
   if (!process.env.GOOGLE_CLIENT_ID) {
     throw new Error("GOOGLE_CLIENT_ID is missing");
@@ -63,6 +66,7 @@ const getGooglePayload = async ({ code, credential }) => {
   return ticket.getPayload();
 };
 
+// Find existing user by email or create a new one from Google profile
 const findOrCreateGoogleUser = async (payload) => {
   const googleId = payload?.sub;
   const email = payload?.email;
@@ -107,6 +111,7 @@ const findOrCreateGoogleUser = async (payload) => {
   return user;
 };
 
+// Set HTTP-only cookies for access and refresh tokens
 const setAuthCookies = (res, accessToken, refreshToken) => {
   res.cookie("token", accessToken, {
     httpOnly: true,
@@ -125,11 +130,13 @@ const setAuthCookies = (res, accessToken, refreshToken) => {
   });
 };
 
+// Clear both auth cookies (token + refreshToken)
 const clearAuthCookies = (res) => {
   res.clearCookie("token", { httpOnly: true, secure: true, sameSite: "none", path: "/" });
   res.clearCookie("refreshToken", { httpOnly: true, secure: true, sameSite: "none", path: "/" });
 };
 
+// Generate a JWT access token + random refresh token, store hash in DB
 const createRefreshTokenPair = async (user, req) => {
   const accessToken = generateToken(user._id, "15m");
   const rawRefreshToken = crypto.randomBytes(40).toString("hex");
@@ -144,6 +151,7 @@ const createRefreshTokenPair = async (user, req) => {
   return { accessToken, refreshToken: rawRefreshToken };
 };
 
+// Build a safe user object (no password) to send to the client
 const buildUserResponse = (user) => ({
   _id: user._id,
   name: user.name,
@@ -157,6 +165,7 @@ const buildUserResponse = (user) => ({
   updatedAt: user.updatedAt
 });
 
+// Return the Google OAuth client ID to the frontend
 const getGoogleClientId = (req, res) => {
   if (!process.env.GOOGLE_CLIENT_ID) {
     return res.status(500).json({
@@ -169,6 +178,7 @@ const getGoogleClientId = (req, res) => {
   });
 };
 
+// Return the currently authenticated user's data
 const getCurrentUser = async (req, res) => {
   const user = await User.findById(req.user.id).select("-password");
 
@@ -179,6 +189,7 @@ const getCurrentUser = async (req, res) => {
   return res.json(user);
 };
 
+// Register a new user with name/email/password, send OTP email, and set auth cookies
 const registerUser = async (req, res) => {
   try {
     const { name, email, password } = req.body;
@@ -243,6 +254,7 @@ const registerUser = async (req, res) => {
   }
 };
 
+// Authenticate user with email + password and set auth cookies
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -283,6 +295,7 @@ const loginUser = async (req, res) => {
   }
 };
 
+// Authenticate or register user via Google OAuth and set auth cookies
 const googleAuth = async (req, res) => {
   try {
     const { code, credential } = req.body;
@@ -302,6 +315,7 @@ const googleAuth = async (req, res) => {
   }
 };
 
+// Issue a new access token using a valid refresh token, rotate both
 const refreshAccessToken = async (req, res) => {
   const incomingRefreshToken = req.cookies?.refreshToken;
 
@@ -340,6 +354,7 @@ const refreshAccessToken = async (req, res) => {
   }
 };
 
+// Delete the refresh token from DB and clear auth cookies
 const logoutUser = async (req, res) => {
   const refreshToken = req.cookies?.refreshToken;
 
@@ -352,6 +367,7 @@ const logoutUser = async (req, res) => {
   return res.json({ message: "Logged out successfully" });
 };
 
+// Verify a user's email using the 6-digit OTP code
 const verifyOTP = async (req, res) => {
   try {
     const { email, otp } = req.body;
@@ -407,6 +423,7 @@ const verifyOTP = async (req, res) => {
   }
 };
 
+// Generate and send a new OTP to the user's email
 const resendVerificationOTP = async (req, res) => {
   try {
     const { email } = req.body;
@@ -440,6 +457,7 @@ const resendVerificationOTP = async (req, res) => {
   }
 };
 
+// Permanently delete the user and all their data (settings, watchlist, portfolio)
 const deleteAccount = async (req, res) => {
   const userId = req.user?.id;
 

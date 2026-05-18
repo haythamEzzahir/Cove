@@ -1,7 +1,10 @@
+// Base URL for the backend API (from env or empty for same-origin)
 export const API_URL = import.meta.env.VITE_API_URL || '';
 
+// Session storage key for remembering where to redirect after login
 export const AUTH_REDIRECT_KEY = 'fintracker_auth_redirect';
 
+// Validate a redirect path to prevent open redirect attacks
 export function getSafeRedirectPath(path) {
   if (!path || typeof path !== 'string') return '/';
   try {
@@ -13,6 +16,7 @@ export function getSafeRedirectPath(path) {
   return path.startsWith('/') && !path.startsWith('//') ? path : '/';
 }
 
+// Extract up to 2 initials from a full name (e.g. "John Doe" → "JD")
 export function getInitials(name = '') {
   return name
     .split(' ')
@@ -23,6 +27,7 @@ export function getInitials(name = '') {
     .slice(0, 2) || 'U';
 }
 
+// Safely parse a fetch response as JSON, return {} on error
 export async function getJson(response) {
   try {
     const contentType = response.headers.get('content-type');
@@ -35,6 +40,7 @@ export async function getJson(response) {
   }
 }
 
+// Format a number as a price string with the given currency symbol
 export function formatPrice(value, symbol = '$') {
   if (value == null || Number.isNaN(value)) return `${symbol}0.00`;
   const num = Number(value);
@@ -43,6 +49,7 @@ export function formatPrice(value, symbol = '$') {
   return `${symbol}${num.toFixed(8)}`;
 }
 
+// Format a large number as abbreviated market cap (T/B/M/K)
 export function formatMarketCap(value) {
   if (value == null || Number.isNaN(value)) return '$0';
   const num = Number(value);
@@ -53,6 +60,7 @@ export function formatMarketCap(value) {
   return `$${num.toFixed(2)}`;
 }
 
+// Fetch with credentials, auto-refreshing on 401 response
 export async function fetchWithAuth(url, options = {}) {
   const { headers = {}, ...rest } = options;
 

@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import User from "../models/user.js";
 import { uploadAvatar, deleteAvatar } from "../utils/uploadAvatar.js";
 
+// Build a safe user response object without sensitive fields
 const buildUserResponse = (user) => ({
   _id: user._id,
   name: user.name,
@@ -15,10 +16,12 @@ const buildUserResponse = (user) => ({
   updatedAt: user.updatedAt
 });
 
+// GET handler — return the authenticated user's profile
 const getMe = async (req, res) => {
   res.json(buildUserResponse(req.user));
 };
 
+// PUT handler — update user profile fields (name, email, bio, avatar, password)
 const updateProfile = async (req, res) => {
   const user = await User.findById(req.user._id);
 

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 
+// Refresh token schema: stores hashed tokens for session rotation
 const refreshTokenSchema = new mongoose.Schema(
   {
     userId: {

@@ -1,5 +1,6 @@
 import Watchlist, { mergeCoins, normalizeStoredCoin } from "../models/watchlist.js";
 
+// Extract raw coins array from a watchlist document
 const getPlainCoins = (watchlist) => {
   if (!watchlist) return [];
 
@@ -10,6 +11,7 @@ const getPlainCoins = (watchlist) => {
   return watchlist.coins || [];
 };
 
+// Deduplicate watchlist coins and optionally delete if empty
 const cleanWatchlistCoins = async (watchlist, { deleteIfEmpty = false } = {}) => {
   if (!watchlist) {
     return {
@@ -43,6 +45,7 @@ const cleanWatchlistCoins = async (watchlist, { deleteIfEmpty = false } = {}) =>
   };
 };
 
+// Build a standardized watchlist API response
 const buildResponse = (watchlist, message = "", coins = mergeCoins(watchlist?.coins || [])) => {
 
   return {
@@ -55,6 +58,7 @@ const buildResponse = (watchlist, message = "", coins = mergeCoins(watchlist?.co
   };
 };
 
+// GET handler — return the user's watchlist coins
 const getMyWatchlist = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -74,6 +78,7 @@ const getMyWatchlist = async (req, res) => {
   }
 };
 
+// POST handler — add a coin to the user's watchlist
 const addWatchlistItem = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -107,6 +112,7 @@ const addWatchlistItem = async (req, res) => {
   }
 };
 
+// DELETE handler — remove a coin from the user's watchlist
 const removeWatchlistItem = async (req, res) => {
   try {
     const userId = req.user._id;
