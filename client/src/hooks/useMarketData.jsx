@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useCurrency } from '../context/CurrencyContext';
 
-import { fetchWithAuth } from '../config';
+import { API_URL, fetchWithAuth } from '../config';
 
-const API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/coins` : 'http://localhost:5000/coins';
-const CHART_API_URL = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/chart` : 'http://localhost:5000/chart';
+const COINS_API_URL = `${API_URL}/coins`;
+const CHART_API_URL = `${API_URL}/chart`;
 
 const TIME_PERIOD_MAP = {
   '1D': '1',
@@ -58,7 +58,7 @@ export function useMarketData() {
       try {
         setData(prev => ({ ...prev, loading: true, error: null }));
         
-        const res = await fetchWithAuth(`${API_URL}?currency=${currency}`);
+        const res = await fetchWithAuth(`${COINS_API_URL}?currency=${currency}`);
         if (!res.ok) throw new Error('Failed to fetch data');
         
         const coins = await res.json();

@@ -3,8 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useCurrency } from "../context/CurrencyContext";
 import Badge from "../components/shared/Badge";
 import MetricCard from "../components/dashboard/MetricCard";
-
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+import { API_URL } from "../config";
 
 // Format a number as price with symbol and adaptive decimals
 function formatPrice(price, symbol = "$") {

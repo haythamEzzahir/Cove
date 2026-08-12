@@ -17,8 +17,6 @@
 
 ---
 
-
-
 ## 🛠️ Technologies Used
 
 ### Frontend

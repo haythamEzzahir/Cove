@@ -5,8 +5,7 @@ import MetricCard from '../components/dashboard/MetricCard';
 import WalletChart from '../components/dashboard/WalletChart';
 import CoinLogo from '../components/shared/CoinLogo';
 import { useAuth } from '../context/AuthContext';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+import { API_URL } from '../config';
 
 const FALLBACK_ALLOCATION_COLORS = ['#F7931A', '#627EEA', '#9945FF', '#2A5ADA', '#6B7280'];
 
