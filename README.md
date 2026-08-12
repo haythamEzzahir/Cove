@@ -1,108 +1,124 @@
-# Cove
+# 🪙 Cove — Crypto Portfolio & Market Tracker
 
-A real-time cryptocurrency tracking app — monitor prices, manage portfolios, set alerts, and keep a watchlist. Built with React + Express.
+> A modern crypto dashboard to track the market, manage your portfolio, follow your favorite assets, and stay updated with real-time prices.
 
-## Features
+---
 
-- **Landing Page** — Full-screen entry point with live ticker tape, 3D card stack, and CTA to Markets
-- **Markets** — Sortable/filterable table of top 100 coins with search, pagination, and customizable columns
-- **Price Chart** — Recharts area chart with time ranges (1D, 7D, 1M, 1Y, All), cached per period
-- **Metric Cards** — Market cap, 24h volume, BTC dominance, Fear & Greed index
-- **Watchlist** — Starred coins with live WebSocket price updates from Binance
-- **Portfolio** — Holdings table with P&L, allocation donut chart, CSV/PDF export
-- **Alerts** — Price threshold alerts with email notifications
-- **Settings** — Theme (dark/light), currency selection, compact view, notification toggles
-- **Auth** — Email/password + Google OAuth, email verification via OTP, HttpOnly cookie sessions
+## ✨ Features
 
-## Tech Stack
+* 🔐 **User Authentication** — Secure login, registration, and Google authentication
+* 📊 **Crypto Market Tracking** — Explore real-time cryptocurrency prices and market data
+* 📈 **Interactive Charts** — Analyze cryptocurrency price movements
+* ⭐ **Watchlist** — Follow your favorite cryptocurrencies with live price updates
+* 💼 **Portfolio Management** — Manage holdings and track profit & loss
+* 🔔 **Price Alerts** — Create personalized cryptocurrency price alerts
+* ⚙️ **Account Settings** — Manage your profile and preferences
+* 📱 **Responsive Interface** — Clean and modern interface for different screen sizes
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React 19, Vite, Tailwind CSS, React Router v6 |
-| Charts | Recharts |
-| Backend | Express.js 5, MongoDB (Mongoose) |
-| Auth | JWT (HttpOnly cookies), Google OAuth |
-| Market Data | CoinGecko API (backend proxy with in-memory cache) |
-| Live Prices | Binance WebSocket (Watchlist only) |
-| Email | Resend API |
-| Avatars | Cloudinary |
+---
 
-## Project Structure
 
+
+## 🛠️ Technologies Used
+
+### Frontend
+
+* **React 19**
+* **Vite**
+* **Tailwind CSS**
+* **React Router**
+* **Recharts**
+
+### Backend
+
+* **Node.js**
+* **Express 5**
+* **MongoDB**
+* **Mongoose**
+* **JWT Authentication**
+* **Google OAuth**
+
+### APIs & Services
+
+* **CoinGecko API** — Cryptocurrency market data
+* **Binance WebSocket** — Real-time price updates
+* **Resend** — Email notifications
+* **Cloudinary** — Profile image storage
+
+---
+
+## 🏗️ Architecture
+
+```text
+Cove/
+├── client/          # React frontend
+│   ├── components/  # Reusable UI components
+│   ├── pages/       # Application pages
+│   ├── hooks/       # Custom React hooks
+│   ├── contexts/    # Global state
+│   └── ...
+│
+├── backend/         # Express backend
+│   ├── controllers/ # Business logic
+│   ├── models/      # MongoDB models
+│   ├── routes/      # API routes
+│   ├── middleware/  # Authentication & middleware
+│   └── ...
+│
+└── README.md
 ```
-cove/
-├── client/                     # React SPA
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── auth/           # AuthModal
-│   │   │   ├── dashboard/      # MetricCard, PriceChart, WalletChart
-│   │   │   ├── icons/          # SidebarIcons (Markets, Watchlist, etc.)
-│   │   │   ├── layout/         # AppLayout, Sidebar, TopBar
-│   │   │   ├── settings/       # CurrencySelect, ProfileCard, ToggleSwitch
-│   │   │   └── shared/         # Badge, CoinLogo, TabBar
-│   │   ├── context/            # Auth, Currency, Settings, Theme
-│   │   ├── hooks/              # useMarketData, useBinanceWebSocket
-│   │   ├── pages/              # Landing, Markets, Watchlist, Portfolio, Alerts, etc.
-│   │   ├── styles/             # Design tokens (colors, radius, fontSize)
-│   │   ├── config.js           # API_URL, formatPrice, fetchWithAuth, etc.
-│   │   ├── main.jsx            # Entry point + React Router config
-│   │   └── index.css           # CSS variables + semantic utility classes
-│   └── public/favicon.svg      # Cove logo
-├── backend/                    # Express API
-│   ├── controllers/            # auth, market, portfolio, user, watchlist, settings
-│   ├── middleware/             # authMiddleware, errorHandler, rateLimiter
-│   ├── models/                 # user, refreshToken, portfolio, watchlist, setting
-│   ├── routes/                 # authRoutes, marketRoutes, portfolioRoutes, etc.
-│   ├── utils/                  # cache, generateToken, sendEmail, uploadAvatar, validators
-│   ├── scripts/                # mergeDuplicatePortfolios
-│   └── server.js               # Entry point
-└── .env.example
-```
 
-## Routing
+---
 
-| Path | Page | Auth Required |
-|------|------|---------------|
-| `/` | Landing (full-screen, no sidebar) | No |
-| `/markets` | Market table + chart + metrics | No |
-| `/watchlist` | Starred coins with live prices | Yes |
-| `/portfolio` | Holdings + P&L + export | Yes |
-| `/alerts` | Price alerts management | Yes |
-| `/settings` | App preferences | Yes |
-| `/settings/profile` | Account details | Yes |
-| `/login` | Sign in | No |
-| `/signup` | Create account | No |
-| `/verify-pending` | OTP verification | No |
+## 🚀 Getting Started
 
-Protected routes show an auth modal if the user is not logged in. Unverified users are redirected to `/verify-pending`.
-
-## How It Works
-
-1. **Landing page** (`/`) introduces the app with a live ticker, stats, and staggered card preview
-2. **Markets** (`/markets`) fetches top 100 coins from CoinGecko via the backend proxy — cached in-memory for 60s. The price chart is cached per period/coin/currency in a React ref so switching tabs is instant after first load
-3. **Watchlist** subscribes to Binance WebSocket streams for real-time price updates (only when on the Watchlist page)
-4. **Portfolio** tracks holdings with average buy price, calculates P&L, exports as CSV or PDF (jsPDF + html2canvas)
-5. **Alerts** check price thresholds on the client and trigger email via `POST /api/alerts/trigger`
-6. **Auth** uses dual HttpOnly cookies — access token (15min) + refresh token (7 days, rotated on use)
-
-## Getting Started
+### 1. Clone the repository
 
 ```bash
-# Backend
-cd backend
-cp .env.example .env   # Fill in MongoDB URI, JWT secret, API keys
-npm install
-npm run dev
+git clone https://github.com/haythamEzzahir/Cove.git
+cd Cove
+```
 
-# Frontend (separate terminal)
+### 2. Install dependencies
+
+```bash
 cd client
 npm install
+```
+
+```bash
+cd ../backend
+npm install
+```
+
+### 3. Configure environment variables
+
+Create the required `.env` files and configure your API keys, database connection, authentication, and external services.
+
+### 4. Run the application
+
+Start the backend:
+
+```bash
+cd backend
 npm run dev
 ```
 
-Frontend: `http://localhost:5173`  
-Backend: `http://localhost:5000`
+Start the frontend:
 
-## Environment Variables
+```bash
+cd client
+npm run dev
+```
 
-See `.env.example` for backend. Frontend only needs `VITE_API_URL` (defaults to `http://localhost:5000`).
+---
+
+## 🌐 Live Demo
+
+🚀 **Cove Web App:** Coming soon
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License**.
