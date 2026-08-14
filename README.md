@@ -113,7 +113,11 @@ npm run dev
 
 ## 🌐 Live Demo
 
-🚀 **Cove Web App:** Coming soon
+🚀 **Cove Web App:** https://covemoney.vercel.app/
+
+**Frontend:** Vercel  
+**Backend:** Render  
+**Database:** MongoDB Atlas
 
 ---
 
